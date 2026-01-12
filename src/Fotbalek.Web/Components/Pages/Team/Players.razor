@@ -1,0 +1,390 @@
+@page "/{TeamCode}/players"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject PlayerService PlayerService
+@inject StatsService StatsService
+@inject BadgeService BadgeService
+
+<PageTitle>Players - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-people me-2"></i>Players</h2>
+            <button class="btn btn-success" @onclick="ShowAddModal">
+                <i class="bi bi-plus-lg me-1"></i> Add Player
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+                @_message
+                <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+            </div>
+        }
+
+        <!-- Active Players -->
+        <h5 class="mb-3">Active Players (@_activePlayers.Count)</h5>
+        @if (_activePlayers.Count > 0)
+        {
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3 mb-4">
+                @foreach (var player in _activePlayers)
+                {
+                    var playerBadges = BadgeService.GetPlayerBadges(player.Id, _badges);
+                    <div class="col">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <Avatar AvatarId="@player.AvatarId" Size="lg" />
+                                <h6 class="card-title mt-2 mb-1">@player.Name</h6>
+                                <p class="text-muted small mb-1">ELO: @player.Elo</p>
+                                @if (playerBadges.Count > 0)
+                                {
+                                    <div class="d-flex flex-wrap gap-1 justify-content-center">
+                                        @foreach (var badge in playerBadges)
+                                        {
+                                            <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View Stats">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditModal(player)" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeactivateConfirm(player)" title="Deactivate">
+                                        <i class="bi bi-person-dash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No active players. Add at least 4 players to start playing matches!
+            </div>
+        }
+
+        <!-- Inactive Players -->
+        @if (_inactivePlayers.Count > 0)
+        {
+            <h5 class="mb-3 text-muted">Inactive Players (@_inactivePlayers.Count)</h5>
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+                @foreach (var player in _inactivePlayers)
+                {
+                    <div class="col">
+                        <div class="card h-100 bg-light">
+                            <div class="card-body text-center">
+                                <Avatar AvatarId="@player.AvatarId" Size="lg" CssClass="opacity-50" />
+                                <h6 class="card-title mt-2 mb-1 text-muted">@player.Name</h6>
+                                <p class="text-muted small mb-2">ELO: @player.Elo</p>
+                                <span class="badge bg-secondary">Inactive</span>
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View Stats">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivatePlayer(player)" title="Reactivate">
+                                        <i class="bi bi-person-check"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Add/Edit Modal -->
+    @if (_showModal)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(_editingPlayer == null ? "Add Player" : "Edit Player")</h5>
+                        <button type="button" class="btn-close" @onclick="HideModal"></button>
+                    </div>
+                    <EditForm Model="@_formModel" OnValidSubmit="SavePlayer">
+                        <div class="modal-body">
+                            @if (!string.IsNullOrEmpty(_modalError))
+                            {
+                                <div class="alert alert-danger">@_modalError</div>
+                            }
+
+                            <div class="mb-3">
+                                <label for="playerName" class="form-label">Name</label>
+                                <InputText id="playerName" @bind-Value="_formModel.Name" class="form-control" placeholder="Player name" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Avatar</label>
+                                <AvatarPicker @bind-Value="_formModel.AvatarId" />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                            <button type="submit" class="btn btn-success" disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Save
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Deactivate Confirmation Modal -->
+    @if (_showDeactivateConfirm && _playerToDeactivate != null)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Deactivate Player</h5>
+                        <button type="button" class="btn-close" @onclick="() => _showDeactivateConfirm = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (!string.IsNullOrEmpty(_deactivateError))
+                        {
+                            <div class="alert alert-danger">@_deactivateError</div>
+                        }
+                        <p>Are you sure you want to deactivate <strong>@_playerToDeactivate.Name</strong>?</p>
+                        <p class="text-muted small">Deactivated players won't appear in match dropdowns but their history will be preserved.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="() => _showDeactivateConfirm = false">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="ConfirmDeactivate" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Deactivate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private List<Player> _activePlayers = [];
+    private List<Player> _inactivePlayers = [];
+    private TeamBadges? _badges;
+
+    private bool _showModal;
+    private Player? _editingPlayer;
+    private PlayerFormModel _formModel = new();
+    private string? _modalError;
+    private bool _saving;
+
+    private bool _showDeactivateConfirm;
+    private Player? _playerToDeactivate;
+    private string? _deactivateError;
+
+    private string? _message;
+    private bool _messageIsError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                await LoadPlayers();
+                _badges = await StatsService.GetBadgesAsync(_team.Id);
+            }
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPlayers()
+    {
+        if (_team == null) return;
+        var allPlayers = await PlayerService.GetByTeamAsync(_team.Id, includeInactive: true);
+        _activePlayers = allPlayers.Where(p => p.IsActive).ToList();
+        _inactivePlayers = allPlayers.Where(p => !p.IsActive).ToList();
+    }
+
+    private void ShowAddModal()
+    {
+        _editingPlayer = null;
+        _formModel = new PlayerFormModel { AvatarId = 1 };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void ShowEditModal(Player player)
+    {
+        _editingPlayer = player;
+        _formModel = new PlayerFormModel
+        {
+            Name = player.Name,
+            AvatarId = player.AvatarId
+        };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void HideModal()
+    {
+        _showModal = false;
+        _editingPlayer = null;
+        _modalError = null;
+    }
+
+    private async Task SavePlayer()
+    {
+        if (_team == null) return;
+
+        _modalError = null;
+        _saving = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_formModel.Name))
+            {
+                _modalError = "Name is required.";
+                return;
+            }
+
+            var excludeId = _editingPlayer?.Id;
+            if (await PlayerService.IsNameTakenAsync(_team.Id, _formModel.Name, excludeId))
+            {
+                _modalError = "A player with this name already exists.";
+                return;
+            }
+
+            if (_editingPlayer != null)
+            {
+                var updated = await PlayerService.UpdateAsync(_editingPlayer.Id, _team.Id, _formModel.Name, _formModel.AvatarId);
+                if (!updated)
+                {
+                    _modalError = "Failed to update player.";
+                    return;
+                }
+                _message = $"Player '{_formModel.Name}' updated successfully.";
+            }
+            else
+            {
+                await PlayerService.CreateAsync(_team.Id, _formModel.Name, _formModel.AvatarId);
+                _message = $"Player '{_formModel.Name}' added successfully.";
+            }
+
+            _messageIsError = false;
+            await LoadPlayers();
+            HideModal();
+        }
+        catch (Exception)
+        {
+            _modalError = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ShowDeactivateConfirm(Player player)
+    {
+        _playerToDeactivate = player;
+        _deactivateError = null;
+        _showDeactivateConfirm = true;
+    }
+
+    private async Task ConfirmDeactivate()
+    {
+        if (_playerToDeactivate == null || _team == null) return;
+
+        _deactivateError = null;
+        _saving = true;
+
+        try
+        {
+            if (!await PlayerService.CanDeactivateAsync(_playerToDeactivate.Id))
+            {
+                _deactivateError = $"Cannot deactivate player with matches in the last {Constants.TimeThresholds.RecentActivityDays} days.";
+                return;
+            }
+
+            var deactivated = await PlayerService.DeactivateAsync(_playerToDeactivate.Id, _team.Id);
+            if (!deactivated)
+            {
+                _deactivateError = "Failed to deactivate player.";
+                return;
+            }
+            _message = $"Player '{_playerToDeactivate.Name}' deactivated.";
+            _messageIsError = false;
+            await LoadPlayers();
+            _showDeactivateConfirm = false;
+            _playerToDeactivate = null;
+        }
+        catch (Exception)
+        {
+            _deactivateError = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ReactivatePlayer(Player player)
+    {
+        if (_team == null) return;
+
+        try
+        {
+            var reactivated = await PlayerService.ReactivateAsync(player.Id, _team.Id);
+            if (!reactivated)
+            {
+                _message = "Failed to reactivate player.";
+                _messageIsError = true;
+                return;
+            }
+            _message = $"Player '{player.Name}' reactivated.";
+            _messageIsError = false;
+            await LoadPlayers();
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            _message = "Something went wrong. Please try again.";
+            _messageIsError = true;
+        }
+    }
+
+    private class PlayerFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public int AvatarId { get; set; } = 1;
+    }
+}

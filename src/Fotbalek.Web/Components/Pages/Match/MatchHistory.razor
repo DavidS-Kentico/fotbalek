@@ -1,0 +1,111 @@
+@page "/{TeamCode}/matches"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject MatchService MatchService
+
+<PageTitle>Match History - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-clock-history me-2"></i>Match History</h2>
+            <a href="/@TeamCode/match/new" class="btn btn-success">
+                <i class="bi bi-plus-lg me-1"></i> New Match
+            </a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @_message
+                <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+            </div>
+        }
+
+        @if (_matches.Count > 0)
+        {
+            @foreach (var match in _matches)
+            {
+                <MatchCard Match="@match" TeamCode="@TeamCode" />
+            }
+
+            <!-- Pagination -->
+            @if (_totalPages > 1)
+            {
+                <nav aria-label="Match history pagination">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item @(_currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadPage(_currentPage - 1)">Previous</button>
+                        </li>
+                        @for (int i = 1; i <= _totalPages; i++)
+                        {
+                            var pageNum = i;
+                            <li class="page-item @(_currentPage == pageNum ? "active" : "")">
+                                <button class="page-link" @onclick="() => LoadPage(pageNum)">@pageNum</button>
+                            </li>
+                        }
+                        <li class="page-item @(_currentPage == _totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadPage(_currentPage + 1)">Next</button>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        }
+        else
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-calendar-x display-1 d-block mb-3"></i>
+                <h5>No matches recorded yet</h5>
+                <p>Start playing and record your first match!</p>
+                <a href="/@TeamCode/match/new" class="btn btn-success">Record First Match</a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "message")]
+    public string? MessageParam { get; set; }
+
+    private Team? _team;
+    private bool _loading = true;
+    private List<Match> _matches = [];
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private const int PageSize = Constants.Pagination.DefaultPageSize;
+    private string? _message;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                await LoadPage(1);
+                _message = MessageParam;
+            }
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPage(int page)
+    {
+        if (_team == null) return;
+
+        _currentPage = page;
+        _matches = await MatchService.GetByTeamAsync(_team.Id, page, PageSize);
+        var totalCount = await MatchService.GetCountByTeamAsync(_team.Id);
+        _totalPages = (int)Math.Ceiling((double)totalCount / PageSize);
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,285 @@
+@page "/{TeamCode}/stats"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject StatsService StatsService
+@inject PlayerService PlayerService
+@inject MatchService MatchService
+@inject IJSRuntime JS
+
+<PageTitle>Statistics - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="container py-4">
+        <h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Statistics</h2>
+
+        <!-- Overall Stats -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people fs-2 d-block mb-2"></i>
+                        <h3 class="mb-0">@_playerCount</h3>
+                        <small>Active Players</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-controller fs-2 d-block mb-2"></i>
+                        <h3 class="mb-0">@_matchCount</h3>
+                        <small>Total Matches</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-bullseye fs-2 d-block mb-2"></i>
+                        <h3 class="mb-0">@_totalGoals</h3>
+                        <small>Total Goals</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calculator fs-2 d-block mb-2"></i>
+                        <h3 class="mb-0">@_avgGoalsPerMatch.ToString("F1")</h3>
+                        <small>Avg Goals/Match</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges -->
+        @if (_badges != null && HasAnyBadge())
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-award me-2"></i>Current Badge Holders</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @if (_badges.TopRated != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-warning bg-opacity-10 rounded" title="Player with the highest current ELO rating">
+                                    <span class="fs-1">&#11088;</span>
+                                    <div>
+                                        <h6 class="mb-0">Top Rated</h6>
+                                        <strong>@_badges.TopRated.PlayerName</strong>
+                                        <small class="text-muted d-block">@_badges.TopRated.Value ELO</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.HotStreak != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-danger bg-opacity-10 rounded" title="Player with the longest active winning streak">
+                                    <span class="fs-1">&#128293;</span>
+                                    <div>
+                                        <h6 class="mb-0">Hot Streak</h6>
+                                        <strong>@_badges.HotStreak.PlayerName</strong>
+                                        <small class="text-muted d-block">@_badges.HotStreak.Value consecutive wins</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.StreakKing != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-primary bg-opacity-10 rounded" title="Player with the longest winning streak in history">
+                                    <span class="fs-1">&#128081;</span>
+                                    <div>
+                                        <h6 class="mb-0">Streak King</h6>
+                                        <strong>@_badges.StreakKing.PlayerName</strong>
+                                        <small class="text-muted d-block">@_badges.StreakKing.Value wins (all-time)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.BestGoalkeeper != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-secondary bg-opacity-10 rounded" title="Goalkeeper with lowest goals conceded per match (min 5 games)">
+                                    <span class="fs-1">&#129311;</span>
+                                    <div>
+                                        <h6 class="mb-0">Best Goalkeeper</h6>
+                                        <strong>@_badges.BestGoalkeeper.PlayerName</strong>
+                                        <small class="text-muted d-block">@((_badges.BestGoalkeeper.Value / 10.0).ToString("F1")) goals conceded/game</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.BestAttacker != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-danger bg-opacity-10 rounded" title="Attacker with highest goals scored per match (min 5 games)">
+                                    <span class="fs-1">&#127919;</span>
+                                    <div>
+                                        <h6 class="mb-0">Best Attacker</h6>
+                                        <strong>@_badges.BestAttacker.PlayerName</strong>
+                                        <small class="text-muted d-block">@((_badges.BestAttacker.Value / 10.0).ToString("F1")) goals scored/game</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.LastPlace != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-dark bg-opacity-10 rounded" title="Player with the lowest current ELO rating">
+                                    <span class="fs-1">&#128200;</span>
+                                    <div>
+                                        <h6 class="mb-0">Last Place</h6>
+                                        <strong>@_badges.LastPlace.PlayerName</strong>
+                                        <small class="text-muted d-block">@_badges.LastPlace.Value ELO</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @if (_badges.TableDiver != null)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-info bg-opacity-10 rounded" title="Most losses with 0 score (under the table)">
+                                    <span class="fs-1">&#129681;</span>
+                                    <div>
+                                        <h6 class="mb-0">Table Diver</h6>
+                                        <strong>@_badges.TableDiver.PlayerName</strong>
+                                        <small class="text-muted d-block">@_badges.TableDiver.Value under-table losses</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @foreach (var newcomer in _badges.Newcomers)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-success bg-opacity-10 rounded" title="Joined the team in the last 7 days">
+                                    <span class="fs-1">&#10024;</span>
+                                    <div>
+                                        <h6 class="mb-0">Newcomer</h6>
+                                        <strong>@newcomer.PlayerName</strong>
+                                        <small class="text-muted d-block">Joined in last 7 days</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Charts -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>ELO Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (_rankings.Count > 0)
+                        {
+                            <canvas id="eloDistributionChart" height="250"></canvas>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">No data available</p>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Win Rate Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (_rankings.Count > 0)
+                        {
+                            <canvas id="winRateChart" height="250"></canvas>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">No data available</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private List<PlayerRanking> _rankings = [];
+    private TeamBadges? _badges;
+    private int _playerCount;
+    private int _matchCount;
+    private int _totalGoals;
+    private double _avgGoalsPerMatch;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                _rankings = await StatsService.GetRankingsAsync(_team.Id);
+                _badges = await StatsService.GetBadgesAsync(_team.Id);
+                _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
+                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id);
+
+                // Calculate total goals
+                var matches = await MatchService.GetByTeamAsync(_team.Id, 1, 1000);
+                _totalGoals = matches.Sum(m => m.Team1Score + m.Team2Score);
+                _avgGoalsPerMatch = _matchCount > 0 ? (double)_totalGoals / _matchCount : 0;
+            }
+            _loading = false;
+            StateHasChanged();
+
+            // Render charts
+            if (_rankings.Count > 0)
+            {
+                await RenderCharts();
+            }
+        }
+    }
+
+    private bool HasAnyBadge()
+    {
+        return _badges != null && (
+            _badges.TopRated != null ||
+            _badges.HotStreak != null ||
+            _badges.StreakKing != null ||
+            _badges.BestGoalkeeper != null ||
+            _badges.BestAttacker != null ||
+            _badges.LastPlace != null ||
+            _badges.TableDiver != null ||
+            _badges.Newcomers.Count > 0
+        );
+    }
+
+    private async Task RenderCharts()
+    {
+        // ELO Distribution Bar Chart
+        var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
+        var eloData = _rankings.Select(r => r.Elo).ToArray();
+        await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "ELO", "#198754");
+
+        // Win Rate Bar Chart
+        var wrLabels = _rankings.Where(r => r.Matches > 0).Select(r => r.PlayerName).ToArray();
+        var wrData = _rankings.Where(r => r.Matches > 0).Select(r => r.WinRate).ToArray();
+        await JS.InvokeVoidAsync("renderBarChart", "winRateChart", wrLabels, wrData, "Win Rate %", "#0d6efd");
+    }
+}

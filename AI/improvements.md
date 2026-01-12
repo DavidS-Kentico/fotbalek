@@ -1,0 +1,2 @@
+Some improvements to implement in the source, also update the specification it is changes something or is important to be there:
+After all the improvements, check that it can be built and ran correctly.

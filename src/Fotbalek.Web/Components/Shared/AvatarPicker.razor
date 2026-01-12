@@ -1,0 +1,26 @@
+<div class="avatar-picker">
+    <div class="row row-cols-5 g-2">
+        @for (int i = 1; i <= 20; i++)
+        {
+            var avatarId = i;
+            <div class="col">
+                <button type="button"
+                        class="btn w-100 p-2 @(Value == avatarId ? "btn-success" : "btn-outline-secondary")"
+                        @onclick="() => SelectAvatar(avatarId)">
+                    <Avatar AvatarId="@avatarId" Size="md" />
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Value { get; set; } = 1;
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+
+    private async Task SelectAvatar(int avatarId)
+    {
+        Value = avatarId;
+        await ValueChanged.InvokeAsync(avatarId);
+    }
+}

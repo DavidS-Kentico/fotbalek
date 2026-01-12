@@ -1,0 +1,67 @@
+@{
+    var avatarEmojis = new Dictionary<int, string>
+    {
+        { 1, "\u26BD" },   // Soccer Ball
+        { 2, "\U0001F981" },   // Lion
+        { 3, "\U0001F43A" },   // Wolf
+        { 4, "\U0001F985" },   // Eagle
+        { 5, "\U0001F409" },   // Dragon
+        { 6, "\U0001F525" },   // Fire
+        { 7, "\u26A1" },   // Lightning
+        { 8, "\U0001F31F" },   // Star
+        { 9, "\U0001F3AF" },   // Target
+        { 10, "\U0001F451" },  // Crown
+        { 11, "\U0001F988" },  // Shark
+        { 12, "\U0001F43B" },  // Bear
+        { 13, "\U0001F98A" },  // Fox
+        { 14, "\U0001F427" },  // Penguin
+        { 15, "\U0001F984" },  // Unicorn
+        { 16, "\U0001F680" },  // Rocket
+        { 17, "\U0001F48E" },  // Diamond
+        { 18, "\U0001F3B8" },  // Guitar
+        { 19, "\U0001F30A" },  // Wave
+        { 20, "\U0001F3C6" }   // Trophy
+    };
+
+    var emoji = avatarEmojis.GetValueOrDefault(AvatarId, "\u26BD");
+    var sizeClass = Size switch
+    {
+        "sm" => "avatar-sm",
+        "lg" => "avatar-lg",
+        "xl" => "avatar-xl",
+        _ => "avatar-md"
+    };
+}
+
+<span class="avatar @sizeClass @CssClass" title="@GetAvatarName(AvatarId)">@emoji</span>
+
+@code {
+    [Parameter] public int AvatarId { get; set; } = 1;
+    [Parameter] public string Size { get; set; } = "md";
+    [Parameter] public string? CssClass { get; set; }
+
+    private static string GetAvatarName(int id) => id switch
+    {
+        1 => "Soccer Ball",
+        2 => "Lion",
+        3 => "Wolf",
+        4 => "Eagle",
+        5 => "Dragon",
+        6 => "Fire",
+        7 => "Lightning",
+        8 => "Star",
+        9 => "Target",
+        10 => "Crown",
+        11 => "Shark",
+        12 => "Bear",
+        13 => "Fox",
+        14 => "Penguin",
+        15 => "Unicorn",
+        16 => "Rocket",
+        17 => "Diamond",
+        18 => "Guitar",
+        19 => "Wave",
+        20 => "Trophy",
+        _ => "Unknown"
+    };
+}

@@ -1,0 +1,23 @@
+@if (Rank == 1)
+{
+    <i class="bi bi-trophy-fill text-warning @SizeClass"></i>
+}
+else if (Rank == 2)
+{
+    <i class="bi bi-trophy-fill text-secondary @SizeClass"></i>
+}
+else if (Rank == 3)
+{
+    <i class="bi bi-trophy-fill @SizeClass" style="color: #cd7f32;"></i>
+}
+else
+{
+    <span class="text-muted">@Rank</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public int Rank { get; set; }
+    [Parameter] public bool Large { get; set; }
+
+    private string SizeClass => Large ? "fs-5" : "";
+}

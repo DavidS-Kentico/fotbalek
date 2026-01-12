@@ -1,0 +1,166 @@
+@page "/create"
+@rendermode InteractiveServer
+@inject TeamService TeamService
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Create Team - Foosball Manager</PageTitle>
+
+<div class="container">
+    <div class="row min-vh-100 align-items-center justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="text-center mb-4">
+                <a href="/" class="text-decoration-none">
+                    <h1 class="display-5 fw-bold text-success">
+                        <i class="bi bi-trophy-fill me-2"></i>
+                        Fotbalek
+                    </h1>
+                </a>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Team</h5>
+                </div>
+                <div class="card-body p-4">
+                    <EditForm Model="@_model" OnValidSubmit="HandleSubmit" FormName="create-team">
+                        <DataAnnotationsValidator />
+
+                        @if (!string.IsNullOrEmpty(_error))
+                        {
+                            <div class="alert alert-danger">@_error</div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Team Name</label>
+                            <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Office League" />
+                            <ValidationMessage For="@(() => _model.Name)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="codeName" class="form-label">Team URL Code</label>
+                            <div class="input-group">
+                                <span class="input-group-text">/</span>
+                                <InputText id="codeName" @bind-Value="_model.CodeName" class="form-control" placeholder="e.g., office-league" @oninput="OnCodeNameInput" />
+                            </div>
+                            <ValidationMessage For="@(() => _model.CodeName)" class="text-danger" />
+                            <small class="text-muted">This will be your team's URL. Only lowercase letters, numbers, and hyphens allowed.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <InputText id="password" @bind-Value="_model.Password" type="password" class="form-control" placeholder="Min 4 characters" />
+                            <ValidationMessage For="@(() => _model.Password)" class="text-danger" />
+                            <small class="text-muted">Team members will use this password to join.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm Password</label>
+                            <InputText id="confirmPassword" @bind-Value="_model.ConfirmPassword" type="password" class="form-control" />
+                            <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-danger" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success" disabled="@_loading">
+                                @if (_loading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Create Team
+                            </button>
+                            <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateTeamModel _model = new();
+    private string? _error;
+    private bool _loading;
+
+    private void OnCodeNameInput(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        // Auto-format: lowercase, replace spaces with hyphens, remove invalid chars
+        _model.CodeName = System.Text.RegularExpressions.Regex.Replace(value.ToLowerInvariant(), @"[^a-z0-9\-]", "");
+    }
+
+    private async Task HandleSubmit()
+    {
+        _error = null;
+        _loading = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_model.Name))
+            {
+                _error = "Team name is required.";
+                _loading = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.CodeName))
+            {
+                _error = "Team URL code is required.";
+                _loading = false;
+                return;
+            }
+
+            if (_model.CodeName.Length < 3)
+            {
+                _error = "Team URL code must be at least 3 characters.";
+                _loading = false;
+                return;
+            }
+
+            if (_model.Password != _model.ConfirmPassword)
+            {
+                _error = "Passwords do not match.";
+                _loading = false;
+                return;
+            }
+
+            if (_model.Password.Length < 4)
+            {
+                _error = "Password must be at least 4 characters.";
+                _loading = false;
+                return;
+            }
+
+            if (await TeamService.IsCodeNameTakenAsync(_model.CodeName))
+            {
+                _error = "This URL code is already taken. Please choose a different one.";
+                _loading = false;
+                return;
+            }
+
+            var team = await TeamService.CreateAsync(_model.Name, _model.CodeName, _model.Password);
+
+            // Authenticate as the newly created team
+            await AuthService.LoginAsync(_model.CodeName, _model.Password);
+
+            // Navigate to players page
+            Navigation.NavigateTo($"/{team.CodeName}/players", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Something went wrong: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class CreateTeamModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string CodeName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

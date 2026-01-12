@@ -1,0 +1,169 @@
+@page "/join"
+@rendermode InteractiveServer
+@inject TeamService TeamService
+@inject AuthService AuthService
+@inject ShareTokenService ShareTokenService
+@inject NavigationManager Navigation
+
+<PageTitle>Join Team - Foosball Manager</PageTitle>
+
+<div class="container">
+    <div class="row min-vh-100 align-items-center justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="text-center mb-4">
+                <a href="/" class="text-decoration-none">
+                    <h1 class="display-5 fw-bold text-success">
+                        <i class="bi bi-trophy-fill me-2"></i>
+                        Fotbalek
+                    </h1>
+                </a>
+            </div>
+
+            @if (_validatingToken)
+            {
+                <div class="card shadow">
+                    <div class="card-body p-5 text-center">
+                        <div class="spinner-border text-success mb-3" role="status">
+                            <span class="visually-hidden">Validating share link...</span>
+                        </div>
+                        <p class="text-muted mb-0">Validating share link...</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-box-arrow-in-right me-2"></i>Join Team</h5>
+                </div>
+                <div class="card-body p-4">
+                    <EditForm Model="@_model" OnValidSubmit="HandleSubmit" FormName="join-team">
+                        <DataAnnotationsValidator />
+
+                        @if (!string.IsNullOrEmpty(_error))
+                        {
+                            <div class="alert alert-danger">@_error</div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="codeName" class="form-label">Team Code</label>
+                            <InputText id="codeName" @bind-Value="_model.CodeName" class="form-control" placeholder="e.g., office-league" />
+                            <ValidationMessage For="@(() => _model.CodeName)" class="text-danger" />
+                            <small class="text-muted">The URL-friendly name of your team.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <InputText id="password" @bind-Value="_model.Password" type="password" class="form-control" />
+                            <ValidationMessage For="@(() => _model.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success" disabled="@_loading">
+                                @if (_loading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Join Team
+                            </button>
+                            <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "team")]
+    public string? TeamCode { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private JoinTeamModel _model = new();
+    private string? _error;
+    private bool _loading;
+    private bool _validatingToken;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(TeamCode))
+        {
+            _model.CodeName = TeamCode;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !string.IsNullOrEmpty(Token) && !string.IsNullOrEmpty(TeamCode))
+        {
+            _validatingToken = true;
+            StateHasChanged();
+
+            try
+            {
+                var team = await ShareTokenService.ValidateTokenAsync(Token);
+                if (team != null && team.CodeName.Equals(TeamCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    await AuthService.SetCurrentTeamAsync(team);
+                    Navigation.NavigateTo($"/{team.CodeName}", forceLoad: true);
+                    return;
+                }
+                else
+                {
+                    _error = "The share link has expired or is invalid. Please enter the password to join.";
+                }
+            }
+            catch
+            {
+                _error = "Something went wrong validating the share link. Please enter the password to join.";
+            }
+            finally
+            {
+                _validatingToken = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _error = null;
+        _loading = true;
+
+        try
+        {
+            var team = await TeamService.GetByCodeNameAsync(_model.CodeName);
+            if (team == null)
+            {
+                _error = "Team not found. Please check the team code.";
+                return;
+            }
+
+            if (!await AuthService.LoginAsync(_model.CodeName, _model.Password))
+            {
+                _error = "Invalid password.";
+                return;
+            }
+
+            Navigation.NavigateTo($"/{team.CodeName}", forceLoad: true);
+        }
+        catch (Exception)
+        {
+            _error = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class JoinTeamModel
+    {
+        public string CodeName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

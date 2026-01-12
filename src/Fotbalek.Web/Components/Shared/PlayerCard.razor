@@ -1,0 +1,35 @@
+<div class="card h-100 @(Highlight ? "border-success" : "")">
+    <div class="card-body text-center">
+        <Avatar AvatarId="@Player.AvatarId" Size="lg" />
+        <h6 class="card-title mt-2 mb-1">@Player.Name</h6>
+        <p class="text-muted small mb-0">ELO: @Player.Elo</p>
+        @if (!Player.IsActive)
+        {
+            <span class="badge bg-secondary">Inactive</span>
+        }
+    </div>
+    @if (ShowActions)
+    {
+        <div class="card-footer bg-transparent border-top-0">
+            <div class="d-flex gap-2 justify-content-center">
+                <a href="@($"/{TeamCode}/players/{Player.Id}")" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-eye"></i>
+                </a>
+                @if (OnEdit.HasDelegate)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OnEdit.InvokeAsync(Player)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Player Player { get; set; } = null!;
+    [Parameter] public string? TeamCode { get; set; }
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public bool Highlight { get; set; }
+    [Parameter] public EventCallback<Player> OnEdit { get; set; }
+}

@@ -1,0 +1,257 @@
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject TeamService TeamService
+@inject ShareTokenService ShareTokenService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="min-vh-100 d-flex flex-column">
+    @if (_team != null)
+    {
+        <header class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center text-success fw-bold" href="/@_team.CodeName">
+                    <i class="bi bi-trophy-fill me-2"></i>
+                    @_team.Name
+                </a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}")" Match="NavLinkMatch.All">
+                                <i class="bi bi-house me-1"></i> Dashboard
+                            </NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/rankings")">
+                                <i class="bi bi-bar-chart me-1"></i> Rankings
+                            </NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/stats")">
+                                <i class="bi bi-graph-up me-1"></i> Stats
+                            </NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/matches")">
+                                <i class="bi bi-list-ul me-1"></i> History
+                            </NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/players")">
+                                <i class="bi bi-people me-1"></i> Players
+                            </NavLink>
+                        </li>
+                    </ul>
+
+                    <div class="d-flex gap-2">
+                        <a href="@($"/{_team.CodeName}/match/new")" class="btn btn-success">
+                            <i class="bi bi-plus-lg me-1"></i> New Match
+                        </a>
+                        <button class="btn btn-outline-secondary" @onclick="ShowShareModal" title="Share Team URL">
+                            <i class="bi bi-share"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="Logout" title="Logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-grow-1 bg-light">
+            @Body
+        </main>
+
+        @if (_showShareModal)
+        {
+            <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="bi bi-share me-2"></i>Share Team</h5>
+                            <button type="button" class="btn-close" @onclick="() => _showShareModal = false"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted">Share this link with your teammates so they can join without entering a password:</p>
+                            @if (_generatingToken)
+                            {
+                                <div class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-success" role="status">
+                                        <span class="visually-hidden">Generating link...</span>
+                                    </div>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(_shareToken))
+                            {
+                                <div class="input-group">
+                                    <input type="text" class="form-control" readonly value="@GetShareUrl()" />
+                                    <button class="btn btn-success" @onclick="CopyShareUrl">
+                                        <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
+                                        @(_copied ? "Copied!" : "Copy")
+                                    </button>
+                                </div>
+                                @if (_copied)
+                                {
+                                    <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
+                                }
+                                <small class="text-muted mt-2 d-block">
+                                    <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
+                                </small>
+                            }
+                            <hr />
+                            <p class="text-muted mb-2 small">Or share the team URL (requires password):</p>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
+                                <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
+                                    <i class="bi @(_copiedBasic ? "bi-check" : "bi-clipboard")"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="() => _showShareModal = false">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else if (_loading)
+    {
+        <div class="d-flex justify-content-center align-items-center min-vh-100">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+</div>
+
+<div id="blazor-error-ui" data-nosnippet class="alert alert-danger position-fixed bottom-0 start-50 translate-middle-x mb-3" style="display: none;">
+    An unhandled error has occurred.
+    <a href="." class="alert-link">Reload</a>
+    <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'"></button>
+</div>
+
+@code {
+    private Team? _team;
+    private bool _loading = true;
+    private bool _showShareModal;
+    private bool _copied;
+    private bool _copiedBasic;
+    private bool _generatingToken;
+    private string? _shareToken;
+
+    private string GetTeamUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/{_team?.CodeName}";
+    }
+
+    private string GetShareUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/join?team={_team?.CodeName}&token={_shareToken}";
+    }
+
+    private async Task ShowShareModal()
+    {
+        _copied = false;
+        _copiedBasic = false;
+        _shareToken = null;
+        _showShareModal = true;
+        _generatingToken = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_team != null)
+            {
+                _shareToken = await ShareTokenService.GenerateTokenAsync(_team.Id);
+            }
+        }
+        catch
+        {
+            // Token generation failed
+        }
+        finally
+        {
+            _generatingToken = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyShareUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetShareUrl());
+            _copied = true;
+            _copiedBasic = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Clipboard API not available
+        }
+    }
+
+    private async Task CopyTeamUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetTeamUrl());
+            _copiedBasic = true;
+            _copied = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Clipboard API not available
+        }
+    }
+
+    private string? GetTeamCodeFromUrl()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var path = uri.AbsolutePath.TrimStart('/');
+        var segments = path.Split('/');
+        return segments.Length > 0 && !string.IsNullOrEmpty(segments[0]) ? segments[0] : null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var teamCode = GetTeamCodeFromUrl();
+                _team = await AuthService.GetCurrentTeamAsync();
+
+                if (_team == null || (teamCode != null && !_team.CodeName.Equals(teamCode, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var redirectUrl = teamCode != null ? $"/join?team={teamCode}" : "/";
+                    Navigation.NavigateTo(redirectUrl, forceLoad: true);
+                    return;
+                }
+
+                _loading = false;
+                StateHasChanged();
+            }
+            catch
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

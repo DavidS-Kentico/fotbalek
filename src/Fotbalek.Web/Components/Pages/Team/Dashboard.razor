@@ -1,0 +1,182 @@
+@page "/{TeamCode}"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject StatsService StatsService
+@inject MatchService MatchService
+@inject PlayerService PlayerService
+@inject BadgeService BadgeService
+
+<PageTitle>@(_team?.Name ?? "Dashboard") - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_team != null)
+{
+    <div class="container py-4">
+        <div class="row">
+            <!-- Rankings -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Rankings</h5>
+                        <a href="/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_rankings.Count > 0)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 50px;">#</th>
+                                            <th>Player</th>
+                                            <th class="text-end">ELO</th>
+                                            <th class="text-end">Win Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var player in _rankings.Take(Constants.Pagination.DashboardTopPlayers))
+                                        {
+                                            <tr>
+                                                <td class="text-center">
+                                                    <RankBadge Rank="@player.Rank" />
+                                                </td>
+                                                <td>
+                                                    <a href="/@TeamCode/players/@player.PlayerId" class="text-decoration-none">
+                                                        <Avatar AvatarId="@player.AvatarId" Size="sm" />
+                                                        <span class="ms-2">@player.PlayerName</span>
+                                                    </a>
+                                                    @foreach (var badge in BadgeService.GetPlayerBadges(player.PlayerId, _badges))
+                                                    {
+                                                        <span class="badge @badge.CssClass ms-1 px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
+                                                    }
+                                                </td>
+                                                <td class="text-end fw-bold">@player.Elo</td>
+                                                <td class="text-end text-muted">@player.WinRate.ToString("F1")%</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                <p>No players yet. Add some players to get started!</p>
+                                <a href="/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Matches -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Matches</h5>
+                        <a href="/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a>
+                    </div>
+                    <div class="card-body">
+                        @if (_recentMatches.Count > 0)
+                        {
+                            @foreach (var match in _recentMatches.Take(Constants.Pagination.DashboardRecentMatches))
+                            {
+                                <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                                <p>No matches played yet.</p>
+                                @if (_playerCount >= 4)
+                                {
+                                    <a href="/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
+                                }
+                                else
+                                {
+                                    <p class="small">You need at least 4 players to play a match.</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-0">@_playerCount</h3>
+                        <small>Active Players</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-0">@_matchCount</h3>
+                        <small>Total Matches</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-0">@_matchesThisWeek</h3>
+                        <small>Matches This Week</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body text-center">
+                        <h3 class="mb-0">@_avgMatchScore.ToString("F1")</h3>
+                        <small>Avg Goals/Match</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private List<PlayerRanking> _rankings = [];
+    private List<Match> _recentMatches = [];
+    private TeamBadges? _badges;
+    private int _playerCount;
+    private int _matchCount;
+    private int _matchesThisWeek;
+    private double _avgMatchScore;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                _rankings = await StatsService.GetRankingsAsync(_team.Id);
+                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, Constants.Pagination.DashboardRecentMatches);
+                _badges = await StatsService.GetBadgesAsync(_team.Id);
+                _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
+                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id);
+                _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id);
+                _avgMatchScore = await MatchService.GetAverageMatchScoreAsync(_team.Id);
+            }
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

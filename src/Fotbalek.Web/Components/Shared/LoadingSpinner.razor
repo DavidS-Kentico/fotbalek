@@ -1,0 +1,21 @@
+@if (FullScreen)
+{
+    <div class="d-flex justify-content-center align-items-center min-vh-100">
+        <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">@Text</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-center align-items-center py-5">
+        <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">@Text</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool FullScreen { get; set; }
+    [Parameter] public string Text { get; set; } = "Loading...";
+}

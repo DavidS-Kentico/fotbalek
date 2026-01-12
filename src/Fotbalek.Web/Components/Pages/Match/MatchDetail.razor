@@ -1,0 +1,255 @@
+@page "/{TeamCode}/matches/{MatchId:int}"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject MatchService MatchService
+@inject NavigationManager Navigation
+
+<PageTitle>Match Detail - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_match != null)
+{
+    var team1Players = _match.MatchPlayers.Where(mp => mp.TeamNumber == 1).OrderBy(mp => mp.Position).ToList();
+    var team2Players = _match.MatchPlayers.Where(mp => mp.TeamNumber == 2).OrderBy(mp => mp.Position).ToList();
+    var team1Won = _match.Team1Score > _match.Team2Score;
+
+    <div class="container py-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/@TeamCode/matches">Matches</a></li>
+                <li class="breadcrumb-item active">Match #@MatchId</li>
+            </ol>
+        </nav>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    <span class="match-date" data-utc="@_match.PlayedAt.ToString("o")">@_match.PlayedAt.ToString("f")</span>
+                </h5>
+                @if (_canEditOrDelete)
+                {
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="ShowDeleteConfirm">
+                            <i class="bi bi-trash me-1"></i> Delete
+                        </button>
+                    </div>
+                }
+            </div>
+            <div class="card-body">
+                <!-- Score -->
+                <div class="row align-items-center text-center mb-4">
+                    <div class="col-5">
+                        <h6 class="text-warning fw-bold">Team 1 @(team1Won ? "(Winner)" : "")</h6>
+                    </div>
+                    <div class="col-2">
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                            <span class="display-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@_match.Team1Score</span>
+                            <span class="display-5 text-muted">:</span>
+                            <span class="display-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@_match.Team2Score</span>
+                        </div>
+                    </div>
+                    <div class="col-5">
+                        <h6 class="text-primary fw-bold">Team 2 @(!team1Won ? "(Winner)" : "")</h6>
+                    </div>
+                </div>
+
+                <!-- Players -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card @(team1Won ? "border-success" : "")">
+                            <div class="card-header bg-warning bg-opacity-25">
+                                <h6 class="mb-0">Team 1</h6>
+                            </div>
+                            <div class="card-body">
+                                @foreach (var mp in team1Players)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
+                                            <div>
+                                                <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none">
+                                                    @mp.Player.Name
+                                                </a>
+                                                <small class="text-muted d-block">@mp.Position</small>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge @(mp.EloChange > 0 ? "bg-success" : "bg-danger")">
+                                                @(mp.EloChange > 0 ? "+" : "")@mp.EloChange
+                                            </span>
+                                            <small class="text-muted d-block">@mp.EloBefore -> @mp.EloAfter</small>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card @(!team1Won ? "border-success" : "")">
+                            <div class="card-header bg-primary bg-opacity-25">
+                                <h6 class="mb-0">Team 2</h6>
+                            </div>
+                            <div class="card-body">
+                                @foreach (var mp in team2Players)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
+                                            <div>
+                                                <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none">
+                                                    @mp.Player.Name
+                                                </a>
+                                                <small class="text-muted d-block">@mp.Position</small>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge @(mp.EloChange > 0 ? "bg-success" : "bg-danger")">
+                                                @(mp.EloChange > 0 ? "+" : "")@mp.EloChange
+                                            </span>
+                                            <small class="text-muted d-block">@mp.EloBefore -> @mp.EloAfter</small>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                Recorded: @_match.CreatedAt.ToString("f")
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_deleteError))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle me-2"></i>@_deleteError
+                <button type="button" class="btn-close" @onclick="() => _deleteError = null"></button>
+            </div>
+        }
+
+        <a href="/@TeamCode/matches" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to History
+        </a>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    @if (_showDeleteConfirm)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Delete Match</h5>
+                        <button type="button" class="btn-close" @onclick="() => _showDeleteConfirm = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
+                        <div class="alert alert-secondary">
+                            <strong>Match Summary:</strong><br />
+                            Team 1 (@team1Players.First().Player.Name, @team1Players.Last().Player.Name) vs
+                            Team 2 (@team2Players.First().Player.Name, @team2Players.Last().Player.Name)<br />
+                            Score: @_match.Team1Score : @_match.Team2Score<br />
+                            Date: @_match.PlayedAt.ToString("f")
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="() => _showDeleteConfirm = false">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteMatch" disabled="@_deleting">
+                            @if (_deleting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Delete Match
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="container py-4">
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Match not found.
+        </div>
+        <a href="/@TeamCode/matches" class="btn btn-primary">Back to History</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int MatchId { get; set; }
+
+    private Team? _team;
+    private Match? _match;
+    private bool _loading = true;
+    private bool _canEditOrDelete;
+    private bool _showDeleteConfirm;
+    private bool _deleting;
+    private string? _deleteError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                _match = await MatchService.GetByIdAsync(MatchId);
+                if (_match != null && _match.TeamId == _team.Id)
+                {
+                    _canEditOrDelete = await MatchService.CanEditOrDeleteAsync(MatchId);
+                }
+                else
+                {
+                    _match = null; // Clear if not belonging to team
+                }
+            }
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowDeleteConfirm()
+    {
+        _showDeleteConfirm = true;
+    }
+
+    private async Task DeleteMatch()
+    {
+        if (_match == null || _team == null) return;
+
+        _deleting = true;
+        try
+        {
+            var deleted = await MatchService.DeleteAsync(MatchId, _team.Id);
+            if (deleted)
+            {
+                Navigation.NavigateTo($"/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);
+            }
+            else
+            {
+                _deleteError = "Cannot delete this match. It may have been modified or the deletion window has passed.";
+                _showDeleteConfirm = false;
+            }
+        }
+        catch
+        {
+            _deleteError = "An error occurred while deleting the match.";
+            _showDeleteConfirm = false;
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+}

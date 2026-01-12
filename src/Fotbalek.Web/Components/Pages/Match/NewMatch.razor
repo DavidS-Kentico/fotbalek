@@ -1,0 +1,470 @@
+@page "/{TeamCode}/match/new"
+@layout TeamLayout
+@rendermode InteractiveServer
+@inject AuthService AuthService
+@inject PlayerService PlayerService
+@inject MatchService MatchService
+
+<PageTitle>New Match - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center align-items-center py-5">
+        <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (_players.Count < 4)
+{
+    <div class="container py-4">
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            You need at least 4 active players to record a match.
+            <a href="/@TeamCode/players" class="alert-link">Add more players</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container py-4">
+        <h2 class="text-center mb-4"><i class="bi bi-plus-circle me-2"></i>New Match</h2>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @_error
+                <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+            </div>
+        }
+
+        @if (_showSuccess)
+        {
+            <div class="alert alert-success">
+                <h5><i class="bi bi-check-circle me-2"></i>Match Recorded!</h5>
+                <p class="mb-2">@_successMessage</p>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success btn-sm" @onclick="PlayAgain">
+                        <i class="bi bi-arrow-repeat me-1"></i> Play Again
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" @onclick="ResetMatch">
+                        <i class="bi bi-plus me-1"></i> New Match
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- Foosball Table -->
+        <div class="foosball-table-container mb-4">
+            <div class="foosball-table">
+                <!-- Team 1 Side (Top) -->
+                <div class="team-side team-1-side">
+                    <div class="team-label">Team 1</div>
+                    <div class="player-positions">
+                        <div class="player-slot atk-slot">
+                            @if (Team1AtkId > 0)
+                            {
+                                <button class="remove-player-btn" @onclick="() => RemovePlayer(1, false)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
+                            <button class="player-circle team-1 @(Team1AtkId > 0 ? "filled" : "")"
+                                    @onclick="() => OpenPlayerPicker(1, false)">
+                                @if (Team1AtkId > 0)
+                                {
+                                    var player = _players.First(p => p.Id == Team1AtkId);
+                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                    <span class="player-name">@player.Name</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-lg"></i>
+                                    <span class="position-label">ATK</span>
+                                }
+                            </button>
+                            <span class="position-badge atk">ATK</span>
+                        </div>
+                        <button class="swap-btn" @onclick="() => SwapPositions(1)" title="Swap positions">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        <div class="player-slot gk-slot">
+                            @if (Team1GkId > 0)
+                            {
+                                <button class="remove-player-btn" @onclick="() => RemovePlayer(1, true)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
+                            <button class="player-circle team-1 @(Team1GkId > 0 ? "filled" : "")"
+                                    @onclick="() => OpenPlayerPicker(1, true)">
+                                @if (Team1GkId > 0)
+                                {
+                                    var player = _players.First(p => p.Id == Team1GkId);
+                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                    <span class="player-name">@player.Name</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-lg"></i>
+                                    <span class="position-label">GK</span>
+                                }
+                            </button>
+                            <span class="position-badge gk">GK</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Midfield Line -->
+                <div class="midfield-line"></div>
+
+                <!-- Team 2 Side (Bottom) -->
+                <div class="team-side team-2-side">
+                    <div class="player-positions">
+                        <div class="player-slot gk-slot">
+                            @if (Team2GkId > 0)
+                            {
+                                <button class="remove-player-btn" @onclick="() => RemovePlayer(2, true)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
+                            <button class="player-circle team-2 @(Team2GkId > 0 ? "filled" : "")"
+                                    @onclick="() => OpenPlayerPicker(2, true)">
+                                @if (Team2GkId > 0)
+                                {
+                                    var player = _players.First(p => p.Id == Team2GkId);
+                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                    <span class="player-name">@player.Name</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-lg"></i>
+                                    <span class="position-label">GK</span>
+                                }
+                            </button>
+                            <span class="position-badge gk">GK</span>
+                        </div>
+                        <button class="swap-btn" @onclick="() => SwapPositions(2)" title="Swap positions">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        <div class="player-slot atk-slot">
+                            @if (Team2AtkId > 0)
+                            {
+                                <button class="remove-player-btn" @onclick="() => RemovePlayer(2, false)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
+                            <button class="player-circle team-2 @(Team2AtkId > 0 ? "filled" : "")"
+                                    @onclick="() => OpenPlayerPicker(2, false)">
+                                @if (Team2AtkId > 0)
+                                {
+                                    var player = _players.First(p => p.Id == Team2AtkId);
+                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                    <span class="player-name">@player.Name</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-lg"></i>
+                                    <span class="position-label">ATK</span>
+                                }
+                            </button>
+                            <span class="position-badge atk">ATK</span>
+                        </div>
+                    </div>
+                    <div class="team-label">Team 2</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Input -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-end justify-content-center gap-2">
+                    <div class="text-center">
+                        <label class="form-label fw-bold text-warning">Team 1</label>
+                        <input type="number" class="form-control form-control-lg text-center score-input"
+                               min="0" max="10" @bind="Team1Score" />
+                    </div>
+                    <div class="text-center pb-2">
+                        <span class="fs-2 text-muted">:</span>
+                    </div>
+                    <div class="text-center">
+                        <label class="form-label fw-bold text-primary">Team 2</label>
+                        <input type="number" class="form-control form-control-lg text-center score-input"
+                               min="0" max="10" @bind="Team2Score" />
+                    </div>
+                </div>
+
+                <!-- Quick Winner Buttons -->
+                <div class="d-flex justify-content-center gap-3 mt-3">
+                    <button type="button" class="btn btn-outline-warning" @onclick="() => SetWinner(1)">
+                        <i class="bi bi-trophy me-1"></i> Team 1 Wins
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" @onclick="() => SetWinner(2)">
+                        <i class="bi bi-trophy me-1"></i> Team 2 Wins
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-grid">
+            <button class="btn btn-success btn-lg" @onclick="SubmitMatch" disabled="@(_saving || !IsValid())">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                <i class="bi bi-check-lg me-2"></i>
+                Record Match
+            </button>
+        </div>
+
+        @if (!IsValid())
+        {
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    @GetValidationMessage()
+                </small>
+            </div>
+        }
+    </div>
+
+    <!-- Player Picker Modal -->
+    @if (_showPlayerPicker)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Select Player</h5>
+                        <button type="button" class="btn-close" @onclick="ClosePlayerPicker"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row row-cols-3 g-2">
+                            @foreach (var player in GetAvailablePlayers())
+                            {
+                                <div class="col">
+                                    <button class="btn btn-outline-secondary w-100 p-2" @onclick="() => SelectPlayer(player.Id)">
+                                        <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                        <div class="small mt-1">@player.Name</div>
+                                        <div class="small text-muted">@player.Elo</div>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private List<Player> _players = [];
+
+    private int Team1GkId { get; set; }
+    private int Team1AtkId { get; set; }
+    private int Team2GkId { get; set; }
+    private int Team2AtkId { get; set; }
+    private int Team1Score { get; set; }
+    private int Team2Score { get; set; }
+
+    private bool _showPlayerPicker;
+    private int _pickerTeam;
+    private bool _pickerIsGk;
+
+    private bool _saving;
+    private string? _error;
+    private bool _showSuccess;
+    private string? _successMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await AuthService.GetCurrentTeamAsync();
+            if (_team != null)
+            {
+                _players = await PlayerService.GetByTeamAsync(_team.Id);
+            }
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenPlayerPicker(int team, bool isGk)
+    {
+        _pickerTeam = team;
+        _pickerIsGk = isGk;
+        _showPlayerPicker = true;
+    }
+
+    private void ClosePlayerPicker()
+    {
+        _showPlayerPicker = false;
+    }
+
+    private IEnumerable<Player> GetAvailablePlayers()
+    {
+        var selectedIds = new HashSet<int> { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId };
+
+        // Get current slot's player to allow reselection
+        var currentId = (_pickerTeam, _pickerIsGk) switch
+        {
+            (1, true) => Team1GkId,
+            (1, false) => Team1AtkId,
+            (2, true) => Team2GkId,
+            (2, false) => Team2AtkId,
+            _ => 0
+        };
+
+        return _players.Where(p => !selectedIds.Contains(p.Id) || p.Id == currentId);
+    }
+
+    private void SelectPlayer(int playerId)
+    {
+        switch ((_pickerTeam, _pickerIsGk))
+        {
+            case (1, true): Team1GkId = playerId; break;
+            case (1, false): Team1AtkId = playerId; break;
+            case (2, true): Team2GkId = playerId; break;
+            case (2, false): Team2AtkId = playerId; break;
+        }
+        ClosePlayerPicker();
+    }
+
+    private void SwapPositions(int team)
+    {
+        if (team == 1)
+        {
+            (Team1GkId, Team1AtkId) = (Team1AtkId, Team1GkId);
+        }
+        else
+        {
+            (Team2GkId, Team2AtkId) = (Team2AtkId, Team2GkId);
+        }
+    }
+
+    private void RemovePlayer(int team, bool isGk)
+    {
+        switch ((team, isGk))
+        {
+            case (1, true): Team1GkId = 0; break;
+            case (1, false): Team1AtkId = 0; break;
+            case (2, true): Team2GkId = 0; break;
+            case (2, false): Team2AtkId = 0; break;
+        }
+    }
+
+    private void SetWinner(int team)
+    {
+        if (team == 1)
+        {
+            Team1Score = 10;
+            if (Team2Score >= 10) Team2Score = 9;
+        }
+        else
+        {
+            Team2Score = 10;
+            if (Team1Score >= 10) Team1Score = 9;
+        }
+    }
+
+    private bool IsValid()
+    {
+        // All 4 players selected
+        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0)
+            return false;
+
+        // All different
+        var ids = new[] { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId };
+        if (ids.Distinct().Count() != 4)
+            return false;
+
+        // Scores in range
+        if (Team1Score < 0 || Team1Score > 10 || Team2Score < 0 || Team2Score > 10)
+            return false;
+
+        // No ties
+        if (Team1Score == Team2Score)
+            return false;
+
+        // At least one team scored 10
+        if (Team1Score != 10 && Team2Score != 10)
+            return false;
+
+        return true;
+    }
+
+    private string GetValidationMessage()
+    {
+        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0)
+            return "Select all 4 players";
+        if (Team1Score == Team2Score)
+            return "Scores cannot be equal (no ties)";
+        if (Team1Score != 10 && Team2Score != 10)
+            return "At least one team must score 10";
+        return "";
+    }
+
+    private async Task SubmitMatch()
+    {
+        if (_team == null || !IsValid()) return;
+
+        _error = null;
+        _saving = true;
+        _showSuccess = false;
+
+        try
+        {
+            var match = await MatchService.CreateAsync(
+                _team.Id,
+                Team1GkId, Team1AtkId,
+                Team2GkId, Team2AtkId,
+                Team1Score, Team2Score);
+
+            // Reload players to get updated ELOs
+            _players = await PlayerService.GetByTeamAsync(_team.Id);
+
+            var winner = Team1Score > Team2Score ? "Team 1" : "Team 2";
+            var winningPlayer = match.MatchPlayers.First(mp => mp.EloChange > 0);
+            _successMessage = $"{winner} wins! ELO change: +{winningPlayer.EloChange}";
+            _showSuccess = true;
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (Exception)
+        {
+            _error = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void PlayAgain()
+    {
+        // Keep players, reset scores
+        Team1Score = 0;
+        Team2Score = 0;
+        _showSuccess = false;
+    }
+
+    private void ResetMatch()
+    {
+        // Reset everything
+        Team1GkId = 0;
+        Team1AtkId = 0;
+        Team2GkId = 0;
+        Team2AtkId = 0;
+        Team1Score = 0;
+        Team2Score = 0;
+        _showSuccess = false;
+    }
+}

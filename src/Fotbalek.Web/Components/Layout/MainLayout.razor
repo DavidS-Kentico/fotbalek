@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+
+<div class="min-vh-100 d-flex flex-column">
+    <main class="flex-grow-1">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet class="alert alert-danger position-fixed bottom-0 start-50 translate-middle-x mb-3" style="display: none;">
+    An unhandled error has occurred.
+    <a href="." class="alert-link">Reload</a>
+    <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'"></button>
+</div>

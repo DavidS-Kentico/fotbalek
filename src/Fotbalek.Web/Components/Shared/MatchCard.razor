@@ -1,0 +1,66 @@
+@{
+    var team1Players = Match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
+    var team2Players = Match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
+    var team1Won = Match.Team1Score > Match.Team2Score;
+}
+
+<div class="card mb-3 @(Compact ? "" : "shadow-sm")">
+    <div class="card-body @(Compact ? "p-2" : "")">
+        <div class="row align-items-center">
+            <div class="col">
+                <div class="d-flex align-items-center justify-content-end gap-2 @(team1Won ? "fw-bold text-success" : "text-muted")">
+                    @foreach (var mp in team1Players.OrderBy(p => p.Position))
+                    {
+                        <div class="text-end">
+                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
+                            <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-auto text-center px-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@Match.Team1Score</span>
+                    <span class="text-muted">:</span>
+                    <span class="fs-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@Match.Team2Score</span>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="d-flex align-items-center gap-2 @(!team1Won ? "fw-bold text-success" : "text-muted")">
+                    @foreach (var mp in team2Players.OrderBy(p => p.Position))
+                    {
+                        <div>
+                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
+                            <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!Compact)
+        {
+            <div class="row mt-2">
+                <div class="col text-center">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar3 me-1"></i>
+                        <span class="match-date" data-utc="@Match.PlayedAt.ToString("o")">@Match.PlayedAt.ToString("g")</span>
+                    </small>
+                    @if (ShowLink && TeamCode != null)
+                    {
+                        <a href="@($"/{TeamCode}/matches/{Match.Id}")" class="ms-2 small">Details</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Match Match { get; set; } = null!;
+    [Parameter] public string? TeamCode { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool ShowLink { get; set; } = true;
+}
