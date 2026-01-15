@@ -34,6 +34,15 @@ public class BadgeService
         if (badges.TableDiver?.PlayerId == playerId)
             result.Add(new PlayerBadgeInfo("bi bi-box-arrow-down", "bg-info", $"Table Diver - {badges.TableDiver.Value} under-table losses"));
 
+        if (badges.TableSender?.PlayerId == playerId)
+            result.Add(new PlayerBadgeInfo("bi bi-box-arrow-up", "bg-success", $"Table Sender - {badges.TableSender.Value} enemies sent under the table (10-0 wins)"));
+
+        if (badges.BestWinRate?.PlayerId == playerId)
+            result.Add(new PlayerBadgeInfo("bi bi-percent", "bg-primary", $"Best Win Rate - {badges.BestWinRate.Value}%"));
+
+        if (badges.TomkoMemorial?.PlayerId == playerId)
+            result.Add(new PlayerBadgeInfo("bi bi-calendar-event", "bg-warning text-dark", $"Tomko Memorial - {badges.TomkoMemorial.Value} games in one day"));
+
         if (badges.Newcomers.Any(n => n.PlayerId == playerId))
             result.Add(new PlayerBadgeInfo("bi bi-stars", "bg-success", "Newcomer - Joined in last 7 days"));
 

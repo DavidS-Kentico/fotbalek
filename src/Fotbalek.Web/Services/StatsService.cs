@@ -254,7 +254,7 @@ public class StatsService(AppDbContext db)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Calculate streaks, under table counts, and position stats for all players
-        var playerStreaks = new Dictionary<int, (int current, int longest, int underTable)>();
+        var playerStreaks = new Dictionary<int, (int current, int longest, int underTable, int tableSender, int wins, int totalGames)>();
         var positionStats = new Dictionary<int, (int gkGames, int gkTeamScored, int gkTeamConceded, int atkGames, int atkTeamScored, int atkTeamConceded)>();
 
         foreach (var player in players)
@@ -263,7 +263,14 @@ public class StatsService(AppDbContext db)
 
             // Calculate streaks using helper
             var streakResult = CalculateStreaksAndPositionStats(matchPlayers);
-            playerStreaks[player.Id] = (streakResult.CurrentStreak, streakResult.LongestWinStreak, streakResult.UnderTableCount);
+            playerStreaks[player.Id] = (
+                streakResult.CurrentStreak,
+                streakResult.LongestWinStreak,
+                streakResult.UnderTableCount,
+                streakResult.TableSenderCount,
+                streakResult.Wins,
+                streakResult.Wins + streakResult.Losses
+            );
             positionStats[player.Id] = (
                 streakResult.GoalkeeperCount,
                 streakResult.GoalsScoredAsGk,
@@ -315,6 +322,61 @@ public class StatsService(AppDbContext db)
                 PlayerName = player.Name,
                 Value = tableDiver.Value.underTable
             };
+        }
+
+        // Table Sender - most 10-0 wins (sent enemies under the table)
+        var tableSender = playerStreaks.OrderByDescending(ps => ps.Value.tableSender).FirstOrDefault();
+        if (tableSender.Value.tableSender > 0)
+        {
+            var player = players.First(p => p.Id == tableSender.Key);
+            badges.TableSender = new BadgeHolder
+            {
+                PlayerId = player.Id,
+                PlayerName = player.Name,
+                Value = tableSender.Value.tableSender
+            };
+        }
+
+        // Best Win Rate - highest win rate with minimum 5 games
+        var bestWinRate = playerStreaks
+            .Where(ps => ps.Value.totalGames >= Constants.TimeThresholds.MinGamesForPositionBadge)
+            .OrderByDescending(ps => (double)ps.Value.wins / ps.Value.totalGames)
+            .FirstOrDefault();
+
+        if (bestWinRate.Value.totalGames >= Constants.TimeThresholds.MinGamesForPositionBadge)
+        {
+            var player = players.First(p => p.Id == bestWinRate.Key);
+            var winRate = (double)bestWinRate.Value.wins / bestWinRate.Value.totalGames * 100;
+            badges.BestWinRate = new BadgeHolder
+            {
+                PlayerId = player.Id,
+                PlayerName = player.Name,
+                Value = (int)winRate // Store win rate as whole percentage
+            };
+        }
+
+        // Tomko Memorial - most games played in a single day
+        var gamesPerPlayerPerDay = allMatchPlayers
+            .GroupBy(mp => new { mp.PlayerId, Date = mp.Match.PlayedAt.Date })
+            .Select(g => new { g.Key.PlayerId, g.Key.Date, GamesCount = g.Count() })
+            .ToList();
+
+        var tomkoCandidate = gamesPerPlayerPerDay
+            .OrderByDescending(x => x.GamesCount)
+            .FirstOrDefault();
+
+        if (tomkoCandidate != null && tomkoCandidate.GamesCount > 0)
+        {
+            var player = players.FirstOrDefault(p => p.Id == tomkoCandidate.PlayerId);
+            if (player != null)
+            {
+                badges.TomkoMemorial = new BadgeHolder
+                {
+                    PlayerId = player.Id,
+                    PlayerName = player.Name,
+                    Value = tomkoCandidate.GamesCount
+                };
+            }
         }
 
         // Newcomers - joined in last 7 days
@@ -390,11 +452,18 @@ public class StatsService(AppDbContext db)
         foreach (var mp in matchPlayers)
         {
             var won = mp.EloChange > 0;
+            var teamScore = GetTeamScore(mp.Match, mp.TeamNumber);
+            var opponentScore = GetOpponentScore(mp.Match, mp.TeamNumber);
+
             if (won)
             {
                 result.Wins++;
                 tempStreak = tempStreak > 0 ? tempStreak + 1 : 1;
                 result.LongestWinStreak = Math.Max(result.LongestWinStreak, tempStreak);
+
+                // Check for table sender (won 10-0)
+                if (teamScore == 10 && opponentScore == 0)
+                    result.TableSenderCount++;
             }
             else
             {
@@ -402,16 +471,12 @@ public class StatsService(AppDbContext db)
                 tempStreak = tempStreak < 0 ? tempStreak - 1 : -1;
 
                 // Check for under the table (lost with 0 score)
-                var lostTeamScore = GetTeamScore(mp.Match, mp.TeamNumber);
-                if (lostTeamScore == 0)
+                if (teamScore == 0)
                     result.UnderTableCount++;
             }
             result.CurrentStreak = tempStreak;
 
             // Position tracking - track team performance when playing each position
-            var teamScore = GetTeamScore(mp.Match, mp.TeamNumber);
-            var opponentScore = GetOpponentScore(mp.Match, mp.TeamNumber);
-
             if (mp.Position == Constants.Positions.Goalkeeper)
             {
                 result.GoalkeeperCount++;
@@ -439,6 +504,7 @@ public class StatsService(AppDbContext db)
         public int CurrentStreak { get; set; }
         public int LongestWinStreak { get; set; }
         public int UnderTableCount { get; set; }
+        public int TableSenderCount { get; set; }
         public int GoalkeeperCount { get; set; }
         public int AttackerCount { get; set; }
         public int GoalsScoredAsGk { get; set; }
@@ -516,9 +582,12 @@ public class TeamBadges
     public BadgeHolder? StreakKing { get; set; }
     public BadgeHolder? LastPlace { get; set; }
     public BadgeHolder? TableDiver { get; set; }
+    public BadgeHolder? TableSender { get; set; }
     public BadgeHolder? TopRated { get; set; }
     public BadgeHolder? BestGoalkeeper { get; set; }
     public BadgeHolder? BestAttacker { get; set; }
+    public BadgeHolder? BestWinRate { get; set; }
+    public BadgeHolder? TomkoMemorial { get; set; }
     public List<BadgeHolder> Newcomers { get; set; } = [];
 }
 
