@@ -367,10 +367,6 @@ FodyWeavers.xsd
 **/client/static/
 **/client/dist/
 Tests/Portal.Web.UITests/config.json
-**/wwwroot/img/
-**/wwwroot/fonts/
-**/wwwroot/js/
-**/wwwroot/css/
 !**/Views/Backups/
 !**/Models/Backups/
 !**/Monitoring/Logs/
