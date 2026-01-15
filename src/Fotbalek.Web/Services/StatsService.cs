@@ -346,30 +346,42 @@ public class StatsService(AppDbContext db)
             };
         }
 
-        // Table Diver - most under the table losses
-        var tableDiver = playerStreaks.OrderByDescending(ps => ps.Value.underTable).FirstOrDefault();
-        if (tableDiver.Value.underTable > 0)
+        // Table Diver - most under the table losses (can be multiple players with same count)
+        var maxUnderTable = playerStreaks.Max(ps => ps.Value.underTable);
+        if (maxUnderTable > 0)
         {
-            var player = players.First(p => p.Id == tableDiver.Key);
-            badges.TableDiver = new BadgeHolder
-            {
-                PlayerId = player.Id,
-                PlayerName = player.Name,
-                Value = tableDiver.Value.underTable
-            };
+            badges.TableDivers = playerStreaks
+                .Where(ps => ps.Value.underTable == maxUnderTable)
+                .Select(ps =>
+                {
+                    var player = players.First(p => p.Id == ps.Key);
+                    return new BadgeHolder
+                    {
+                        PlayerId = player.Id,
+                        PlayerName = player.Name,
+                        Value = maxUnderTable
+                    };
+                })
+                .ToList();
         }
 
-        // Table Sender - most 10-0 wins (sent enemies under the table)
-        var tableSender = playerStreaks.OrderByDescending(ps => ps.Value.tableSender).FirstOrDefault();
-        if (tableSender.Value.tableSender > 0)
+        // Table Sender - most 10-0 wins (can be multiple players with same count)
+        var maxTableSender = playerStreaks.Max(ps => ps.Value.tableSender);
+        if (maxTableSender > 0)
         {
-            var player = players.First(p => p.Id == tableSender.Key);
-            badges.TableSender = new BadgeHolder
-            {
-                PlayerId = player.Id,
-                PlayerName = player.Name,
-                Value = tableSender.Value.tableSender
-            };
+            badges.TableSenders = playerStreaks
+                .Where(ps => ps.Value.tableSender == maxTableSender)
+                .Select(ps =>
+                {
+                    var player = players.First(p => p.Id == ps.Key);
+                    return new BadgeHolder
+                    {
+                        PlayerId = player.Id,
+                        PlayerName = player.Name,
+                        Value = maxTableSender
+                    };
+                })
+                .ToList();
         }
 
         // Best Win Rate - highest win rate with minimum 5 games
@@ -390,27 +402,38 @@ public class StatsService(AppDbContext db)
             };
         }
 
-        // Tomko Memorial - most games played in a single day
+        // Tomko Memorial - most games played in a single day (can be multiple players with same count)
         var gamesPerPlayerPerDay = allMatchPlayers
             .GroupBy(mp => new { mp.PlayerId, Date = mp.Match.PlayedAt.Date })
             .Select(g => new { g.Key.PlayerId, g.Key.Date, GamesCount = g.Count() })
             .ToList();
 
-        var tomkoCandidate = gamesPerPlayerPerDay
-            .OrderByDescending(x => x.GamesCount)
-            .FirstOrDefault();
-
-        if (tomkoCandidate != null && tomkoCandidate.GamesCount > 0)
+        if (gamesPerPlayerPerDay.Count > 0)
         {
-            var player = players.FirstOrDefault(p => p.Id == tomkoCandidate.PlayerId);
-            if (player != null)
+            var maxGamesInDay = gamesPerPlayerPerDay.Max(x => x.GamesCount);
+            if (maxGamesInDay > 0)
             {
-                badges.TomkoMemorial = new BadgeHolder
-                {
-                    PlayerId = player.Id,
-                    PlayerName = player.Name,
-                    Value = tomkoCandidate.GamesCount
-                };
+                // Get the max games per player (a player might have multiple days with same count)
+                var playerMaxGames = gamesPerPlayerPerDay
+                    .GroupBy(x => x.PlayerId)
+                    .Select(g => new { PlayerId = g.Key, MaxGames = g.Max(x => x.GamesCount) })
+                    .Where(x => x.MaxGames == maxGamesInDay)
+                    .ToList();
+
+                badges.TomkoMemorials = playerMaxGames
+                    .Select(pg =>
+                    {
+                        var player = players.FirstOrDefault(p => p.Id == pg.PlayerId);
+                        return player != null ? new BadgeHolder
+                        {
+                            PlayerId = player.Id,
+                            PlayerName = player.Name,
+                            Value = maxGamesInDay
+                        } : null;
+                    })
+                    .Where(b => b != null)
+                    .Cast<BadgeHolder>()
+                    .ToList();
             }
         }
 
@@ -622,13 +645,13 @@ public class TeamBadges
     public BadgeHolder? HotStreak { get; set; }
     public BadgeHolder? StreakKing { get; set; }
     public BadgeHolder? LastPlace { get; set; }
-    public BadgeHolder? TableDiver { get; set; }
-    public BadgeHolder? TableSender { get; set; }
+    public List<BadgeHolder> TableDivers { get; set; } = [];
+    public List<BadgeHolder> TableSenders { get; set; } = [];
     public BadgeHolder? TopRated { get; set; }
     public BadgeHolder? BestGoalkeeper { get; set; }
     public BadgeHolder? BestAttacker { get; set; }
     public BadgeHolder? BestWinRate { get; set; }
-    public BadgeHolder? TomkoMemorial { get; set; }
+    public List<BadgeHolder> TomkoMemorials { get; set; } = [];
     public List<BadgeHolder> Newcomers { get; set; } = [];
 }
 

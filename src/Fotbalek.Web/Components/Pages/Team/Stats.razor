@@ -145,15 +145,41 @@ else
                                 </div>
                             </div>
                         }
-                        @if (_badges.TableDiver != null)
+                        @foreach (var tableDiver in _badges.TableDivers)
                         {
                             <div class="col-md-4 mb-3">
                                 <div class="d-flex align-items-center gap-3 p-3 bg-info bg-opacity-10 rounded" title="Most losses with 0 score (under the table)">
                                     <span class="fs-1">&#129681;</span>
                                     <div>
                                         <h6 class="mb-0">Table Diver</h6>
-                                        <strong>@_badges.TableDiver.PlayerName</strong>
-                                        <small class="text-muted d-block">@_badges.TableDiver.Value under-table losses</small>
+                                        <strong>@tableDiver.PlayerName</strong>
+                                        <small class="text-muted d-block">@tableDiver.Value under-table losses</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @foreach (var tableSender in _badges.TableSenders)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-success bg-opacity-10 rounded" title="Most 10-0 wins (sent enemies under the table)">
+                                    <span class="fs-1">&#128170;</span>
+                                    <div>
+                                        <h6 class="mb-0">Table Sender</h6>
+                                        <strong>@tableSender.PlayerName</strong>
+                                        <small class="text-muted d-block">@tableSender.Value enemies sent under the table</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        @foreach (var tomko in _badges.TomkoMemorials)
+                        {
+                            <div class="col-md-4 mb-3">
+                                <div class="d-flex align-items-center gap-3 p-3 bg-warning bg-opacity-10 rounded" title="Most games played in a single day">
+                                    <span class="fs-1">&#127942;</span>
+                                    <div>
+                                        <h6 class="mb-0">Tomko Memorial</h6>
+                                        <strong>@tomko.PlayerName</strong>
+                                        <small class="text-muted d-block">@tomko.Value games in one day</small>
                                     </div>
                                 </div>
                             </div>
@@ -265,7 +291,9 @@ else
             _badges.BestGoalkeeper != null ||
             _badges.BestAttacker != null ||
             _badges.LastPlace != null ||
-            _badges.TableDiver != null ||
+            _badges.TableDivers.Count > 0 ||
+            _badges.TableSenders.Count > 0 ||
+            _badges.TomkoMemorials.Count > 0 ||
             _badges.Newcomers.Count > 0
         );
     }
