@@ -11,10 +11,10 @@
                 <div class="d-flex align-items-center justify-content-end gap-2 @(team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team1Players.OrderBy(p => p.Position))
                     {
-                        <div class="text-end">
+                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none text-end @(team1Won ? "text-success" : "text-muted")">
                             <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
                             <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
-                        </div>
+                        </a>
                     }
                 </div>
             </div>
@@ -31,10 +31,10 @@
                 <div class="d-flex align-items-center gap-2 @(!team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team2Players.OrderBy(p => p.Position))
                     {
-                        <div>
+                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none @(!team1Won ? "text-success" : "text-muted")">
                             <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
                             <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
-                        </div>
+                        </a>
                     }
                 </div>
             </div>

@@ -198,25 +198,28 @@ else if (_player != null && _stats != null)
                         }
                     </div>
                     <div class="card-body">
-                        @if (_recentMatches.Count > 0)
+                        @if (_recentMatches.Count > 0 && _lastLoadedPlayerId == PlayerId)
                         {
                             @foreach (var match in _recentMatches)
                             {
-                                var playerMatch = match.MatchPlayers.First(mp => mp.PlayerId == PlayerId);
-                                var playerTeamWon = (playerMatch.TeamNumber == 1 && match.Team1Score > match.Team2Score) ||
-                                                   (playerMatch.TeamNumber == 2 && match.Team2Score > match.Team1Score);
-                                <div class="match-history-item mb-2 p-2 rounded @(playerTeamWon ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
-                                    <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
-                                    <div class="d-flex justify-content-between align-items-center small px-2">
-                                        <span class="text-muted">
-                                            <i class="bi bi-calendar3 me-1"></i>
-                                            <span class="match-date" data-utc="@match.PlayedAt.ToString("o")">@match.PlayedAt.ToString("MMM dd, yyyy")</span>
-                                        </span>
-                                        <span class="@(playerTeamWon ? "text-success" : "text-danger") fw-bold">
-                                            @(playerMatch.EloChange > 0 ? $"+{playerMatch.EloChange}" : playerMatch.EloChange.ToString()) ELO
-                                        </span>
+                                var playerMatch = match.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == PlayerId);
+                                if (playerMatch != null)
+                                {
+                                    var playerTeamWon = (playerMatch.TeamNumber == 1 && match.Team1Score > match.Team2Score) ||
+                                                       (playerMatch.TeamNumber == 2 && match.Team2Score > match.Team1Score);
+                                    <div class="match-history-item mb-2 p-2 rounded @(playerTeamWon ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
+                                        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
+                                        <div class="d-flex justify-content-between align-items-center small px-2">
+                                            <span class="text-muted">
+                                                <i class="bi bi-calendar3 me-1"></i>
+                                                <span class="match-date" data-utc="@match.PlayedAt.ToString("o")">@match.PlayedAt.ToString("MMM dd, yyyy")</span>
+                                            </span>
+                                            <span class="@(playerTeamWon ? "text-success" : "text-danger") fw-bold">
+                                                @(playerMatch.EloChange > 0 ? $"+{playerMatch.EloChange}" : playerMatch.EloChange.ToString()) ELO
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
+                                }
                             }
                         }
                         else
@@ -253,30 +256,55 @@ else
     private List<Match> _recentMatches = [];
     private int _totalMatchCount;
     private bool _loading = true;
+    private int _lastLoadedPlayerId;
+    private bool _chartRendered;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender || (_lastLoadedPlayerId != PlayerId && !_loading))
         {
-            _team = await AuthService.GetCurrentTeamAsync();
-            if (_team != null)
-            {
-                _player = await PlayerService.GetByIdWithTeamAsync(PlayerId);
-                if (_player != null && _player.TeamId == _team.Id)
-                {
-                    _stats = await StatsService.GetPlayerStatsAsync(PlayerId);
-                    _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches);
-                    _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId);
-                }
-            }
-            _loading = false;
-            StateHasChanged();
+            await LoadPlayerDataAsync();
+        }
+        else if (_stats?.EloHistory.Count > 1 && !_chartRendered)
+        {
+            await RenderChart();
+            _chartRendered = true;
+        }
+    }
 
-            // Render chart after component is rendered
-            if (_stats?.EloHistory.Count > 1)
+    private async Task LoadPlayerDataAsync()
+    {
+        _loading = true;
+        _chartRendered = false;
+        StateHasChanged();
+
+        _team = await AuthService.GetCurrentTeamAsync();
+        if (_team != null)
+        {
+            _player = await PlayerService.GetByIdWithTeamAsync(PlayerId);
+            if (_player != null && _player.TeamId == _team.Id)
             {
-                await RenderChart();
+                _stats = await StatsService.GetPlayerStatsAsync(PlayerId);
+                _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches);
+                _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId);
             }
+            else
+            {
+                _player = null;
+                _stats = null;
+                _recentMatches = [];
+                _totalMatchCount = 0;
+            }
+        }
+        _lastLoadedPlayerId = PlayerId;
+        _loading = false;
+        StateHasChanged();
+
+        // Render chart after data is loaded
+        if (_stats?.EloHistory.Count > 1)
+        {
+            await RenderChart();
+            _chartRendered = true;
         }
     }
 
