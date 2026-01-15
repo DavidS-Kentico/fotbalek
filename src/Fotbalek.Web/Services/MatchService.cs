@@ -234,4 +234,21 @@ public class MatchService(AppDbContext db, EloService eloService)
 
         return matches.Count > 0 ? matches.Average() : 0;
     }
+
+    public async Task<List<Match>> GetByPlayerAsync(int playerId, int count = 10)
+    {
+        return await db.Matches
+            .Where(m => m.MatchPlayers.Any(mp => mp.PlayerId == playerId))
+            .Include(m => m.MatchPlayers)
+                .ThenInclude(mp => mp.Player)
+            .OrderByDescending(m => m.PlayedAt)
+            .Take(count)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetCountByPlayerAsync(int playerId)
+    {
+        return await db.Matches
+            .CountAsync(m => m.MatchPlayers.Any(mp => mp.PlayerId == playerId));
+    }
 }
