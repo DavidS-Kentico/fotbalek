@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject AuthService AuthService
 @inject StatsService StatsService
+@inject BadgeService BadgeService
 
 <PageTitle>Rankings - Foosball Manager</PageTitle>
 
@@ -43,10 +44,16 @@ else
                                             <RankBadge Rank="@player.Rank" Large="true" />
                                         </td>
                                         <td>
-                                            <a href="/@TeamCode/players/@player.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
-                                                <Avatar AvatarId="@player.AvatarId" Size="sm" />
-                                                <span>@player.PlayerName</span>
-                                            </a>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <a href="/@TeamCode/players/@player.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                    <Avatar AvatarId="@player.AvatarId" Size="sm" />
+                                                    <span>@player.PlayerName</span>
+                                                </a>
+                                                @foreach (var badge in BadgeService.GetPlayerBadges(player.PlayerId, _badges))
+                                                {
+                                                    <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
+                                                }
+                                            </div>
                                         </td>
                                         <td class="text-end fw-bold">@player.Elo</td>
                                         <td class="text-end">@player.Matches</td>
@@ -147,6 +154,7 @@ else
     private bool _loading = true;
     private List<PlayerRanking> _rankings = [];
     private List<PairStats> _pairRankings = [];
+    private TeamBadges? _badges;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -157,6 +165,7 @@ else
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);
                 _pairRankings = await StatsService.GetPairRankingsAsync(_team.Id);
+                _badges = await StatsService.GetBadgesAsync(_team.Id);
             }
             _loading = false;
             StateHasChanged();
