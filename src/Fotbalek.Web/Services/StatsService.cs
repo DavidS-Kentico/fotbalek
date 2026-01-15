@@ -98,6 +98,41 @@ public class StatsService(AppDbContext db)
             }
         }
 
+        // Enemy stats (min 3 games against)
+        var enemyStats = matchPlayers
+            .SelectMany(mp => mp.Match.MatchPlayers
+                .Where(p => p.TeamNumber != mp.TeamNumber)) // Opponents are on different team
+            .GroupBy(p => p.PlayerId)
+            .Select(g => new
+            {
+                EnemyId = g.Key,
+                EnemyName = g.First().Player.Name,
+                Games = g.Count(),
+                // Count wins from player's perspective: enemy lost means player won
+                Wins = g.Count(p => p.EloChange < 0)
+            })
+            .Where(e => e.Games >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .ToList();
+
+        if (enemyStats.Count != 0)
+        {
+            // Easiest enemy = highest win rate against them
+            var easiest = enemyStats.OrderByDescending(e => (double)e.Wins / e.Games).First();
+            stats.EasiestEnemy = easiest.EnemyName;
+            stats.EasiestEnemyWinRate = (double)easiest.Wins / easiest.Games * 100;
+            stats.EasiestEnemyGames = easiest.Games;
+
+            // Only show hardest enemy if there's more than one enemy (to avoid same as easiest)
+            if (enemyStats.Count > 1)
+            {
+                // Hardest enemy = lowest win rate against them
+                var hardest = enemyStats.OrderBy(e => (double)e.Wins / e.Games).First();
+                stats.HardestEnemy = hardest.EnemyName;
+                stats.HardestEnemyWinRate = (double)hardest.Wins / hardest.Games * 100;
+                stats.HardestEnemyGames = hardest.Games;
+            }
+        }
+
         // ELO history for chart
         stats.EloHistory = matchPlayers
             .Select(mp => new EloHistoryPoint
@@ -538,6 +573,12 @@ public class PlayerStats
     public string? WorstPartner { get; set; }
     public double WorstPartnerWinRate { get; set; }
     public int WorstPartnerGames { get; set; }
+    public string? EasiestEnemy { get; set; }
+    public double EasiestEnemyWinRate { get; set; }
+    public int EasiestEnemyGames { get; set; }
+    public string? HardestEnemy { get; set; }
+    public double HardestEnemyWinRate { get; set; }
+    public int HardestEnemyGames { get; set; }
     public int UnderTableCount { get; set; }
     public List<EloHistoryPoint> EloHistory { get; set; } = [];
 }
