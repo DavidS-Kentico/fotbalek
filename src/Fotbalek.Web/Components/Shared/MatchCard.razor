@@ -20,11 +20,13 @@
             </div>
 
             <div class="col-auto text-center px-3">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="fs-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@Match.Team1Score</span>
-                    <span class="text-muted">:</span>
-                    <span class="fs-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@Match.Team2Score</span>
-                </div>
+                <a href="/@TeamCode/matches/@Match.Id" class="text-decoration-none">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@Match.Team1Score</span>
+                        <span class="text-muted">:</span>
+                        <span class="fs-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@Match.Team2Score</span>
+                    </div>
+                </a>
             </div>
 
             <div class="col">
@@ -48,10 +50,6 @@
                         <i class="bi bi-calendar3 me-1"></i>
                         <span class="match-date" data-utc="@Match.PlayedAt.ToString("o")">@Match.PlayedAt.ToString("g")</span>
                     </small>
-                    @if (ShowLink && TeamCode != null)
-                    {
-                        <a href="@($"/{TeamCode}/matches/{Match.Id}")" class="ms-2 small">Details</a>
-                    }
                 </div>
             </div>
         }
@@ -62,5 +60,4 @@
     [Parameter, EditorRequired] public Match Match { get; set; } = null!;
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
-    [Parameter] public bool ShowLink { get; set; } = true;
 }
