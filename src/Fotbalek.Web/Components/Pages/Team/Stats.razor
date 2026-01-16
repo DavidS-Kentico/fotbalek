@@ -18,100 +18,148 @@ else
     <div class="container py-4">
         <h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Statistics</h2>
 
-        <!-- Badges -->
-        @if (_badges != null && HasAnyBadge())
+        <!-- Time Period Filter -->
+        <div class="card mb-4">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <span class="text-muted small"><i class="bi bi-funnel me-1"></i>Time Period:</span>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="period" id="periodAll" value="all" checked="@(_selectedPeriod == "all")" @onchange="@(() => OnPeriodChanged("all"))">
+                        <label class="btn btn-outline-success btn-sm" for="periodAll">All</label>
+
+                        <input type="radio" class="btn-check" name="period" id="periodToday" value="today" checked="@(_selectedPeriod == "today")" @onchange="@(() => OnPeriodChanged("today"))">
+                        <label class="btn btn-outline-success btn-sm" for="periodToday">Today</label>
+
+                        <input type="radio" class="btn-check" name="period" id="periodWeek" value="week" checked="@(_selectedPeriod == "week")" @onchange="@(() => OnPeriodChanged("week"))">
+                        <label class="btn btn-outline-success btn-sm" for="periodWeek">This Week</label>
+
+                        <input type="radio" class="btn-check" name="period" id="periodMonth" value="month" checked="@(_selectedPeriod == "month")" @onchange="@(() => OnPeriodChanged("month"))">
+                        <label class="btn btn-outline-success btn-sm" for="periodMonth">This Month</label>
+
+                        <input type="radio" class="btn-check" name="period" id="periodCustom" value="custom" checked="@(_selectedPeriod == "custom")" @onchange="@(() => OnPeriodChanged("custom"))">
+                        <label class="btn btn-outline-success btn-sm" for="periodCustom">Custom</label>
+                    </div>
+
+                    @if (_selectedPeriod == "custom")
+                    {
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                                   value="@_customStartDate?.ToString("yyyy-MM-dd")"
+                                   max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                                   @onchange="OnStartDateChanged" />
+                            <span class="text-muted">to</span>
+                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                                   value="@_customEndDate?.ToString("yyyy-MM-dd")"
+                                   min="@_customStartDate?.ToString("yyyy-MM-dd")"
+                                   max="@GetMaxEndDate().ToString("yyyy-MM-dd")"
+                                   @onchange="OnEndDateChanged" />
+                        </div>
+                    }
+
+                    @if (_selectedPeriod != "all")
+                    {
+                        <span class="badge bg-secondary">
+                            @GetFilterDescription()
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges (filtered by period) -->
+        @if (HasAnyFilteredBadge())
         {
             <div class="card mb-4">
                 <div class="card-header py-2">
-                    <h6 class="mb-0"><i class="bi bi-award me-2"></i>Current Badge Holders</h6>
+                    <h6 class="mb-0"><i class="bi bi-award me-2"></i>@(_selectedPeriod == "all" ? "Badge Holders" : "Period Leaders")</h6>
                 </div>
                 <div class="card-body py-2">
                     <div class="row g-2">
-                        @if (_badges.TopRated != null)
+                        @if (_filteredBadges.TopRated != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="Player with the highest current ELO rating">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the highest current ELO rating" : "Best ELO gain in period")">
                                     <span class="fs-5">&#11088;</span>
                                     <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Top Rated</div>
-                                        <div class="text-truncate">@_badges.TopRated.PlayerName <span class="text-muted">(@_badges.TopRated.Value)</span></div>
+                                        <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Top Rated" : "Top Gainer")</div>
+                                        <div class="text-truncate">@_filteredBadges.TopRated.PlayerName <span class="text-muted">(@(_selectedPeriod == "all" ? _filteredBadges.TopRated.Value.ToString() : $"+{_filteredBadges.TopRated.Value}"))</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.HotStreak != null)
+                        @if (_filteredBadges.HotStreak != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
                                 <div class="d-flex align-items-center gap-2 p-2 bg-danger bg-opacity-10 rounded small" title="Player with the longest active winning streak">
                                     <span class="fs-5">&#128293;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Hot Streak</div>
-                                        <div class="text-truncate">@_badges.HotStreak.PlayerName <span class="text-muted">(@_badges.HotStreak.Value wins)</span></div>
+                                        <div class="text-truncate">@_filteredBadges.HotStreak.PlayerName <span class="text-muted">(@_filteredBadges.HotStreak.Value wins)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.StreakKing != null)
+                        @if (_filteredBadges.StreakKing != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="Player with the longest winning streak in history">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the longest winning streak in history" : "Longest winning streak in period")">
                                     <span class="fs-5">&#128081;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Streak King</div>
-                                        <div class="text-truncate">@_badges.StreakKing.PlayerName <span class="text-muted">(@_badges.StreakKing.Value)</span></div>
+                                        <div class="text-truncate">@_filteredBadges.StreakKing.PlayerName <span class="text-muted">(@_filteredBadges.StreakKing.Value)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.BestGoalkeeper != null)
+                        @if (_filteredBadges.BestGoalkeeper != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 rounded small" title="Goalkeeper with lowest goals conceded per match (min 5 games)">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 rounded small" title="Goalkeeper with lowest goals conceded per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
                                     <span class="fs-5">&#129311;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Best GK</div>
-                                        <div class="text-truncate">@_badges.BestGoalkeeper.PlayerName <span class="text-muted">(@((_badges.BestGoalkeeper.Value / 10.0).ToString("F1"))/g)</span></div>
+                                        <div class="text-truncate">@_filteredBadges.BestGoalkeeper.PlayerName <span class="text-muted">(@((_filteredBadges.BestGoalkeeper.Value / 10.0).ToString("F1"))/g)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.BestAttacker != null)
+                        @if (_filteredBadges.BestAttacker != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-danger bg-opacity-10 rounded small" title="Attacker with highest goals scored per match (min 5 games)">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-danger bg-opacity-10 rounded small" title="Attacker with highest goals scored per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
                                     <span class="fs-5">&#127919;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Best ATK</div>
-                                        <div class="text-truncate">@_badges.BestAttacker.PlayerName <span class="text-muted">(@((_badges.BestAttacker.Value / 10.0).ToString("F1"))/g)</span></div>
+                                        <div class="text-truncate">@_filteredBadges.BestAttacker.PlayerName <span class="text-muted">(@((_filteredBadges.BestAttacker.Value / 10.0).ToString("F1"))/g)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.BestWinRate != null)
+                        @if (_filteredBadges.BestWinRate != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="Best win rate (min 5 games)">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="Best win rate (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
                                     <span class="fs-5">&#128200;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Best Win%</div>
-                                        <div class="text-truncate">@_badges.BestWinRate.PlayerName <span class="text-muted">(@_badges.BestWinRate.Value%)</span></div>
+                                        <div class="text-truncate">@_filteredBadges.BestWinRate.PlayerName <span class="text-muted">(@_filteredBadges.BestWinRate.Value%)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @if (_badges.LastPlace != null)
+                        @if (_filteredBadges.LastPlace != null)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-10 rounded small" title="Player with the lowest current ELO rating">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the lowest current ELO rating" : "Worst ELO change in period")">
                                     <span class="fs-5">&#128168;</span>
                                     <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Last Place</div>
-                                        <div class="text-truncate">@_badges.LastPlace.PlayerName <span class="text-muted">(@_badges.LastPlace.Value)</span></div>
+                                        <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Last Place" : "Top Loser")</div>
+                                        <div class="text-truncate">@_filteredBadges.LastPlace.PlayerName <span class="text-muted">(@_filteredBadges.LastPlace.Value)</span></div>
                                     </div>
                                 </div>
                             </div>
                         }
-                        @foreach (var tableDiver in _badges.TableDivers)
+                        @foreach (var tableDiver in _filteredBadges.TableDivers)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
                                 <div class="d-flex align-items-center gap-2 p-2 bg-info bg-opacity-10 rounded small" title="Most losses with 0 score (under the table)">
@@ -123,7 +171,7 @@ else
                                 </div>
                             </div>
                         }
-                        @foreach (var tableSender in _badges.TableSenders)
+                        @foreach (var tableSender in _filteredBadges.TableSenders)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
                                 <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded small" title="Most 10-0 wins (sent enemies under the table)">
@@ -135,7 +183,7 @@ else
                                 </div>
                             </div>
                         }
-                        @foreach (var tomko in _badges.TomkoMemorials)
+                        @foreach (var tomko in _filteredBadges.TomkoMemorials)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
                                 <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="Most games played in a single day">
@@ -143,18 +191,6 @@ else
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Tomko Memorial</div>
                                         <div class="text-truncate">@tomko.PlayerName <span class="text-muted">(@tomko.Value/day)</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                        @foreach (var newcomer in _badges.Newcomers)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded small" title="Joined the team in the last 7 days">
-                                    <span class="fs-5">&#10024;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Newcomer</div>
-                                        <div class="text-truncate">@newcomer.PlayerName</div>
                                     </div>
                                 </div>
                             </div>
@@ -170,8 +206,8 @@ else
                 <div class="card bg-success text-white h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-people fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_playerCount</h3>
-                        <small>Active Players</small>
+                        <h3 class="mb-0">@_filteredPlayerCount</h3>
+                        <small>@(_selectedPeriod == "all" ? "Active Players" : "Players in Period")</small>
                     </div>
                 </div>
             </div>
@@ -179,8 +215,8 @@ else
                 <div class="card bg-primary text-white h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-controller fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_matchCount</h3>
-                        <small>Total Matches</small>
+                        <h3 class="mb-0">@_filteredMatchCount</h3>
+                        <small>@(_selectedPeriod == "all" ? "Total Matches" : "Matches in Period")</small>
                     </div>
                 </div>
             </div>
@@ -188,8 +224,8 @@ else
                 <div class="card bg-info text-white h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-bullseye fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_totalGoals</h3>
-                        <small>Total Goals</small>
+                        <h3 class="mb-0">@_filteredTotalGoals</h3>
+                        <small>@(_selectedPeriod == "all" ? "Total Goals" : "Goals in Period")</small>
                     </div>
                 </div>
             </div>
@@ -197,7 +233,7 @@ else
                 <div class="card bg-warning text-dark h-100">
                     <div class="card-body text-center">
                         <i class="bi bi-calculator fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_avgGoalsPerMatch.ToString("F1")</h3>
+                        <h3 class="mb-0">@_filteredAvgGoalsPerMatch.ToString("F1")</h3>
                         <small>Avg Goals/Match</small>
                     </div>
                 </div>
@@ -229,7 +265,7 @@ else
                         <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Win Rate Distribution</h6>
                     </div>
                     <div class="card-body">
-                        @if (_rankings.Count > 0)
+                        @if (_filteredRankings.Count > 0)
                         {
                             <canvas id="winRateChart" height="250"></canvas>
                         }
@@ -250,7 +286,7 @@ else
                         <h6 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Games per Player</h6>
                     </div>
                     <div class="card-body">
-                        @if (_rankings.Count > 0)
+                        @if (_filteredRankings.Count > 0)
                         {
                             <canvas id="gamesPerPlayerChart" height="250"></canvas>
                         }
@@ -264,7 +300,7 @@ else
             <div class="col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Matches Over Time (Last 8 Weeks)</h6>
+                        <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Matches Over Time</h6>
                     </div>
                     <div class="card-body">
                         @if (_matchesOverTime.Count > 0)
@@ -305,7 +341,7 @@ else
                         <h6 class="mb-0"><i class="bi bi-people-fill me-2"></i>Most Common Pairs</h6>
                     </div>
                     <div class="card-body">
-                        @if (_pairRankings.Count > 0)
+                        @if (_filteredPairStats.Count > 0)
                         {
                             <canvas id="commonPairsChart" height="250"></canvas>
                         }
@@ -325,14 +361,29 @@ else
 
     private Team? _team;
     private bool _loading = true;
+
+    // All-time data (used for badges and ELO chart)
     private List<PlayerRanking> _rankings = [];
-    private List<PairStats> _pairRankings = [];
     private TeamBadges? _badges;
     private int _playerCount;
-    private int _matchCount;
-    private int _totalGoals;
-    private double _avgGoalsPerMatch;
+
+    // All matches loaded once
     private List<Match> _allMatches = [];
+
+    // Filtering state
+    private string _selectedPeriod = "all";
+    private DateOnly? _customStartDate;
+    private DateOnly? _customEndDate;
+
+    // Filtered data
+    private List<Match> _filteredMatches = [];
+    private List<FilteredPlayerRanking> _filteredRankings = [];
+    private List<FilteredPairStats> _filteredPairStats = [];
+    private FilteredBadges _filteredBadges = new();
+    private int _filteredPlayerCount;
+    private int _filteredMatchCount;
+    private int _filteredTotalGoals;
+    private double _filteredAvgGoalsPerMatch;
     private Dictionary<string, int> _matchesOverTime = [];
     private int[] _dayOfWeekStats = new int[7];
 
@@ -343,22 +394,20 @@ else
             _team = await AuthService.GetCurrentTeamAsync();
             if (_team != null)
             {
+                // Load all-time data (for badges and ELO chart)
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);
-                _pairRankings = await StatsService.GetPairRankingsAsync(_team.Id);
                 _badges = await StatsService.GetBadgesAsync(_team.Id);
                 _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
-                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id);
 
-                // Get all matches for stats calculations
+                // Get all matches for filtering
                 _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);
-                _totalGoals = _allMatches.Sum(m => m.Team1Score + m.Team2Score);
-                _avgGoalsPerMatch = _matchCount > 0 ? (double)_totalGoals / _matchCount : 0;
 
-                // Calculate matches over time (last 8 weeks)
-                CalculateMatchesOverTime();
+                // Initialize custom date range
+                _customEndDate = DateOnly.FromDateTime(DateTime.Today);
+                _customStartDate = _customEndDate.Value.AddMonths(-1);
 
-                // Calculate day of week stats
-                CalculateDayOfWeekStats();
+                // Apply initial filter
+                ApplyFilter();
             }
             _loading = false;
             StateHasChanged();
@@ -368,64 +417,535 @@ else
         }
     }
 
+    private void ApplyFilter()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        _filteredMatches = _selectedPeriod switch
+        {
+            "today" => _allMatches.Where(m => DateOnly.FromDateTime(m.PlayedAt.Date) == today).ToList(),
+            "week" => _allMatches.Where(m => m.PlayedAt >= now.AddDays(-7)).ToList(),
+            "month" => _allMatches.Where(m => m.PlayedAt >= now.AddMonths(-1)).ToList(),
+            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
+                _allMatches.Where(m =>
+                    DateOnly.FromDateTime(m.PlayedAt.Date) >= _customStartDate.Value &&
+                    DateOnly.FromDateTime(m.PlayedAt.Date) <= _customEndDate.Value).ToList(),
+            _ => _allMatches.ToList()
+        };
+
+        RecalculateStats();
+    }
+
+    private void RecalculateStats()
+    {
+        // Basic stats
+        _filteredMatchCount = _filteredMatches.Count;
+        _filteredTotalGoals = _filteredMatches.Sum(m => m.Team1Score + m.Team2Score);
+        _filteredAvgGoalsPerMatch = _filteredMatchCount > 0 ? (double)_filteredTotalGoals / _filteredMatchCount : 0;
+
+        // Player stats from filtered matches
+        var playerStats = new Dictionary<int, (string Name, int AvatarId, int Games, int Wins)>();
+
+        foreach (var match in _filteredMatches)
+        {
+            foreach (var mp in match.MatchPlayers)
+            {
+                if (!playerStats.ContainsKey(mp.PlayerId))
+                {
+                    playerStats[mp.PlayerId] = (mp.Player.Name, mp.Player.AvatarId, 0, 0);
+                }
+
+                var current = playerStats[mp.PlayerId];
+                var won = mp.EloChange > 0;
+                playerStats[mp.PlayerId] = (current.Name, current.AvatarId, current.Games + 1, current.Wins + (won ? 1 : 0));
+            }
+        }
+
+        _filteredPlayerCount = playerStats.Count;
+
+        _filteredRankings = playerStats
+            .Select(kvp => new FilteredPlayerRanking
+            {
+                PlayerId = kvp.Key,
+                PlayerName = kvp.Value.Name,
+                AvatarId = kvp.Value.AvatarId,
+                Matches = kvp.Value.Games,
+                Wins = kvp.Value.Wins,
+                WinRate = kvp.Value.Games > 0 ? (double)kvp.Value.Wins / kvp.Value.Games * 100 : 0
+            })
+            .OrderByDescending(r => r.WinRate)
+            .ThenByDescending(r => r.Matches)
+            .ToList();
+
+        // Pair stats from filtered matches
+        var pairStats = new Dictionary<string, FilteredPairStats>();
+
+        foreach (var match in _filteredMatches)
+        {
+            ProcessTeamPairFiltered(match, 1, pairStats);
+            ProcessTeamPairFiltered(match, 2, pairStats);
+        }
+
+        _filteredPairStats = pairStats.Values
+            .OrderByDescending(p => p.Matches)
+            .Take(8)
+            .ToList();
+
+        // Calculate matches over time (dynamic weeks based on filter period)
+        CalculateMatchesOverTime();
+
+        // Calculate day of week stats
+        CalculateDayOfWeekStats();
+
+        // Calculate filtered badges
+        CalculateFilteredBadges();
+    }
+
+    private static void ProcessTeamPairFiltered(Match match, int teamNumber, Dictionary<string, FilteredPairStats> pairStats)
+    {
+        var teamPlayers = match.MatchPlayers
+            .Where(mp => mp.TeamNumber == teamNumber)
+            .OrderBy(mp => mp.PlayerId)
+            .ToList();
+
+        if (teamPlayers.Count != 2) return;
+
+        var key = $"{teamPlayers[0].PlayerId}-{teamPlayers[1].PlayerId}";
+        var won = teamPlayers[0].EloChange > 0;
+
+        if (!pairStats.TryGetValue(key, out var pair))
+        {
+            pair = new FilteredPairStats
+            {
+                Player1Name = teamPlayers[0].Player.Name,
+                Player2Name = teamPlayers[1].Player.Name
+            };
+            pairStats[key] = pair;
+        }
+        pair.Matches++;
+        if (won) pair.Wins++;
+    }
+
     private void CalculateMatchesOverTime()
     {
-        var today = DateTimeOffset.UtcNow.Date;
-        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        _matchesOverTime.Clear();
 
-        for (int i = 7; i >= 0; i--)
+        if (_filteredMatches.Count == 0) return;
+
+        var (startDate, endDate) = GetFilterDateRange();
+        var totalDays = (endDate.ToDateTime(TimeOnly.MinValue) - startDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+
+        // If less than 14 days, show daily data instead of weekly
+        if (totalDays < 14)
         {
-            var weekStart = startOfWeek.AddDays(-7 * i);
-            var weekEnd = weekStart.AddDays(7);
-            var weekLabel = weekStart.ToString("MMM dd");
-            var count = _allMatches.Count(m => m.PlayedAt.Date >= weekStart && m.PlayedAt.Date < weekEnd);
-            _matchesOverTime[weekLabel] = count;
+            // Show each day
+            for (int i = 0; i < totalDays; i++)
+            {
+                var day = startDate.AddDays(i);
+                var dayLabel = day.ToString("MMM dd");
+                var count = _filteredMatches.Count(m => DateOnly.FromDateTime(m.PlayedAt.Date) == day);
+                _matchesOverTime[dayLabel] = count;
+            }
         }
+        else
+        {
+            // Show weekly data
+            var weeksCount = Math.Max(1, (int)Math.Ceiling(totalDays / 7.0));
+
+            // Limit to reasonable number of weeks for display
+            weeksCount = Math.Min(weeksCount, 13);
+
+            for (int i = weeksCount - 1; i >= 0; i--)
+            {
+                var weekEnd = endDate.AddDays(-7 * i);
+                var weekStart = weekEnd.AddDays(-6);
+                if (weekStart < startDate) weekStart = startDate;
+
+                var weekLabel = weekStart.ToString("MMM dd");
+                var count = _filteredMatches.Count(m =>
+                    DateOnly.FromDateTime(m.PlayedAt.Date) >= weekStart &&
+                    DateOnly.FromDateTime(m.PlayedAt.Date) <= weekEnd);
+                _matchesOverTime[weekLabel] = count;
+            }
+        }
+    }
+
+    private (DateOnly startDate, DateOnly endDate) GetFilterDateRange()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        return _selectedPeriod switch
+        {
+            "today" => (today, today),
+            "week" => (today.AddDays(-7), today),
+            "month" => (today.AddMonths(-1), today),
+            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
+                (_customStartDate.Value, _customEndDate.Value),
+            _ => _allMatches.Count > 0
+                ? (DateOnly.FromDateTime(_allMatches.Min(m => m.PlayedAt.Date)), today)
+                : (today.AddMonths(-1), today)
+        };
     }
 
     private void CalculateDayOfWeekStats()
     {
         _dayOfWeekStats = new int[7];
-        foreach (var match in _allMatches)
+        foreach (var match in _filteredMatches)
         {
             var dayIndex = (int)match.PlayedAt.DayOfWeek;
             _dayOfWeekStats[dayIndex]++;
         }
     }
 
-    private bool HasAnyBadge()
+    private async Task OnPeriodChanged(string period)
     {
-        return _badges != null && (
-            _badges.TopRated != null ||
-            _badges.HotStreak != null ||
-            _badges.StreakKing != null ||
-            _badges.BestGoalkeeper != null ||
-            _badges.BestAttacker != null ||
-            _badges.LastPlace != null ||
-            _badges.TableDivers.Count > 0 ||
-            _badges.TableSenders.Count > 0 ||
-            _badges.TomkoMemorials.Count > 0 ||
-            _badges.Newcomers.Count > 0
-        );
+        _selectedPeriod = period;
+        ApplyFilter();
+        StateHasChanged();
+        await RenderCharts();
+    }
+
+    private async Task OnStartDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            _customStartDate = date;
+
+            // Ensure end date is within 3 months of start
+            var maxEnd = date.AddMonths(3);
+            if (_customEndDate > maxEnd)
+            {
+                _customEndDate = maxEnd;
+            }
+
+            // Ensure end date is not before start date
+            if (_customEndDate < _customStartDate)
+            {
+                _customEndDate = _customStartDate;
+            }
+
+            ApplyFilter();
+            StateHasChanged();
+            await RenderCharts();
+        }
+    }
+
+    private async Task OnEndDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            _customEndDate = date;
+            ApplyFilter();
+            StateHasChanged();
+            await RenderCharts();
+        }
+    }
+
+    private DateOnly GetMaxEndDate()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (_customStartDate.HasValue)
+        {
+            var maxFromStart = _customStartDate.Value.AddMonths(3);
+            return maxFromStart < today ? maxFromStart : today;
+        }
+        return today;
+    }
+
+    private string GetFilterDescription()
+    {
+        var (start, end) = GetFilterDateRange();
+        return $"{start:MMM dd, yyyy} - {end:MMM dd, yyyy} ({_filteredMatchCount} matches)";
+    }
+
+    private bool HasAnyFilteredBadge()
+    {
+        return _filteredBadges.TopRated != null ||
+            _filteredBadges.HotStreak != null ||
+            _filteredBadges.StreakKing != null ||
+            _filteredBadges.BestGoalkeeper != null ||
+            _filteredBadges.BestAttacker != null ||
+            _filteredBadges.LastPlace != null ||
+            _filteredBadges.TableDivers.Count > 0 ||
+            _filteredBadges.TableSenders.Count > 0 ||
+            _filteredBadges.TomkoMemorials.Count > 0 ||
+            _filteredBadges.BestWinRate != null;
+    }
+
+    private void CalculateFilteredBadges()
+    {
+        _filteredBadges = new FilteredBadges();
+
+        if (_filteredMatches.Count == 0) return;
+
+        // For "all" period, use the pre-calculated badges (without newcomers)
+        if (_selectedPeriod == "all" && _badges != null)
+        {
+            _filteredBadges.TopRated = _badges.TopRated;
+            _filteredBadges.HotStreak = _badges.HotStreak;
+            _filteredBadges.StreakKing = _badges.StreakKing;
+            _filteredBadges.BestGoalkeeper = _badges.BestGoalkeeper;
+            _filteredBadges.BestAttacker = _badges.BestAttacker;
+            _filteredBadges.BestWinRate = _badges.BestWinRate;
+            _filteredBadges.LastPlace = _badges.LastPlace;
+            _filteredBadges.TableDivers = _badges.TableDivers;
+            _filteredBadges.TableSenders = _badges.TableSenders;
+            _filteredBadges.TomkoMemorials = _badges.TomkoMemorials;
+            return;
+        }
+
+        // Calculate badges from filtered matches
+        var orderedMatches = _filteredMatches.OrderBy(m => m.PlayedAt).ToList();
+
+        // Track per-player stats
+        var playerData = new Dictionary<int, PlayerBadgeData>();
+
+        foreach (var match in orderedMatches)
+        {
+            var team1Won = match.Team1Score > match.Team2Score;
+            var isTableSend = (team1Won && match.Team1Score == 10 && match.Team2Score == 0) ||
+                              (!team1Won && match.Team2Score == 10 && match.Team1Score == 0);
+
+            foreach (var mp in match.MatchPlayers)
+            {
+                if (!playerData.ContainsKey(mp.PlayerId))
+                {
+                    playerData[mp.PlayerId] = new PlayerBadgeData { Name = mp.Player.Name };
+                }
+
+                var data = playerData[mp.PlayerId];
+                data.TotalGames++;
+                data.TotalEloChange += mp.EloChange;
+
+                var won = mp.EloChange > 0;
+
+                if (won)
+                {
+                    data.Wins++;
+                    data.CurrentStreak++;
+                    if (data.CurrentStreak > data.LongestStreak)
+                        data.LongestStreak = data.CurrentStreak;
+                }
+                else
+                {
+                    data.CurrentStreak = 0;
+                }
+
+                // Table diver: lost 0-10
+                var playerTeamWon = (mp.TeamNumber == 1 && team1Won) || (mp.TeamNumber == 2 && !team1Won);
+                if (!playerTeamWon)
+                {
+                    var opponentScore = mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
+                    var playerScore = mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
+                    if (opponentScore == 10 && playerScore == 0)
+                        data.UnderTableLosses++;
+                }
+
+                // Table sender: won 10-0
+                if (playerTeamWon && isTableSend)
+                    data.TableSends++;
+
+                // Position stats
+                if (mp.Position == "Goalkeeper")
+                {
+                    data.GkGames++;
+                    data.GkGoalsConceded += mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
+                }
+                else if (mp.Position == "Attacker")
+                {
+                    data.AtkGames++;
+                    data.AtkGoalsScored += mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
+                }
+
+                // Games per day tracking
+                var dateKey = match.PlayedAt.Date;
+                if (!data.GamesPerDay.ContainsKey(dateKey))
+                    data.GamesPerDay[dateKey] = 0;
+                data.GamesPerDay[dateKey]++;
+            }
+        }
+
+        var minGames = Constants.TimeThresholds.MinGamesForPositionBadge;
+
+        // Top Rated (best ELO change in period)
+        var topGainer = playerData.OrderByDescending(p => p.Value.TotalEloChange).FirstOrDefault();
+        if (topGainer.Value != null && topGainer.Value.TotalEloChange > 0)
+        {
+            _filteredBadges.TopRated = new BadgeHolder
+            {
+                PlayerId = topGainer.Key,
+                PlayerName = topGainer.Value.Name,
+                Value = topGainer.Value.TotalEloChange
+            };
+        }
+
+        // Last Place (worst ELO change in period)
+        var topLoser = playerData.OrderBy(p => p.Value.TotalEloChange).FirstOrDefault();
+        if (topLoser.Value != null && topLoser.Value.TotalEloChange < 0)
+        {
+            _filteredBadges.LastPlace = new BadgeHolder
+            {
+                PlayerId = topLoser.Key,
+                PlayerName = topLoser.Value.Name,
+                Value = topLoser.Value.TotalEloChange
+            };
+        }
+
+        // Hot Streak (current streak at end of period)
+        var hotStreak = playerData.Where(p => p.Value.CurrentStreak >= 3)
+            .OrderByDescending(p => p.Value.CurrentStreak)
+            .FirstOrDefault();
+        if (hotStreak.Value != null)
+        {
+            _filteredBadges.HotStreak = new BadgeHolder
+            {
+                PlayerId = hotStreak.Key,
+                PlayerName = hotStreak.Value.Name,
+                Value = hotStreak.Value.CurrentStreak
+            };
+        }
+
+        // Streak King (longest streak in period)
+        var streakKing = playerData.Where(p => p.Value.LongestStreak >= 3)
+            .OrderByDescending(p => p.Value.LongestStreak)
+            .FirstOrDefault();
+        if (streakKing.Value != null)
+        {
+            _filteredBadges.StreakKing = new BadgeHolder
+            {
+                PlayerId = streakKing.Key,
+                PlayerName = streakKing.Value.Name,
+                Value = streakKing.Value.LongestStreak
+            };
+        }
+
+        // Best Win Rate
+        var bestWinRate = playerData.Where(p => p.Value.TotalGames >= minGames)
+            .OrderByDescending(p => (double)p.Value.Wins / p.Value.TotalGames)
+            .FirstOrDefault();
+        if (bestWinRate.Value != null)
+        {
+            var winRate = (int)((double)bestWinRate.Value.Wins / bestWinRate.Value.TotalGames * 100);
+            _filteredBadges.BestWinRate = new BadgeHolder
+            {
+                PlayerId = bestWinRate.Key,
+                PlayerName = bestWinRate.Value.Name,
+                Value = winRate
+            };
+        }
+
+        // Best Goalkeeper
+        var bestGk = playerData.Where(p => p.Value.GkGames >= minGames)
+            .OrderBy(p => (double)p.Value.GkGoalsConceded / p.Value.GkGames)
+            .FirstOrDefault();
+        if (bestGk.Value != null)
+        {
+            _filteredBadges.BestGoalkeeper = new BadgeHolder
+            {
+                PlayerId = bestGk.Key,
+                PlayerName = bestGk.Value.Name,
+                Value = (int)((double)bestGk.Value.GkGoalsConceded / bestGk.Value.GkGames * 10)
+            };
+        }
+
+        // Best Attacker
+        var bestAtk = playerData.Where(p => p.Value.AtkGames >= minGames)
+            .OrderByDescending(p => (double)p.Value.AtkGoalsScored / p.Value.AtkGames)
+            .FirstOrDefault();
+        if (bestAtk.Value != null)
+        {
+            _filteredBadges.BestAttacker = new BadgeHolder
+            {
+                PlayerId = bestAtk.Key,
+                PlayerName = bestAtk.Value.Name,
+                Value = (int)((double)bestAtk.Value.AtkGoalsScored / bestAtk.Value.AtkGames * 10)
+            };
+        }
+
+        // Table Divers (multi-holder)
+        var maxUnderTable = playerData.Max(p => p.Value.UnderTableLosses);
+        if (maxUnderTable > 0)
+        {
+            _filteredBadges.TableDivers = playerData
+                .Where(p => p.Value.UnderTableLosses == maxUnderTable)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxUnderTable
+                })
+                .ToList();
+        }
+
+        // Table Senders (multi-holder)
+        var maxTableSends = playerData.Max(p => p.Value.TableSends);
+        if (maxTableSends > 0)
+        {
+            _filteredBadges.TableSenders = playerData
+                .Where(p => p.Value.TableSends == maxTableSends)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxTableSends
+                })
+                .ToList();
+        }
+
+        // Tomko Memorial (multi-holder)
+        var maxGamesInDay = playerData.Max(p => p.Value.GamesPerDay.Values.DefaultIfEmpty(0).Max());
+        if (maxGamesInDay > 0)
+        {
+            _filteredBadges.TomkoMemorials = playerData
+                .Where(p => p.Value.GamesPerDay.Values.DefaultIfEmpty(0).Max() == maxGamesInDay)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxGamesInDay
+                })
+                .ToList();
+        }
+    }
+
+    private class PlayerBadgeData
+    {
+        public string Name { get; set; } = "";
+        public int TotalGames { get; set; }
+        public int Wins { get; set; }
+        public int TotalEloChange { get; set; }
+        public int CurrentStreak { get; set; }
+        public int LongestStreak { get; set; }
+        public int UnderTableLosses { get; set; }
+        public int TableSends { get; set; }
+        public int GkGames { get; set; }
+        public int GkGoalsConceded { get; set; }
+        public int AtkGames { get; set; }
+        public int AtkGoalsScored { get; set; }
+        public Dictionary<DateTime, int> GamesPerDay { get; set; } = [];
     }
 
     private async Task RenderCharts()
     {
-        // ELO Distribution Bar Chart
+        // ELO Distribution Bar Chart (always all-time)
         if (_rankings.Count > 0)
         {
             var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
             var eloData = _rankings.Select(r => r.Elo).ToArray();
             await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "ELO", "#198754");
+        }
 
-            // Win Rate Bar Chart
-            var wrLabels = _rankings.Where(r => r.Matches > 0).Select(r => r.PlayerName).ToArray();
-            var wrData = _rankings.Where(r => r.Matches > 0).Select(r => r.WinRate).ToArray();
+        // Win Rate Bar Chart (filtered)
+        if (_filteredRankings.Count > 0)
+        {
+            var wrLabels = _filteredRankings.Where(r => r.Matches > 0).Select(r => r.PlayerName).ToArray();
+            var wrData = _filteredRankings.Where(r => r.Matches > 0).Select(r => r.WinRate).ToArray();
             await JS.InvokeVoidAsync("renderBarChart", "winRateChart", wrLabels, wrData, "Win Rate %", "#0d6efd");
 
-            // Games per Player Pie Chart
-            var gamesLabels = _rankings.OrderByDescending(r => r.Matches).Select(r => r.PlayerName).ToArray();
-            var gamesData = _rankings.OrderByDescending(r => r.Matches).Select(r => r.Matches).ToArray();
+            // Games per Player Pie Chart (filtered)
+            var gamesLabels = _filteredRankings.OrderByDescending(r => r.Matches).Select(r => r.PlayerName).ToArray();
+            var gamesData = _filteredRankings.OrderByDescending(r => r.Matches).Select(r => r.Matches).ToArray();
             var pieColors = new[] { "#198754", "#0d6efd", "#6f42c1", "#fd7e14", "#20c997", "#e83e8c", "#ffc107", "#dc3545", "#6c757d", "#17a2b8" };
             await JS.InvokeVoidAsync("renderPieChart", "gamesPerPlayerChart", gamesLabels, gamesData, pieColors);
         }
@@ -446,15 +966,44 @@ else
         }
 
         // Most Common Pairs Horizontal Bar Chart
-        if (_pairRankings.Count > 0)
+        if (_filteredPairStats.Count > 0)
         {
-            var topPairs = _pairRankings
-                .OrderByDescending(p => p.Matches)
-                .Take(8)
-                .ToList();
-            var pairLabels = topPairs.Select(p => $"{p.Player1Name} & {p.Player2Name}").ToArray();
-            var pairData = topPairs.Select(p => p.Matches).ToArray();
+            var pairLabels = _filteredPairStats.Select(p => $"{p.Player1Name} & {p.Player2Name}").ToArray();
+            var pairData = _filteredPairStats.Select(p => p.Matches).ToArray();
             await JS.InvokeVoidAsync("renderHorizontalBarChart", "commonPairsChart", pairLabels, pairData, "Matches", "#e83e8c");
         }
+    }
+
+    // Local classes for filtered data
+    private class FilteredPlayerRanking
+    {
+        public int PlayerId { get; set; }
+        public string PlayerName { get; set; } = "";
+        public int AvatarId { get; set; }
+        public int Matches { get; set; }
+        public int Wins { get; set; }
+        public double WinRate { get; set; }
+    }
+
+    private class FilteredPairStats
+    {
+        public string Player1Name { get; set; } = "";
+        public string Player2Name { get; set; } = "";
+        public int Matches { get; set; }
+        public int Wins { get; set; }
+    }
+
+    private class FilteredBadges
+    {
+        public BadgeHolder? TopRated { get; set; }
+        public BadgeHolder? HotStreak { get; set; }
+        public BadgeHolder? StreakKing { get; set; }
+        public BadgeHolder? BestGoalkeeper { get; set; }
+        public BadgeHolder? BestAttacker { get; set; }
+        public BadgeHolder? BestWinRate { get; set; }
+        public BadgeHolder? LastPlace { get; set; }
+        public List<BadgeHolder> TableDivers { get; set; } = [];
+        public List<BadgeHolder> TableSenders { get; set; } = [];
+        public List<BadgeHolder> TomkoMemorials { get; set; } = [];
     }
 }
