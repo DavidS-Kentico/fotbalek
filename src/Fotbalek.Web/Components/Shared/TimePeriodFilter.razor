@@ -1,0 +1,121 @@
+@* Shared time period filter component for filtering data by date ranges *@
+
+<div class="d-flex flex-wrap align-items-center gap-3">
+    <span class="text-muted small"><i class="bi bi-funnel me-1"></i>Time Period:</span>
+    <div class="btn-group" role="group">
+        <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}All")" value="all"
+               checked="@(SelectedPeriod == "all")" @onchange="@(() => OnPeriodClicked("all"))">
+        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}All")">All</label>
+
+        <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Today")" value="today"
+               checked="@(SelectedPeriod == "today")" @onchange="@(() => OnPeriodClicked("today"))">
+        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Today")">Today</label>
+
+        <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Week")" value="week"
+               checked="@(SelectedPeriod == "week")" @onchange="@(() => OnPeriodClicked("week"))">
+        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Week")">This Week</label>
+
+        <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Month")" value="month"
+               checked="@(SelectedPeriod == "month")" @onchange="@(() => OnPeriodClicked("month"))">
+        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Month")">This Month</label>
+
+        <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Custom")" value="custom"
+               checked="@(SelectedPeriod == "custom")" @onchange="@(() => OnPeriodClicked("custom"))">
+        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Custom")">Custom</label>
+    </div>
+
+    @if (SelectedPeriod == "custom")
+    {
+        <div class="d-flex align-items-center gap-2">
+            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                   value="@CustomStartDate?.ToString("yyyy-MM-dd")"
+                   max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                   @onchange="OnStartDateInput" />
+            <span class="text-muted">to</span>
+            <input type="date" class="form-control form-control-sm" style="width: 140px;"
+                   value="@CustomEndDate?.ToString("yyyy-MM-dd")"
+                   min="@CustomStartDate?.ToString("yyyy-MM-dd")"
+                   max="@GetMaxEndDate().ToString("yyyy-MM-dd")"
+                   @onchange="OnEndDateInput" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string SelectedPeriod { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedPeriodChanged { get; set; }
+
+    [Parameter] public DateOnly? CustomStartDate { get; set; }
+    [Parameter] public EventCallback<DateOnly?> CustomStartDateChanged { get; set; }
+
+    [Parameter] public DateOnly? CustomEndDate { get; set; }
+    [Parameter] public EventCallback<DateOnly?> CustomEndDateChanged { get; set; }
+
+    [Parameter] public EventCallback OnFilterChanged { get; set; }
+
+    [Parameter] public bool LimitCustomRangeToThreeMonths { get; set; } = false;
+
+    // Unique ID for radio button group to avoid conflicts when multiple instances on page
+    private string _radioGroupName = $"period_{Guid.NewGuid():N}";
+
+    private async Task OnPeriodClicked(string period)
+    {
+        await SelectedPeriodChanged.InvokeAsync(period);
+        await OnFilterChanged.InvokeAsync();
+    }
+
+    private async Task OnStartDateInput(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            await CustomStartDateChanged.InvokeAsync(date);
+
+            // Adjust end date if needed
+            if (CustomEndDate.HasValue)
+            {
+                var adjustedEnd = CustomEndDate.Value;
+
+                if (LimitCustomRangeToThreeMonths)
+                {
+                    var maxEnd = date.AddMonths(3);
+                    if (adjustedEnd > maxEnd)
+                    {
+                        adjustedEnd = maxEnd;
+                    }
+                }
+
+                if (adjustedEnd < date)
+                {
+                    adjustedEnd = date;
+                }
+
+                if (adjustedEnd != CustomEndDate.Value)
+                {
+                    await CustomEndDateChanged.InvokeAsync(adjustedEnd);
+                }
+            }
+
+            await OnFilterChanged.InvokeAsync();
+        }
+    }
+
+    private async Task OnEndDateInput(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
+        {
+            await CustomEndDateChanged.InvokeAsync(date);
+            await OnFilterChanged.InvokeAsync();
+        }
+    }
+
+    private DateOnly GetMaxEndDate()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (LimitCustomRangeToThreeMonths && CustomStartDate.HasValue)
+        {
+            var maxFromStart = CustomStartDate.Value.AddMonths(3);
+            return maxFromStart < today ? maxFromStart : today;
+        }
+        return today;
+    }
+}

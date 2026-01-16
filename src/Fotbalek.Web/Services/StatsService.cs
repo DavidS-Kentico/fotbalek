@@ -44,6 +44,7 @@ public class StatsService(AppDbContext db)
         stats.CurrentStreak = streakResult.CurrentStreak;
         stats.LongestWinStreak = streakResult.LongestWinStreak;
         stats.UnderTableCount = streakResult.UnderTableCount;
+        stats.TableSenderCount = streakResult.TableSenderCount;
         stats.GamesAsGk = streakResult.GoalkeeperCount;
         stats.GamesAsAtk = streakResult.AttackerCount;
         stats.GoalsScoredAsGk = streakResult.GoalsScoredAsGk;
@@ -402,7 +403,7 @@ public class StatsService(AppDbContext db)
             };
         }
 
-        // Tomko Memorial - most games played in a single day (can be multiple players with same count)
+        // Tomko Memorial - most games played in a single day (can be multiple players with same count, min 4 games)
         var gamesPerPlayerPerDay = allMatchPlayers
             .GroupBy(mp => new { mp.PlayerId, Date = mp.Match.PlayedAt.Date })
             .Select(g => new { g.Key.PlayerId, g.Key.Date, GamesCount = g.Count() })
@@ -411,7 +412,7 @@ public class StatsService(AppDbContext db)
         if (gamesPerPlayerPerDay.Count > 0)
         {
             var maxGamesInDay = gamesPerPlayerPerDay.Max(x => x.GamesCount);
-            if (maxGamesInDay > 0)
+            if (maxGamesInDay >= Constants.TimeThresholds.MinGamesForTomkoBadge)
             {
                 // Get the max games per player (a player might have multiple days with same count)
                 var playerMaxGames = gamesPerPlayerPerDay
@@ -603,6 +604,7 @@ public class PlayerStats
     public double HardestEnemyWinRate { get; set; }
     public int HardestEnemyGames { get; set; }
     public int UnderTableCount { get; set; }
+    public int TableSenderCount { get; set; }
     public List<EloHistoryPoint> EloHistory { get; set; } = [];
 }
 

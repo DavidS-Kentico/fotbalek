@@ -22,39 +22,11 @@ else
         <div class="card mb-4">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap align-items-center gap-3">
-                    <span class="text-muted small"><i class="bi bi-funnel me-1"></i>Time Period:</span>
-                    <div class="btn-group" role="group">
-                        <input type="radio" class="btn-check" name="period" id="periodAll" value="all" checked="@(_selectedPeriod == "all")" @onchange="@(() => OnPeriodChanged("all"))">
-                        <label class="btn btn-outline-success btn-sm" for="periodAll">All</label>
-
-                        <input type="radio" class="btn-check" name="period" id="periodToday" value="today" checked="@(_selectedPeriod == "today")" @onchange="@(() => OnPeriodChanged("today"))">
-                        <label class="btn btn-outline-success btn-sm" for="periodToday">Today</label>
-
-                        <input type="radio" class="btn-check" name="period" id="periodWeek" value="week" checked="@(_selectedPeriod == "week")" @onchange="@(() => OnPeriodChanged("week"))">
-                        <label class="btn btn-outline-success btn-sm" for="periodWeek">This Week</label>
-
-                        <input type="radio" class="btn-check" name="period" id="periodMonth" value="month" checked="@(_selectedPeriod == "month")" @onchange="@(() => OnPeriodChanged("month"))">
-                        <label class="btn btn-outline-success btn-sm" for="periodMonth">This Month</label>
-
-                        <input type="radio" class="btn-check" name="period" id="periodCustom" value="custom" checked="@(_selectedPeriod == "custom")" @onchange="@(() => OnPeriodChanged("custom"))">
-                        <label class="btn btn-outline-success btn-sm" for="periodCustom">Custom</label>
-                    </div>
-
-                    @if (_selectedPeriod == "custom")
-                    {
-                        <div class="d-flex align-items-center gap-2">
-                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
-                                   value="@_customStartDate?.ToString("yyyy-MM-dd")"
-                                   max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
-                                   @onchange="OnStartDateChanged" />
-                            <span class="text-muted">to</span>
-                            <input type="date" class="form-control form-control-sm" style="width: 140px;"
-                                   value="@_customEndDate?.ToString("yyyy-MM-dd")"
-                                   min="@_customStartDate?.ToString("yyyy-MM-dd")"
-                                   max="@GetMaxEndDate().ToString("yyyy-MM-dd")"
-                                   @onchange="OnEndDateChanged" />
-                        </div>
-                    }
+                    <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
+                                      @bind-CustomStartDate="_customStartDate"
+                                      @bind-CustomEndDate="_customEndDate"
+                                      LimitCustomRangeToThreeMonths="true"
+                                      OnFilterChanged="OnFilterChanged" />
 
                     @if (_selectedPeriod != "all")
                     {
@@ -67,98 +39,134 @@ else
         </div>
 
         <!-- Badges (filtered by period) -->
-        @if (HasAnyFilteredBadge())
-        {
-            <div class="card mb-4">
-                <div class="card-header py-2">
-                    <h6 class="mb-0"><i class="bi bi-award me-2"></i>@(_selectedPeriod == "all" ? "Badge Holders" : "Period Leaders")</h6>
-                </div>
-                <div class="card-body py-2">
-                    <div class="row g-2">
-                        @if (_filteredBadges.TopRated != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the highest current ELO rating" : "Best ELO gain in period")">
-                                    <span class="fs-5">&#11088;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Top Rated" : "Top Gainer")</div>
-                                        <div class="text-truncate">@_filteredBadges.TopRated.PlayerName <span class="text-muted">(@(_selectedPeriod == "all" ? _filteredBadges.TopRated.Value.ToString() : $"+{_filteredBadges.TopRated.Value}"))</span></div>
-                                    </div>
-                                </div>
+        <div class="card mb-4">
+            <div class="card-header py-2">
+                <h6 class="mb-0"><i class="bi bi-award me-2"></i>@(_selectedPeriod == "all" ? "Badge Holders" : "Period Leaders")</h6>
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    @* Top Rated / Top Gainer *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.TopRated != null ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="@(_selectedPeriod == "all" ? "Player with the highest current ELO rating" : "Best ELO gain in period")">
+                            <span class="fs-5">&#11088;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Top Rated" : "Top Gainer")</div>
+                                @if (_filteredBadges.TopRated != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.TopRated.PlayerName <span class="text-muted">(@(_selectedPeriod == "all" ? _filteredBadges.TopRated.Value.ToString() : $"+{_filteredBadges.TopRated.Value}"))</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.HotStreak != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-danger bg-opacity-10 rounded small" title="Player with the longest active winning streak">
-                                    <span class="fs-5">&#128293;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Hot Streak</div>
-                                        <div class="text-truncate">@_filteredBadges.HotStreak.PlayerName <span class="text-muted">(@_filteredBadges.HotStreak.Value wins)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Hot Streak *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.HotStreak != null ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Player with the longest active winning streak (min 3 wins)">
+                            <span class="fs-5">&#128293;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">Hot Streak</div>
+                                @if (_filteredBadges.HotStreak != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.HotStreak.PlayerName <span class="text-muted">(@_filteredBadges.HotStreak.Value wins)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.StreakKing != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the longest winning streak in history" : "Longest winning streak in period")">
-                                    <span class="fs-5">&#128081;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Streak King</div>
-                                        <div class="text-truncate">@_filteredBadges.StreakKing.PlayerName <span class="text-muted">(@_filteredBadges.StreakKing.Value)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Streak King *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.StreakKing != null ? "bg-primary bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="@(_selectedPeriod == "all" ? "Player with the longest winning streak in history (min 3 wins)" : "Longest winning streak in period (min 3 wins)")">
+                            <span class="fs-5">&#128081;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">Streak King</div>
+                                @if (_filteredBadges.StreakKing != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.StreakKing.PlayerName <span class="text-muted">(@_filteredBadges.StreakKing.Value)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.BestGoalkeeper != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 rounded small" title="Goalkeeper with lowest goals conceded per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
-                                    <span class="fs-5">&#129311;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Best GK</div>
-                                        <div class="text-truncate">@_filteredBadges.BestGoalkeeper.PlayerName <span class="text-muted">(@((_filteredBadges.BestGoalkeeper.Value / 10.0).ToString("F1"))/g)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Best Goalkeeper *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.BestGoalkeeper != null ? "bg-secondary bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Goalkeeper with lowest goals conceded per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
+                            <span class="fs-5">&#129311;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">Best GK</div>
+                                @if (_filteredBadges.BestGoalkeeper != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.BestGoalkeeper.PlayerName <span class="text-muted">(@((_filteredBadges.BestGoalkeeper.Value / 10.0).ToString("F1"))/g)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.BestAttacker != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-danger bg-opacity-10 rounded small" title="Attacker with highest goals scored per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
-                                    <span class="fs-5">&#127919;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Best ATK</div>
-                                        <div class="text-truncate">@_filteredBadges.BestAttacker.PlayerName <span class="text-muted">(@((_filteredBadges.BestAttacker.Value / 10.0).ToString("F1"))/g)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Best Attacker *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.BestAttacker != null ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Attacker with highest goals scored per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
+                            <span class="fs-5">&#127919;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">Best ATK</div>
+                                @if (_filteredBadges.BestAttacker != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.BestAttacker.PlayerName <span class="text-muted">(@((_filteredBadges.BestAttacker.Value / 10.0).ToString("F1"))/g)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.BestWinRate != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-primary bg-opacity-10 rounded small" title="Best win rate (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
-                                    <span class="fs-5">&#128200;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">Best Win%</div>
-                                        <div class="text-truncate">@_filteredBadges.BestWinRate.PlayerName <span class="text-muted">(@_filteredBadges.BestWinRate.Value%)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Best Win Rate *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.BestWinRate != null ? "bg-primary bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Best win rate (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
+                            <span class="fs-5">&#128200;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">Best Win%</div>
+                                @if (_filteredBadges.BestWinRate != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.BestWinRate.PlayerName <span class="text-muted">(@_filteredBadges.BestWinRate.Value%)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
-                        @if (_filteredBadges.LastPlace != null)
-                        {
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-10 rounded small" title="@(_selectedPeriod == "all" ? "Player with the lowest current ELO rating" : "Worst ELO change in period")">
-                                    <span class="fs-5">&#128168;</span>
-                                    <div class="text-truncate">
-                                        <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Last Place" : "Top Loser")</div>
-                                        <div class="text-truncate">@_filteredBadges.LastPlace.PlayerName <span class="text-muted">(@_filteredBadges.LastPlace.Value)</span></div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    @* Last Place / Top Loser *@
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="d-flex align-items-center gap-2 p-2 @(_filteredBadges.LastPlace != null ? "bg-dark bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="@(_selectedPeriod == "all" ? "Player with the lowest current ELO rating" : "Worst ELO change in period")">
+                            <span class="fs-5">&#128168;</span>
+                            <div class="text-truncate">
+                                <div class="fw-semibold text-truncate">@(_selectedPeriod == "all" ? "Last Place" : "Top Loser")</div>
+                                @if (_filteredBadges.LastPlace != null)
+                                {
+                                    <div class="text-truncate">@_filteredBadges.LastPlace.PlayerName <span class="text-muted">(@_filteredBadges.LastPlace.Value)</span></div>
+                                }
+                                else
+                                {
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                }
                             </div>
-                        }
+                        </div>
+                    </div>
+                    @* Table Diver *@
+                    @if (_filteredBadges.TableDivers.Count > 0)
+                    {
                         @foreach (var tableDiver in _filteredBadges.TableDivers)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
@@ -171,6 +179,22 @@ else
                                 </div>
                             </div>
                         }
+                    }
+                    else
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 opacity-50 rounded small" title="Most losses with 0 score (under the table)">
+                                <span class="fs-5">&#129681;</span>
+                                <div class="text-truncate">
+                                    <div class="fw-semibold text-truncate">Table Diver</div>
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @* Table Sender *@
+                    @if (_filteredBadges.TableSenders.Count > 0)
+                    {
                         @foreach (var tableSender in _filteredBadges.TableSenders)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
@@ -183,10 +207,26 @@ else
                                 </div>
                             </div>
                         }
+                    }
+                    else
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 opacity-50 rounded small" title="Most 10-0 wins (sent enemies under the table)">
+                                <span class="fs-5">&#128170;</span>
+                                <div class="text-truncate">
+                                    <div class="fw-semibold text-truncate">Table Sender</div>
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @* Tomko Memorial *@
+                    @if (_filteredBadges.TomkoMemorials.Count > 0)
+                    {
                         @foreach (var tomko in _filteredBadges.TomkoMemorials)
                         {
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="Most games played in a single day">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded small" title="Most games played in a single day (min @Constants.TimeThresholds.MinGamesForTomkoBadge games)">
                                     <span class="fs-5">&#127942;</span>
                                     <div class="text-truncate">
                                         <div class="fw-semibold text-truncate">Tomko Memorial</div>
@@ -195,10 +235,22 @@ else
                                 </div>
                             </div>
                         }
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 opacity-50 rounded small" title="Most games played in a single day (min @Constants.TimeThresholds.MinGamesForTomkoBadge games)">
+                                <span class="fs-5">&#127942;</span>
+                                <div class="text-truncate">
+                                    <div class="fw-semibold text-truncate">Tomko Memorial</div>
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
-        }
+        </div>
 
         <!-- Overall Stats -->
         <div class="row mb-4">
@@ -598,79 +650,17 @@ else
         }
     }
 
-    private async Task OnPeriodChanged(string period)
+    private async Task OnFilterChanged()
     {
-        _selectedPeriod = period;
         ApplyFilter();
         StateHasChanged();
         await RenderCharts();
-    }
-
-    private async Task OnStartDateChanged(ChangeEventArgs e)
-    {
-        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
-        {
-            _customStartDate = date;
-
-            // Ensure end date is within 3 months of start
-            var maxEnd = date.AddMonths(3);
-            if (_customEndDate > maxEnd)
-            {
-                _customEndDate = maxEnd;
-            }
-
-            // Ensure end date is not before start date
-            if (_customEndDate < _customStartDate)
-            {
-                _customEndDate = _customStartDate;
-            }
-
-            ApplyFilter();
-            StateHasChanged();
-            await RenderCharts();
-        }
-    }
-
-    private async Task OnEndDateChanged(ChangeEventArgs e)
-    {
-        if (DateOnly.TryParse(e.Value?.ToString(), out var date))
-        {
-            _customEndDate = date;
-            ApplyFilter();
-            StateHasChanged();
-            await RenderCharts();
-        }
-    }
-
-    private DateOnly GetMaxEndDate()
-    {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        if (_customStartDate.HasValue)
-        {
-            var maxFromStart = _customStartDate.Value.AddMonths(3);
-            return maxFromStart < today ? maxFromStart : today;
-        }
-        return today;
     }
 
     private string GetFilterDescription()
     {
         var (start, end) = GetFilterDateRange();
         return $"{start:MMM dd, yyyy} - {end:MMM dd, yyyy} ({_filteredMatchCount} matches)";
-    }
-
-    private bool HasAnyFilteredBadge()
-    {
-        return _filteredBadges.TopRated != null ||
-            _filteredBadges.HotStreak != null ||
-            _filteredBadges.StreakKing != null ||
-            _filteredBadges.BestGoalkeeper != null ||
-            _filteredBadges.BestAttacker != null ||
-            _filteredBadges.LastPlace != null ||
-            _filteredBadges.TableDivers.Count > 0 ||
-            _filteredBadges.TableSenders.Count > 0 ||
-            _filteredBadges.TomkoMemorials.Count > 0 ||
-            _filteredBadges.BestWinRate != null;
     }
 
     private void CalculateFilteredBadges()
@@ -893,9 +883,9 @@ else
                 .ToList();
         }
 
-        // Tomko Memorial (multi-holder)
+        // Tomko Memorial (multi-holder, min 4 games)
         var maxGamesInDay = playerData.Max(p => p.Value.GamesPerDay.Values.DefaultIfEmpty(0).Max());
-        if (maxGamesInDay > 0)
+        if (maxGamesInDay >= Constants.TimeThresholds.MinGamesForTomkoBadge)
         {
             _filteredBadges.TomkoMemorials = playerData
                 .Where(p => p.Value.GamesPerDay.Values.DefaultIfEmpty(0).Max() == maxGamesInDay)

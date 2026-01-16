@@ -34,6 +34,7 @@ public static class Constants
         public const int RecentActivityDays = 7;
         public const int MinGamesForPartnerStats = 3;
         public const int MinGamesForPositionBadge = 5;
+        public const int MinGamesForTomkoBadge = 4;
     }
 
     /// <summary>
