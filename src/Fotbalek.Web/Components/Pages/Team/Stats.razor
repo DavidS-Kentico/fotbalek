@@ -249,6 +249,34 @@ else
                             </div>
                         </div>
                     }
+                    @* Carried *@
+                    @if (_filteredBadges.Carried.Count > 0)
+                    {
+                        @foreach (var carried in _filteredBadges.Carried)
+                        {
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <div class="d-flex align-items-center gap-2 p-2 bg-purple bg-opacity-10 rounded small" style="background-color: rgba(111, 66, 193, 0.1);" title="Most wins when partnered with higher ELO player (min @Constants.TimeThresholds.MinGamesForCarriedBadge wins)">
+                                    <span class="fs-5">&#129309;</span>
+                                    <div class="text-truncate">
+                                        <div class="fw-semibold text-truncate">Carried</div>
+                                        <div class="text-truncate">@carried.PlayerName <span class="text-muted">(@carried.Value wins)</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="d-flex align-items-center gap-2 p-2 bg-secondary bg-opacity-10 opacity-50 rounded small" title="Most wins when partnered with higher ELO player (min @Constants.TimeThresholds.MinGamesForCarriedBadge wins)">
+                                <span class="fs-5">&#129309;</span>
+                                <div class="text-truncate">
+                                    <div class="fw-semibold text-truncate">Carried</div>
+                                    <div class="text-truncate text-muted fst-italic">No holder</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -673,6 +701,7 @@ else
             _filteredBadges.TableDivers = _badges.TableDivers;
             _filteredBadges.TableSenders = _badges.TableSenders;
             _filteredBadges.TomkoMemorials = _badges.TomkoMemorials;
+            _filteredBadges.Carried = _badges.Carried;
             return;
         }
 
@@ -687,6 +716,31 @@ else
             var team1Won = match.Team1Score > match.Team2Score;
             var isTableSend = (team1Won && match.Team1Score == 10 && match.Team2Score == 0) ||
                               (!team1Won && match.Team2Score == 10 && match.Team1Score == 0);
+
+            // Track carried wins - process winning team
+            var winningTeamNumber = team1Won ? 1 : 2;
+            var winningTeamPlayers = match.MatchPlayers.Where(p => p.TeamNumber == winningTeamNumber).ToList();
+            if (winningTeamPlayers.Count == 2)
+            {
+                var player1 = winningTeamPlayers[0];
+                var player2 = winningTeamPlayers[1];
+
+                // Player1 was carried if partner (player2) had higher ELO
+                if (player2.EloBefore > player1.EloBefore)
+                {
+                    if (!playerData.ContainsKey(player1.PlayerId))
+                        playerData[player1.PlayerId] = new PlayerBadgeData { Name = player1.Player.Name };
+                    playerData[player1.PlayerId].CarriedWins++;
+                }
+
+                // Player2 was carried if partner (player1) had higher ELO
+                if (player1.EloBefore > player2.EloBefore)
+                {
+                    if (!playerData.ContainsKey(player2.PlayerId))
+                        playerData[player2.PlayerId] = new PlayerBadgeData { Name = player2.Player.Name };
+                    playerData[player2.PlayerId].CarriedWins++;
+                }
+            }
 
             foreach (var mp in match.MatchPlayers)
             {
@@ -888,6 +942,25 @@ else
                 })
                 .ToList();
         }
+
+        // Carried - most wins when partnered with higher ELO player (min 10 games)
+        var qualifiedCarried = playerData
+            .Where(p => p.Value.CarriedWins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+            .ToList();
+
+        if (qualifiedCarried.Count > 0)
+        {
+            var maxCarried = qualifiedCarried.Max(p => p.Value.CarriedWins);
+            _filteredBadges.Carried = qualifiedCarried
+                .Where(p => p.Value.CarriedWins == maxCarried)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxCarried
+                })
+                .ToList();
+        }
     }
 
     private class PlayerBadgeData
@@ -905,6 +978,7 @@ else
         public int AtkGames { get; set; }
         public int AtkGoalsScored { get; set; }
         public Dictionary<DateTime, int> GamesPerDay { get; set; } = [];
+        public int CarriedWins { get; set; }
     }
 
     private async Task RenderCharts()
@@ -986,5 +1060,6 @@ else
         public List<BadgeHolder> TableDivers { get; set; } = [];
         public List<BadgeHolder> TableSenders { get; set; } = [];
         public List<BadgeHolder> TomkoMemorials { get; set; } = [];
+        public List<BadgeHolder> Carried { get; set; } = [];
     }
 }

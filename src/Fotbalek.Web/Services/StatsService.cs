@@ -445,6 +445,68 @@ public class StatsService(AppDbContext db)
             .Select(p => new BadgeHolder { PlayerId = p.Id, PlayerName = p.Name })
             .ToList();
 
+        // Carried - most wins with a partner who had higher ELO (min 10 games)
+        // Need to load matches with all player info for ELO comparison
+        var matches = await db.Matches
+            .Where(m => m.TeamId == teamId)
+            .Include(m => m.MatchPlayers)
+            .ToListAsync();
+
+        var carriedWins = new Dictionary<int, int>(); // PlayerId -> count of wins when carried
+
+        foreach (var match in matches)
+        {
+            var team1Players = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
+            var team2Players = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
+            var team1Won = match.Team1Score > match.Team2Score;
+
+            // Process winning team only
+            var winningTeam = team1Won ? team1Players : team2Players;
+            if (winningTeam.Count != 2) continue;
+
+            var player1 = winningTeam[0];
+            var player2 = winningTeam[1];
+
+            // Check if player1 was carried (partner had higher ELO before match)
+            if (player2.EloBefore > player1.EloBefore)
+            {
+                carriedWins.TryAdd(player1.PlayerId, 0);
+                carriedWins[player1.PlayerId]++;
+            }
+
+            // Check if player2 was carried (partner had higher ELO before match)
+            if (player1.EloBefore > player2.EloBefore)
+            {
+                carriedWins.TryAdd(player2.PlayerId, 0);
+                carriedWins[player2.PlayerId]++;
+            }
+        }
+
+        // Find max carried wins among players with minimum games
+        var qualifiedCarried = carriedWins
+            .Where(c => c.Value >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+            .ToList();
+
+        if (qualifiedCarried.Count > 0)
+        {
+            var maxCarried = qualifiedCarried.Max(c => c.Value);
+            badges.Carried = qualifiedCarried
+                .Where(c => c.Value == maxCarried)
+                .Select(c =>
+                {
+                    var player = players.FirstOrDefault(p => p.Id == c.Key);
+                    return player != null ? new BadgeHolder
+                    {
+                        PlayerId = player.Id,
+                        PlayerName = player.Name,
+                        Value = c.Value
+                    } : null;
+                })
+                .Where(b => b != null)
+                .Cast<BadgeHolder>()
+                .ToList();
+        }
+
         // Best Goalkeeper - lowest goals conceded per game when playing as GK (min 5 games as GK)
         var bestGk = positionStats
             .Where(ps => ps.Value.gkGames >= Constants.TimeThresholds.MinGamesForPositionBadge)
@@ -655,6 +717,7 @@ public class TeamBadges
     public BadgeHolder? BestWinRate { get; set; }
     public List<BadgeHolder> TomkoMemorials { get; set; } = [];
     public List<BadgeHolder> Newcomers { get; set; } = [];
+    public List<BadgeHolder> Carried { get; set; } = [];
 }
 
 public class BadgeHolder
