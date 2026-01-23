@@ -296,3 +296,8 @@ h1:focus {
 .badge {
     font-weight: 500;
 }
+
+.bg-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+}

@@ -188,12 +188,12 @@ else
                             <span class="text-muted fst-italic">-</span>
                         }
                     </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Carried.Count > 0 ? "" : "bg-secondary bg-opacity-10 opacity-50") rounded small" style="@(_filteredBadges.Carried.Count > 0 ? "background-color: rgba(111, 66, 193, 0.1);" : "")" title="Most wins when partnered with higher ELO player (min @Constants.TimeThresholds.MinGamesForCarriedBadge wins): @(string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)))">
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Carried.Count > 0 ? "" : "bg-secondary bg-opacity-10 opacity-50") rounded small" style="@(_filteredBadges.Carried.Count > 0 ? "background-color: rgba(111, 66, 193, 0.1);" : "")" title="Highest % of wins with higher ELO partner (min @Constants.TimeThresholds.MinGamesForCarriedBadge wins): @(string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)))">
                         <span>&#129309;</span>
                         <span class="fw-semibold">Carried:</span>
                         @if (_filteredBadges.Carried.Count > 0)
                         {
-                            <span>@string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Carried[0].Value wins)</span></span>
+                            <span>@string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Carried[0].Value%)</span></span>
                         }
                         else
                         {
@@ -866,21 +866,21 @@ else
                 .ToList();
         }
 
-        // Carried - most wins when partnered with higher ELO player (min 10 games)
+        // Carried - highest % of wins with higher ELO partner (min 10 wins)
         var qualifiedCarried = playerData
-            .Where(p => p.Value.CarriedWins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+            .Where(p => p.Value.Wins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
             .ToList();
 
         if (qualifiedCarried.Count > 0)
         {
-            var maxCarried = qualifiedCarried.Max(p => p.Value.CarriedWins);
+            var maxCarriedPercent = qualifiedCarried.Max(p => p.Value.CarriedPercent);
             _filteredBadges.Carried = qualifiedCarried
-                .Where(p => p.Value.CarriedWins == maxCarried)
+                .Where(p => Math.Abs(p.Value.CarriedPercent - maxCarriedPercent) < 0.01)
                 .Select(p => new BadgeHolder
                 {
                     PlayerId = p.Key,
                     PlayerName = p.Value.Name,
-                    Value = maxCarried
+                    Value = (int)Math.Round(p.Value.CarriedPercent)
                 })
                 .ToList();
         }
@@ -902,6 +902,7 @@ else
         public int AtkGoalsScored { get; set; }
         public Dictionary<DateTime, int> GamesPerDay { get; set; } = [];
         public int CarriedWins { get; set; }
+        public double CarriedPercent => Wins > 0 ? (double)CarriedWins / Wins * 100 : 0;
     }
 
     private async Task RenderCharts()

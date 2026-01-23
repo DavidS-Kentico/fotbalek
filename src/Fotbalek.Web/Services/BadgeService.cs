@@ -49,6 +49,10 @@ public class BadgeService
         if (badges.Newcomers.Any(n => n.PlayerId == playerId))
             result.Add(new PlayerBadgeInfo("bi bi-stars", "bg-success", "Newcomer - Joined in last 7 days"));
 
+        var carried = badges.Carried.FirstOrDefault(c => c.PlayerId == playerId);
+        if (carried != null)
+            result.Add(new PlayerBadgeInfo("bi bi-people-fill", "bg-purple", $"Carried - {carried.Value}% of wins with higher ELO partner"));
+
         return result;
     }
 }

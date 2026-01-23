@@ -445,14 +445,15 @@ public class StatsService(AppDbContext db)
             .Select(p => new BadgeHolder { PlayerId = p.Id, PlayerName = p.Name })
             .ToList();
 
-        // Carried - most wins with a partner who had higher ELO (min 10 games)
+        // Carried - highest percentage of wins with a partner who had higher ELO (min 10 wins)
         // Need to load matches with all player info for ELO comparison
         var matches = await db.Matches
             .Where(m => m.TeamId == teamId)
             .Include(m => m.MatchPlayers)
             .ToListAsync();
 
-        var carriedWins = new Dictionary<int, int>(); // PlayerId -> count of wins when carried
+        // Track total wins and carried wins for each player
+        var playerWinStats = new Dictionary<int, (int totalWins, int carriedWins)>();
 
         foreach (var match in matches)
         {
@@ -467,39 +468,51 @@ public class StatsService(AppDbContext db)
             var player1 = winningTeam[0];
             var player2 = winningTeam[1];
 
+            // Track wins for both players
+            playerWinStats.TryAdd(player1.PlayerId, (0, 0));
+            playerWinStats.TryAdd(player2.PlayerId, (0, 0));
+
+            var stats1 = playerWinStats[player1.PlayerId];
+            var stats2 = playerWinStats[player2.PlayerId];
+
+            // Increment total wins
+            playerWinStats[player1.PlayerId] = (stats1.totalWins + 1, stats1.carriedWins);
+            playerWinStats[player2.PlayerId] = (stats2.totalWins + 1, stats2.carriedWins);
+
             // Check if player1 was carried (partner had higher ELO before match)
             if (player2.EloBefore > player1.EloBefore)
             {
-                carriedWins.TryAdd(player1.PlayerId, 0);
-                carriedWins[player1.PlayerId]++;
+                var s = playerWinStats[player1.PlayerId];
+                playerWinStats[player1.PlayerId] = (s.totalWins, s.carriedWins + 1);
             }
 
             // Check if player2 was carried (partner had higher ELO before match)
             if (player1.EloBefore > player2.EloBefore)
             {
-                carriedWins.TryAdd(player2.PlayerId, 0);
-                carriedWins[player2.PlayerId]++;
+                var s = playerWinStats[player2.PlayerId];
+                playerWinStats[player2.PlayerId] = (s.totalWins, s.carriedWins + 1);
             }
         }
 
-        // Find max carried wins among players with minimum games
-        var qualifiedCarried = carriedWins
-            .Where(c => c.Value >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+        // Find player with highest carried percentage among those with minimum wins
+        var qualifiedCarried = playerWinStats
+            .Where(c => c.Value.totalWins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+            .Select(c => new { PlayerId = c.Key, CarriedPercent = (double)c.Value.carriedWins / c.Value.totalWins * 100 })
             .ToList();
 
         if (qualifiedCarried.Count > 0)
         {
-            var maxCarried = qualifiedCarried.Max(c => c.Value);
+            var maxCarriedPercent = qualifiedCarried.Max(c => c.CarriedPercent);
             badges.Carried = qualifiedCarried
-                .Where(c => c.Value == maxCarried)
+                .Where(c => Math.Abs(c.CarriedPercent - maxCarriedPercent) < 0.01) // Handle floating point comparison
                 .Select(c =>
                 {
-                    var player = players.FirstOrDefault(p => p.Id == c.Key);
+                    var player = players.FirstOrDefault(p => p.Id == c.PlayerId);
                     return player != null ? new BadgeHolder
                     {
                         PlayerId = player.Id,
                         PlayerName = player.Name,
-                        Value = c.Value
+                        Value = (int)Math.Round(c.CarriedPercent) // Store percentage as Value
                     } : null;
                 })
                 .Where(b => b != null)
