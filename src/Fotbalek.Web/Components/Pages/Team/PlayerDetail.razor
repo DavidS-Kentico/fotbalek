@@ -138,66 +138,86 @@ else if (_player != null && _stats != null)
 
                 <!-- Partner & Enemy Stats -->
                 <div class="row mt-3">
-                    @if (!string.IsNullOrEmpty(_stats.BestPartner))
-                    {
-                        <div class="col-6 mb-3">
-                            <div class="card border-success h-100">
-                                <div class="card-header bg-success text-white py-2">
-                                    <small class="mb-0"><i class="bi bi-hand-thumbs-up me-1"></i>Best Partner</small>
-                                </div>
-                                <div class="card-body text-center py-2">
+                    <div class="col-6 mb-3">
+                        <div class="card border-success h-100 @(string.IsNullOrEmpty(_stats.BestPartner) ? "opacity-50" : "")">
+                            <div class="card-header bg-success text-white py-2">
+                                <small class="mb-0"><i class="bi bi-hand-thumbs-up me-1"></i>Best Partner</small>
+                            </div>
+                            <div class="card-body text-center py-2">
+                                @if (!string.IsNullOrEmpty(_stats.BestPartner))
+                                {
                                     <h6 class="mb-1">@_stats.BestPartner</h6>
                                     <small class="text-success fw-bold">@_stats.BestPartnerWinRate.ToString("F1")%</small>
                                     <small class="text-muted d-block">@_stats.BestPartnerGames games</small>
-                                </div>
+                                }
+                                else
+                                {
+                                    <h6 class="mb-1 text-muted">-</h6>
+                                    <small class="text-muted fst-italic">Not enough data</small>
+                                }
                             </div>
                         </div>
-                    }
-                    @if (!string.IsNullOrEmpty(_stats.WorstPartner))
-                    {
-                        <div class="col-6 mb-3">
-                            <div class="card border-danger h-100">
-                                <div class="card-header bg-danger text-white py-2">
-                                    <small class="mb-0"><i class="bi bi-hand-thumbs-down me-1"></i>Worst Partner</small>
-                                </div>
-                                <div class="card-body text-center py-2">
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="card border-danger h-100 @(string.IsNullOrEmpty(_stats.WorstPartner) ? "opacity-50" : "")">
+                            <div class="card-header bg-danger text-white py-2">
+                                <small class="mb-0"><i class="bi bi-hand-thumbs-down me-1"></i>Worst Partner</small>
+                            </div>
+                            <div class="card-body text-center py-2">
+                                @if (!string.IsNullOrEmpty(_stats.WorstPartner))
+                                {
                                     <h6 class="mb-1">@_stats.WorstPartner</h6>
                                     <small class="text-danger fw-bold">@_stats.WorstPartnerWinRate.ToString("F1")%</small>
                                     <small class="text-muted d-block">@_stats.WorstPartnerGames games</small>
-                                </div>
+                                }
+                                else
+                                {
+                                    <h6 class="mb-1 text-muted">-</h6>
+                                    <small class="text-muted fst-italic">Not enough data</small>
+                                }
                             </div>
                         </div>
-                    }
-                    @if (!string.IsNullOrEmpty(_stats.EasiestEnemy))
-                    {
-                        <div class="col-6 mb-3">
-                            <div class="card border-info h-100">
-                                <div class="card-header bg-info text-white py-2">
-                                    <small class="mb-0"><i class="bi bi-emoji-smile me-1"></i>Easiest Enemy</small>
-                                </div>
-                                <div class="card-body text-center py-2">
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="card border-info h-100 @(string.IsNullOrEmpty(_stats.EasiestEnemy) ? "opacity-50" : "")">
+                            <div class="card-header bg-info text-white py-2">
+                                <small class="mb-0"><i class="bi bi-emoji-smile me-1"></i>Easiest Enemy</small>
+                            </div>
+                            <div class="card-body text-center py-2">
+                                @if (!string.IsNullOrEmpty(_stats.EasiestEnemy))
+                                {
                                     <h6 class="mb-1">@_stats.EasiestEnemy</h6>
                                     <small class="text-success fw-bold">@_stats.EasiestEnemyWinRate.ToString("F1")%</small>
                                     <small class="text-muted d-block">@_stats.EasiestEnemyGames games</small>
-                                </div>
+                                }
+                                else
+                                {
+                                    <h6 class="mb-1 text-muted">-</h6>
+                                    <small class="text-muted fst-italic">Not enough data</small>
+                                }
                             </div>
                         </div>
-                    }
-                    @if (!string.IsNullOrEmpty(_stats.HardestEnemy))
-                    {
-                        <div class="col-6 mb-3">
-                            <div class="card border-warning h-100">
-                                <div class="card-header bg-warning text-dark py-2">
-                                    <small class="mb-0"><i class="bi bi-emoji-frown me-1"></i>Hardest Enemy</small>
-                                </div>
-                                <div class="card-body text-center py-2">
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="card border-warning h-100 @(string.IsNullOrEmpty(_stats.HardestEnemy) ? "opacity-50" : "")">
+                            <div class="card-header bg-warning text-dark py-2">
+                                <small class="mb-0"><i class="bi bi-emoji-frown me-1"></i>Hardest Enemy</small>
+                            </div>
+                            <div class="card-body text-center py-2">
+                                @if (!string.IsNullOrEmpty(_stats.HardestEnemy))
+                                {
                                     <h6 class="mb-1">@_stats.HardestEnemy</h6>
                                     <small class="text-danger fw-bold">@_stats.HardestEnemyWinRate.ToString("F1")%</small>
                                     <small class="text-muted d-block">@_stats.HardestEnemyGames games</small>
-                                </div>
+                                }
+                                else
+                                {
+                                    <h6 class="mb-1 text-muted">-</h6>
+                                    <small class="text-muted fst-italic">Not enough data</small>
+                                }
                             </div>
                         </div>
-                    }
+                    </div>
                 </div>
             </div>
 
