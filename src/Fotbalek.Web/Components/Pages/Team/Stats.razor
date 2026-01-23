@@ -6,6 +6,7 @@
 @inject PlayerService PlayerService
 @inject MatchService MatchService
 @inject IJSRuntime JS
+@using Fotbalek.Web.Helpers
 
 <PageTitle>Statistics - Foosball Manager</PageTitle>
 
@@ -471,20 +472,13 @@ else
 
     private void ApplyFilter()
     {
-        var now = DateTimeOffset.UtcNow;
-        var today = DateOnly.FromDateTime(DateTime.Today);
-
-        _filteredMatches = _selectedPeriod switch
-        {
-            "today" => _allMatches.Where(m => DateOnly.FromDateTime(m.PlayedAt.Date) == today).ToList(),
-            "week" => _allMatches.Where(m => m.PlayedAt >= now.AddDays(-7)).ToList(),
-            "month" => _allMatches.Where(m => m.PlayedAt >= now.AddMonths(-1)).ToList(),
-            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
-                _allMatches.Where(m =>
-                    DateOnly.FromDateTime(m.PlayedAt.Date) >= _customStartDate.Value &&
-                    DateOnly.FromDateTime(m.PlayedAt.Date) <= _customEndDate.Value).ToList(),
-            _ => _allMatches.ToList()
-        };
+        _filteredMatches = _allMatches
+            .Where(m => DateFilterHelper.IsDateInPeriod(
+                DateOnly.FromDateTime(m.PlayedAt.Date),
+                _selectedPeriod,
+                _customStartDate,
+                _customEndDate))
+            .ToList();
 
         RecalculateStats();
     }
@@ -626,18 +620,15 @@ else
     private (DateOnly startDate, DateOnly endDate) GetFilterDateRange()
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
+        var range = DateFilterHelper.GetDateRange(_selectedPeriod, _customStartDate, _customEndDate);
 
-        return _selectedPeriod switch
-        {
-            "today" => (today, today),
-            "week" => (today.AddDays(-7), today),
-            "month" => (today.AddMonths(-1), today),
-            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
-                (_customStartDate.Value, _customEndDate.Value),
-            _ => _allMatches.Count > 0
-                ? (DateOnly.FromDateTime(_allMatches.Min(m => m.PlayedAt.Date)), today)
-                : (today.AddMonths(-1), today)
-        };
+        if (range.HasValue)
+            return range.Value;
+
+        // "all" period - use actual data range
+        return _allMatches.Count > 0
+            ? (DateOnly.FromDateTime(_allMatches.Min(m => m.PlayedAt.Date)), today)
+            : (today.AddMonths(-1), today);
     }
 
     private void CalculateDayOfWeekStats()
@@ -659,8 +650,8 @@ else
 
     private string GetFilterDescription()
     {
-        var (start, end) = GetFilterDateRange();
-        return $"{start:MMM dd, yyyy} - {end:MMM dd, yyyy} ({_filteredMatchCount} matches)";
+        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
+        return periodDesc != null ? $"{periodDesc} ({_filteredMatchCount} matches)" : $"{_filteredMatchCount} matches";
     }
 
     private void CalculateFilteredBadges()

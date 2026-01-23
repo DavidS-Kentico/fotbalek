@@ -4,6 +4,7 @@
 @inject AuthService AuthService
 @inject MatchService MatchService
 @inject PlayerService PlayerService
+@using Fotbalek.Web.Helpers
 
 <PageTitle>Match History - Foosball Manager</PageTitle>
 
@@ -229,21 +230,14 @@ else
 
     private void ApplyFilter()
     {
-        var now = DateTimeOffset.UtcNow;
-        var today = DateOnly.FromDateTime(DateTime.Today);
-
         // Apply time filter
-        _filteredMatches = _selectedPeriod switch
-        {
-            "today" => _allMatches.Where(m => DateOnly.FromDateTime(m.PlayedAt.Date) == today).ToList(),
-            "week" => _allMatches.Where(m => m.PlayedAt >= now.AddDays(-7)).ToList(),
-            "month" => _allMatches.Where(m => m.PlayedAt >= now.AddMonths(-1)).ToList(),
-            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
-                _allMatches.Where(m =>
-                    DateOnly.FromDateTime(m.PlayedAt.Date) >= _customStartDate.Value &&
-                    DateOnly.FromDateTime(m.PlayedAt.Date) <= _customEndDate.Value).ToList(),
-            _ => _allMatches.ToList()
-        };
+        _filteredMatches = _allMatches
+            .Where(m => DateFilterHelper.IsDateInPeriod(
+                DateOnly.FromDateTime(m.PlayedAt.Date),
+                _selectedPeriod,
+                _customStartDate,
+                _customEndDate))
+            .ToList();
 
         // Apply player filter - match must include ALL selected players
         if (_selectedPlayerIds.Count > 0)
@@ -337,16 +331,7 @@ else
     {
         var parts = new List<string>();
 
-        var periodDesc = _selectedPeriod switch
-        {
-            "today" => "Today",
-            "week" => "Last 7 days",
-            "month" => "Last 30 days",
-            "custom" when _customStartDate.HasValue && _customEndDate.HasValue =>
-                $"{_customStartDate.Value:MMM d} - {_customEndDate.Value:MMM d}",
-            _ => null
-        };
-
+        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
         if (periodDesc != null)
         {
             parts.Add(periodDesc);
