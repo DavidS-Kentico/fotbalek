@@ -173,6 +173,35 @@ else
                     </div>
                 </div>
 
+                @* ELO Swings *@
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-graph-up me-1"></i>ELO Swings</small>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloWins.Count > 0 ? "bg-success bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO gain in a single match (shared by both teammates): @(string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)))">
+                        <span>&#128640;</span>
+                        <span class="fw-semibold">Biggest Win:</span>
+                        @if (_filteredBadges.BiggestEloWins.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)) <span class="text-muted">(+@_filteredBadges.BiggestEloWins[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloLosses.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO loss in a single match (shared by both teammates): @(string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)))">
+                        <span>&#128201;</span>
+                        <span class="fw-semibold">Biggest Loss:</span>
+                        @if (_filteredBadges.BiggestEloLosses.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.BiggestEloLosses[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                </div>
+
                 @* Special *@
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-star me-1"></i>Special</small>
@@ -625,6 +654,7 @@ else
             _filteredBadges.TableSenders = _badges.TableSenders;
             _filteredBadges.TomkoMemorials = _badges.TomkoMemorials;
             _filteredBadges.Carried = _badges.Carried;
+            CalculateBiggestEloSwings(_filteredMatches);
             return;
         }
 
@@ -884,6 +914,56 @@ else
                 })
                 .ToList();
         }
+
+        CalculateBiggestEloSwings(orderedMatches);
+    }
+
+    private void CalculateBiggestEloSwings(List<Match> matches)
+    {
+        // Group MatchPlayers by (match, team) — both teammates share the same EloChange (zero-sum).
+        var teamEloChanges = matches
+            .SelectMany(m => m.MatchPlayers)
+            .GroupBy(mp => new { mp.MatchId, mp.TeamNumber })
+            .Select(g => new
+            {
+                EloChange = g.First().EloChange,
+                Players = g.Select(mp => (mp.PlayerId, mp.Player.Name)).ToList()
+            })
+            .ToList();
+
+        if (teamEloChanges.Count == 0) return;
+
+        var maxEloGain = teamEloChanges.Max(t => t.EloChange);
+        if (maxEloGain > 0)
+        {
+            _filteredBadges.BiggestEloWins = teamEloChanges
+                .Where(t => t.EloChange == maxEloGain)
+                .SelectMany(t => t.Players)
+                .DistinctBy(p => p.PlayerId)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.PlayerId,
+                    PlayerName = p.Name,
+                    Value = maxEloGain
+                })
+                .ToList();
+        }
+
+        var minEloChange = teamEloChanges.Min(t => t.EloChange);
+        if (minEloChange < 0)
+        {
+            _filteredBadges.BiggestEloLosses = teamEloChanges
+                .Where(t => t.EloChange == minEloChange)
+                .SelectMany(t => t.Players)
+                .DistinctBy(p => p.PlayerId)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.PlayerId,
+                    PlayerName = p.Name,
+                    Value = minEloChange
+                })
+                .ToList();
+        }
     }
 
     private class PlayerBadgeData
@@ -985,5 +1065,7 @@ else
         public List<BadgeHolder> TableSenders { get; set; } = [];
         public List<BadgeHolder> TomkoMemorials { get; set; } = [];
         public List<BadgeHolder> Carried { get; set; } = [];
+        public List<BadgeHolder> BiggestEloWins { get; set; } = [];
+        public List<BadgeHolder> BiggestEloLosses { get; set; } = [];
     }
 }
