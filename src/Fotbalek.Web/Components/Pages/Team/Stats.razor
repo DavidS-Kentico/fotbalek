@@ -321,6 +321,28 @@ else
             </div>
         </div>
 
+        <!-- ELO Trajectory (full-width, multi-line) -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-activity me-2"></i>ELO Trajectory</h6>
+                        <small class="text-muted">Each player's ELO after every match. Click legend entries to toggle players.</small>
+                    </div>
+                    <div class="card-body">
+                        @if (_eloTrajectoryDatasets.Count > 0)
+                        {
+                            <canvas id="eloTrajectoryChart" height="200"></canvas>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">No data available</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Charts Row 1: ELO and Win Rate -->
         <div class="row">
             <div class="col-lg-6 mb-4">
@@ -434,6 +456,79 @@ else
                 </div>
             </div>
         </div>
+
+        <!-- Head-to-Head Matrix -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Head-to-Head Matrix</h6>
+                        <small class="text-muted">Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size.</small>
+                    </div>
+                    <div class="card-body">
+                        @if (_h2hMatrix.Count >= 2)
+                        {
+                            <div class="table-responsive">
+                                <table class="h2h-matrix">
+                                    <thead>
+                                        <tr>
+                                            <th class="h2h-row-header"></th>
+                                            @foreach (var col in _h2hMatrix)
+                                            {
+                                                <th class="h2h-col-header" title="@col.PlayerName">
+                                                    <Avatar AvatarId="col.AvatarId" Size="sm" />
+                                                </th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in _h2hMatrix)
+                                        {
+                                            <tr>
+                                                <th class="h2h-row-header">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <Avatar AvatarId="row.AvatarId" Size="sm" />
+                                                        <span>@row.PlayerName</span>
+                                                    </div>
+                                                </th>
+                                                @foreach (var col in _h2hMatrix)
+                                                {
+                                                    @if (row.PlayerId == col.PlayerId)
+                                                    {
+                                                        <td class="h2h-cell h2h-diagonal"></td>
+                                                    }
+                                                    else
+                                                    {
+                                                        var cell = row.Cells[col.PlayerId];
+                                                        @if (cell.Games == 0)
+                                                        {
+                                                            <td class="h2h-cell h2h-empty">—</td>
+                                                        }
+                                                        else
+                                                        {
+                                                            <td class="h2h-cell"
+                                                                style="@GetH2HCellStyle(cell)"
+                                                                title="@row.PlayerName vs @col.PlayerName: @cell.Wins-@(cell.Games - cell.Wins) (@((int)Math.Round(cell.WinRate * 100))%)">
+                                                                <div class="h2h-pct">@((int)Math.Round(cell.WinRate * 100))%</div>
+                                                                <div class="h2h-record">@cell.Wins-@(cell.Games - cell.Wins)</div>
+                                                            </td>
+                                                        }
+                                                    }
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 }
 
@@ -467,6 +562,9 @@ else
     private double _filteredAvgGoalsPerMatch;
     private Dictionary<string, int> _matchesOverTime = [];
     private int[] _dayOfWeekStats = new int[7];
+    private List<H2HRow> _h2hMatrix = [];
+    private List<string> _eloTrajectoryLabels = [];
+    private List<EloTrajectoryDataset> _eloTrajectoryDatasets = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -574,6 +672,133 @@ else
 
         // Calculate filtered badges
         CalculateFilteredBadges();
+
+        // Calculate head-to-head matrix
+        CalculateH2HMatrix();
+
+        // Calculate ELO trajectory
+        CalculateEloTrajectory();
+    }
+
+    private void CalculateEloTrajectory()
+    {
+        _eloTrajectoryLabels = [];
+        _eloTrajectoryDatasets = [];
+
+        if (_filteredMatches.Count == 0) return;
+
+        var ordered = _filteredMatches.OrderBy(m => m.PlayedAt).ThenBy(m => m.Id).ToList();
+        _eloTrajectoryLabels = ordered.Select(m => m.PlayedAt.ToString("MMM dd")).ToList();
+
+        // Players who appeared in the period — preserve current ELO ordering for legend stability
+        var participantIds = ordered.SelectMany(m => m.MatchPlayers.Select(mp => mp.PlayerId)).Distinct().ToHashSet();
+        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
+        var orderedPlayerIds = participantIds
+            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .ToList();
+
+        // Resolve player names once
+        var nameByPlayerId = ordered
+            .SelectMany(m => m.MatchPlayers)
+            .GroupBy(mp => mp.PlayerId)
+            .ToDictionary(g => g.Key, g => g.First().Player.Name);
+
+        var palette = new[]
+        {
+            "#198754", "#0d6efd", "#dc3545", "#fd7e14", "#6f42c1",
+            "#20c997", "#e83e8c", "#ffc107", "#0dcaf0", "#6c757d",
+            "#795548", "#ff5722", "#9c27b0", "#3f51b5", "#009688"
+        };
+
+        for (var i = 0; i < orderedPlayerIds.Count; i++)
+        {
+            var pid = orderedPlayerIds[i];
+            var data = new int?[ordered.Count];
+            for (var j = 0; j < ordered.Count; j++)
+            {
+                var mp = ordered[j].MatchPlayers.FirstOrDefault(p => p.PlayerId == pid);
+                data[j] = mp?.EloAfter;
+            }
+            _eloTrajectoryDatasets.Add(new EloTrajectoryDataset
+            {
+                Label = nameByPlayerId[pid],
+                Data = data,
+                Color = palette[i % palette.Length]
+            });
+        }
+    }
+
+    private void CalculateH2HMatrix()
+    {
+        _h2hMatrix = [];
+
+        if (_filteredMatches.Count == 0 || _filteredRankings.Count < 2) return;
+
+        // Aggregate (rowPlayerId, colPlayerId) -> wins/games for every cross-team pairing.
+        var pairs = new Dictionary<(int Row, int Col), (int Wins, int Games)>();
+
+        foreach (var match in _filteredMatches)
+        {
+            var team1 = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
+            var team2 = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
+            if (team1.Count == 0 || team2.Count == 0) continue;
+
+            var team1Won = match.Team1Score > match.Team2Score;
+
+            foreach (var p1 in team1)
+            {
+                foreach (var p2 in team2)
+                {
+                    AccumulatePair(pairs, p1.PlayerId, p2.PlayerId, team1Won);
+                    AccumulatePair(pairs, p2.PlayerId, p1.PlayerId, !team1Won);
+                }
+            }
+        }
+
+        // Order players by current ELO desc; restrict to those who appear in the filtered period.
+        var participantIds = _filteredRankings.Select(r => r.PlayerId).ToHashSet();
+        var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
+        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
+
+        var orderedIds = participantIds
+            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .ToList();
+
+        _h2hMatrix = orderedIds
+            .Select(rowId =>
+            {
+                var ranking = rankingByPlayerId[rowId];
+                var row = new H2HRow
+                {
+                    PlayerId = rowId,
+                    PlayerName = ranking.PlayerName,
+                    AvatarId = ranking.AvatarId
+                };
+                foreach (var colId in orderedIds)
+                {
+                    if (rowId == colId) continue;
+                    pairs.TryGetValue((rowId, colId), out var p);
+                    row.Cells[colId] = new H2HCell { Wins = p.Wins, Games = p.Games };
+                }
+                return row;
+            })
+            .ToList();
+    }
+
+    private static void AccumulatePair(Dictionary<(int Row, int Col), (int Wins, int Games)> pairs, int rowId, int colId, bool rowWon)
+    {
+        var key = (rowId, colId);
+        pairs.TryGetValue(key, out var current);
+        pairs[key] = (current.Wins + (rowWon ? 1 : 0), current.Games + 1);
+    }
+
+    private static string GetH2HCellStyle(H2HCell cell)
+    {
+        // Hue: 0 (red) at 0% win rate → 120 (green) at 100%. Saturation/lightness give pastel cells.
+        // Alpha ramps with sample size so single-game cells look tentative.
+        var hue = (int)Math.Round(120 * cell.WinRate);
+        var alpha = Math.Min(1.0, 0.35 + cell.Games * 0.1).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        return $"background-color: hsla({hue}, 70%, 75%, {alpha});";
     }
 
     private static void ProcessTeamPairFiltered(Match match, int teamNumber, Dictionary<string, FilteredPairStats> pairStats)
@@ -1160,6 +1385,15 @@ else
             var pairData = _filteredPairStats.Select(p => p.Matches).ToArray();
             await JS.InvokeVoidAsync("renderHorizontalBarChart", "commonPairsChart", pairLabels, pairData, "Matches", "#e83e8c");
         }
+
+        // ELO Trajectory Multi-Line Chart
+        if (_eloTrajectoryDatasets.Count > 0)
+        {
+            var datasets = _eloTrajectoryDatasets
+                .Select(d => new { label = d.Label, data = d.Data, color = d.Color })
+                .ToArray();
+            await JS.InvokeVoidAsync("renderMultiLineChart", "eloTrajectoryChart", _eloTrajectoryLabels.ToArray(), datasets);
+        }
     }
 
     // Local classes for filtered data
@@ -1179,6 +1413,28 @@ else
         public string Player2Name { get; set; } = "";
         public int Matches { get; set; }
         public int Wins { get; set; }
+    }
+
+    private class EloTrajectoryDataset
+    {
+        public string Label { get; set; } = "";
+        public int?[] Data { get; set; } = [];
+        public string Color { get; set; } = "";
+    }
+
+    private class H2HRow
+    {
+        public int PlayerId { get; set; }
+        public string PlayerName { get; set; } = "";
+        public int AvatarId { get; set; }
+        public Dictionary<int, H2HCell> Cells { get; set; } = [];
+    }
+
+    private class H2HCell
+    {
+        public int Wins { get; set; }
+        public int Games { get; set; }
+        public double WinRate => Games > 0 ? (double)Wins / Games : 0;
     }
 
     private class FilteredBadges

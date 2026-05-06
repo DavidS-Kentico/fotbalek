@@ -187,6 +187,71 @@ window.renderHorizontalBarChart = function(canvasId, labels, data, label, color)
     });
 };
 
+window.renderMultiLineChart = function(canvasId, labels, datasets) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    if (ctx.chart) {
+        ctx.chart.destroy();
+    }
+
+    ctx.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets.map(function(d) {
+                return {
+                    label: d.label,
+                    data: d.data,
+                    borderColor: d.color,
+                    backgroundColor: d.color,
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 1,
+                    pointHoverRadius: 5,
+                    spanGaps: true,
+                    borderWidth: 2
+                };
+            })
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 8,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'ELO' },
+                    grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { autoSkip: true, maxTicksLimit: 12 }
+                }
+            }
+        }
+    });
+};
+
 window.renderLineChart = function(canvasId, labels, data, label, color) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
