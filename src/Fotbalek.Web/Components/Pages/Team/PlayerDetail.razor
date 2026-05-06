@@ -88,6 +88,10 @@ else if (_player != null && _stats != null)
                             <span>Preferred Position</span>
                             <strong>@_stats.PreferredPosition</strong>
                         </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Position with the higher win rate (min @Constants.TimeThresholds.MinGamesForPartnerStats games per position)">
+                            <span>Better Position</span>
+                            <strong>@_stats.BetterPosition</strong>
+                        </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Under Table Losses</span>
                             <strong class="text-danger">@_stats.UnderTableCount</strong>
@@ -117,6 +121,10 @@ else if (_player != null && _stats != null)
                                     <span class="mx-2">|</span>
                                     <span class="text-danger">Conceded: @_stats.GoalsConcededAsGk (@(((double)_stats.GoalsConcededAsGk / _stats.GamesAsGk).ToString("F1"))/game)</span>
                                 </div>
+                                <div class="small mt-1">
+                                    <span class="@(_stats.WinRateAsGk >= 50 ? "text-success" : "text-danger")">Win Rate: @_stats.WinRateAsGk.ToString("F1")%</span>
+                                    <span class="text-muted">(@_stats.WinsAsGk W / @(_stats.GamesAsGk - _stats.WinsAsGk) L)</span>
+                                </div>
                             }
                         </li>
                         <li class="list-group-item">
@@ -130,6 +138,10 @@ else if (_player != null && _stats != null)
                                     <span class="text-success">Scored: @_stats.GoalsScoredAsAtk (@(((double)_stats.GoalsScoredAsAtk / _stats.GamesAsAtk).ToString("F1"))/game)</span>
                                     <span class="mx-2">|</span>
                                     <span class="text-danger">Conceded: @_stats.GoalsConcededAsAtk (@(((double)_stats.GoalsConcededAsAtk / _stats.GamesAsAtk).ToString("F1"))/game)</span>
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="@(_stats.WinRateAsAtk >= 50 ? "text-success" : "text-danger")">Win Rate: @_stats.WinRateAsAtk.ToString("F1")%</span>
+                                    <span class="text-muted">(@_stats.WinsAsAtk W / @(_stats.GamesAsAtk - _stats.WinsAsAtk) L)</span>
                                 </div>
                             }
                         </li>

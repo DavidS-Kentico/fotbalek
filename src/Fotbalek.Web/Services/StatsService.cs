@@ -47,6 +47,14 @@ public class StatsService(AppDbContext db)
         stats.TableSenderCount = streakResult.TableSenderCount;
         stats.GamesAsGk = streakResult.GoalkeeperCount;
         stats.GamesAsAtk = streakResult.AttackerCount;
+        stats.WinsAsGk = streakResult.WinsAsGk;
+        stats.WinsAsAtk = streakResult.WinsAsAtk;
+        stats.WinRateAsGk = streakResult.GoalkeeperCount > 0
+            ? (double)streakResult.WinsAsGk / streakResult.GoalkeeperCount * 100
+            : 0;
+        stats.WinRateAsAtk = streakResult.AttackerCount > 0
+            ? (double)streakResult.WinsAsAtk / streakResult.AttackerCount * 100
+            : 0;
         stats.GoalsScoredAsGk = streakResult.GoalsScoredAsGk;
         stats.GoalsConcededAsGk = streakResult.GoalsConcededAsGk;
         stats.GoalsScoredAsAtk = streakResult.GoalsScoredAsAtk;
@@ -65,6 +73,28 @@ public class StatsService(AppDbContext db)
                 stats.PreferredPosition = Constants.Positions.Attacker;
             else
                 stats.PreferredPosition = "Flexible";
+        }
+
+        // Better position - the role with the higher win rate (min 3 games per position to compare).
+        var minGames = Constants.TimeThresholds.MinGamesForPartnerStats;
+        var hasGkData = streakResult.GoalkeeperCount >= minGames;
+        var hasAtkData = streakResult.AttackerCount >= minGames;
+
+        if (hasGkData && hasAtkData)
+        {
+            var diff = stats.WinRateAsGk - stats.WinRateAsAtk;
+            if (Math.Abs(diff) < 5)
+                stats.BetterPosition = "Either";
+            else
+                stats.BetterPosition = diff > 0 ? Constants.Positions.Goalkeeper : Constants.Positions.Attacker;
+        }
+        else if (hasGkData)
+        {
+            stats.BetterPosition = Constants.Positions.Goalkeeper;
+        }
+        else if (hasAtkData)
+        {
+            stats.BetterPosition = Constants.Positions.Attacker;
         }
 
         // Partner stats (min 3 games together)
@@ -753,12 +783,14 @@ public class StatsService(AppDbContext db)
                 result.GoalkeeperCount++;
                 result.GoalsScoredAsGk += teamScore;
                 result.GoalsConcededAsGk += opponentScore;
+                if (won) result.WinsAsGk++;
             }
             else
             {
                 result.AttackerCount++;
                 result.GoalsScoredAsAtk += teamScore;
                 result.GoalsConcededAsAtk += opponentScore;
+                if (won) result.WinsAsAtk++;
             }
         }
 
@@ -785,6 +817,8 @@ public class StatsService(AppDbContext db)
         public int GoalsConcededAsGk { get; set; }
         public int GoalsScoredAsAtk { get; set; }
         public int GoalsConcededAsAtk { get; set; }
+        public int WinsAsGk { get; set; }
+        public int WinsAsAtk { get; set; }
     }
 }
 
@@ -800,8 +834,13 @@ public class PlayerStats
     public int CurrentStreak { get; set; }
     public int LongestWinStreak { get; set; }
     public string PreferredPosition { get; set; } = "Flexible";
+    public string BetterPosition { get; set; } = "-";
     public int GamesAsGk { get; set; }
     public int GamesAsAtk { get; set; }
+    public int WinsAsGk { get; set; }
+    public int WinsAsAtk { get; set; }
+    public double WinRateAsGk { get; set; }
+    public double WinRateAsAtk { get; set; }
     public int GoalsScoredAsGk { get; set; }
     public int GoalsConcededAsGk { get; set; }
     public int GoalsScoredAsAtk { get; set; }
