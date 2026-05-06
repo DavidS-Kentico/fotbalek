@@ -358,7 +358,7 @@ public class StatsService(AppDbContext db)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Calculate streaks, under table counts, and position stats for all players
-        var playerStreaks = new Dictionary<int, (int current, int longest, int longestLoss, int underTable, int tableSender, int wins, int totalGames)>();
+        var playerStreaks = new Dictionary<int, (int current, int longest, int longestLoss, int underTable, int tableSender, int lucker, int destroyer, int wins, int totalGames)>();
         var positionStats = new Dictionary<int, (int gkGames, int gkTeamScored, int gkTeamConceded, int atkGames, int atkTeamScored, int atkTeamConceded)>();
 
         foreach (var player in players)
@@ -373,6 +373,8 @@ public class StatsService(AppDbContext db)
                 streakResult.LongestLossStreak,
                 streakResult.UnderTableCount,
                 streakResult.TableSenderCount,
+                streakResult.LuckyLossCount,
+                streakResult.DestroyerWinCount,
                 streakResult.Wins,
                 streakResult.Wins + streakResult.Losses
             );
@@ -479,6 +481,44 @@ public class StatsService(AppDbContext db)
                         PlayerId = player.Id,
                         PlayerName = player.Name,
                         Value = maxTableSender
+                    };
+                })
+                .ToList();
+        }
+
+        // Lucker - most 1-10 losses (almost a table dive — scored just one goal)
+        var maxLucker = playerStreaks.Max(ps => ps.Value.lucker);
+        if (maxLucker > 0)
+        {
+            badges.Luckers = playerStreaks
+                .Where(ps => ps.Value.lucker == maxLucker)
+                .Select(ps =>
+                {
+                    var player = players.First(p => p.Id == ps.Key);
+                    return new BadgeHolder
+                    {
+                        PlayerId = player.Id,
+                        PlayerName = player.Name,
+                        Value = maxLucker
+                    };
+                })
+                .ToList();
+        }
+
+        // Destroyer - most wins by a 7+ goal margin
+        var maxDestroyer = playerStreaks.Max(ps => ps.Value.destroyer);
+        if (maxDestroyer > 0)
+        {
+            badges.Destroyers = playerStreaks
+                .Where(ps => ps.Value.destroyer == maxDestroyer)
+                .Select(ps =>
+                {
+                    var player = players.First(p => p.Id == ps.Key);
+                    return new BadgeHolder
+                    {
+                        PlayerId = player.Id,
+                        PlayerName = player.Name,
+                        Value = maxDestroyer
                     };
                 })
                 .ToList();
@@ -697,6 +737,10 @@ public class StatsService(AppDbContext db)
                 // Check for table sender (won 10-0)
                 if (teamScore == 10 && opponentScore == 0)
                     result.TableSenderCount++;
+
+                // Destroyer: won by a 7+ goal margin
+                if (teamScore - opponentScore >= 7)
+                    result.DestroyerWinCount++;
             }
             else
             {
@@ -707,6 +751,10 @@ public class StatsService(AppDbContext db)
                 // Check for under the table (lost with 0 score)
                 if (teamScore == 0)
                     result.UnderTableCount++;
+
+                // Lucker: lost with own team scoring exactly 1 goal (almost a table dive)
+                if (teamScore == 1)
+                    result.LuckyLossCount++;
             }
             result.CurrentStreak = tempStreak;
 
@@ -740,6 +788,8 @@ public class StatsService(AppDbContext db)
         public int LongestLossStreak { get; set; }
         public int UnderTableCount { get; set; }
         public int TableSenderCount { get; set; }
+        public int LuckyLossCount { get; set; }
+        public int DestroyerWinCount { get; set; }
         public int GoalkeeperCount { get; set; }
         public int AttackerCount { get; set; }
         public int GoalsScoredAsGk { get; set; }
@@ -838,6 +888,8 @@ public class TeamBadges
     public BadgeHolder? LastPlace { get; set; }
     public List<BadgeHolder> TableDivers { get; set; } = [];
     public List<BadgeHolder> TableSenders { get; set; } = [];
+    public List<BadgeHolder> Luckers { get; set; } = [];
+    public List<BadgeHolder> Destroyers { get; set; } = [];
     public BadgeHolder? TopRated { get; set; }
     public BadgeHolder? BestGoalkeeper { get; set; }
     public BadgeHolder? BestAttacker { get; set; }

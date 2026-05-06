@@ -45,6 +45,14 @@ public class BadgeService
         if (tableSender != null)
             result.Add(new PlayerBadgeInfo("bi bi-box-arrow-up", "bg-success", $"Table Sender - {tableSender.Value} enemies sent under the table (10-0 wins)"));
 
+        var lucker = badges.Luckers.FirstOrDefault(l => l.PlayerId == playerId);
+        if (lucker != null)
+            result.Add(new PlayerBadgeInfo("bi bi-life-preserver", "bg-warning text-dark", $"Lucker - {lucker.Value} losses scoring just 1 goal (almost a table dive)"));
+
+        var destroyer = badges.Destroyers.FirstOrDefault(d => d.PlayerId == playerId);
+        if (destroyer != null)
+            result.Add(new PlayerBadgeInfo("bi bi-bomb-fill", "bg-danger", $"Destroyer - {destroyer.Value} wins by 7+ goal margin"));
+
         if (badges.BestWinRate?.PlayerId == playerId)
             result.Add(new PlayerBadgeInfo("bi bi-percent", "bg-primary", $"Best Win Rate - {badges.BestWinRate.Value}%"));
 

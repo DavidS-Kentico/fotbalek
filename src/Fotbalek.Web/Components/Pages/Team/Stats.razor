@@ -195,6 +195,30 @@ else
                             <span class="text-muted fst-italic">-</span>
                         }
                     </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Luckers.Count > 0 ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most 1-10 losses — scored just one goal, almost a table dive: @(string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)))">
+                        <span>&#127808;</span>
+                        <span class="fw-semibold">Lucker:</span>
+                        @if (_filteredBadges.Luckers.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Luckers[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Destroyers.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most wins by a 7+ goal margin: @(string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)))">
+                        <span>&#128165;</span>
+                        <span class="fw-semibold">Destroyer:</span>
+                        @if (_filteredBadges.Destroyers.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Destroyers[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
                 </div>
 
                 @* ELO Swings *@
@@ -678,6 +702,8 @@ else
             _filteredBadges.LastPlace = _badges.LastPlace;
             _filteredBadges.TableDivers = _badges.TableDivers;
             _filteredBadges.TableSenders = _badges.TableSenders;
+            _filteredBadges.Luckers = _badges.Luckers;
+            _filteredBadges.Destroyers = _badges.Destroyers;
             _filteredBadges.TomkoMemorials = _badges.TomkoMemorials;
             _filteredBadges.Carried = _badges.Carried;
             CalculateBiggestEloSwings(_filteredMatches);
@@ -750,19 +776,25 @@ else
                         data.LongestLossStreak = data.CurrentLossStreak;
                 }
 
-                // Table diver: lost 0-10
+                // Table diver / Lucker: lost with 0 or 1 own goal
                 var playerTeamWon = (mp.TeamNumber == 1 && team1Won) || (mp.TeamNumber == 2 && !team1Won);
+                var playerScore = mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
+                var opponentScore = mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
                 if (!playerTeamWon)
                 {
-                    var opponentScore = mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
-                    var playerScore = mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
                     if (opponentScore == 10 && playerScore == 0)
                         data.UnderTableLosses++;
+                    if (playerScore == 1)
+                        data.LuckyLosses++;
                 }
 
                 // Table sender: won 10-0
                 if (playerTeamWon && isTableSend)
                     data.TableSends++;
+
+                // Destroyer: won by a 7+ goal margin
+                if (playerTeamWon && playerScore - opponentScore >= 7)
+                    data.DestroyerWins++;
 
                 // Position stats
                 if (mp.Position == "Goalkeeper")
@@ -939,6 +971,36 @@ else
                 .ToList();
         }
 
+        // Luckers (multi-holder) — most 1-10 losses
+        var maxLuckyLosses = playerData.Max(p => p.Value.LuckyLosses);
+        if (maxLuckyLosses > 0)
+        {
+            _filteredBadges.Luckers = playerData
+                .Where(p => p.Value.LuckyLosses == maxLuckyLosses)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxLuckyLosses
+                })
+                .ToList();
+        }
+
+        // Destroyers (multi-holder) — most wins by 7+ goal margin
+        var maxDestroyerWins = playerData.Max(p => p.Value.DestroyerWins);
+        if (maxDestroyerWins > 0)
+        {
+            _filteredBadges.Destroyers = playerData
+                .Where(p => p.Value.DestroyerWins == maxDestroyerWins)
+                .Select(p => new BadgeHolder
+                {
+                    PlayerId = p.Key,
+                    PlayerName = p.Value.Name,
+                    Value = maxDestroyerWins
+                })
+                .ToList();
+        }
+
         // Tomko Memorial (multi-holder, min 4 games)
         var maxGamesInDay = playerData.Max(p => p.Value.GamesPerDay.Values.DefaultIfEmpty(0).Max());
         if (maxGamesInDay >= Constants.TimeThresholds.MinGamesForTomkoBadge)
@@ -1036,6 +1098,8 @@ else
         public int LongestLossStreak { get; set; }
         public int UnderTableLosses { get; set; }
         public int TableSends { get; set; }
+        public int LuckyLosses { get; set; }
+        public int DestroyerWins { get; set; }
         public int GkGames { get; set; }
         public int GkGoalsConceded { get; set; }
         public int AtkGames { get; set; }
@@ -1125,6 +1189,8 @@ else
         public BadgeHolder? LastPlace { get; set; }
         public List<BadgeHolder> TableDivers { get; set; } = [];
         public List<BadgeHolder> TableSenders { get; set; } = [];
+        public List<BadgeHolder> Luckers { get; set; } = [];
+        public List<BadgeHolder> Destroyers { get; set; } = [];
         public List<BadgeHolder> TomkoMemorials { get; set; } = [];
         public List<BadgeHolder> Carried { get; set; } = [];
         public List<BadgeHolder> BiggestEloWins { get; set; } = [];
