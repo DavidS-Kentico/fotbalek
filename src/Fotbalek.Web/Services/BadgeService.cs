@@ -51,7 +51,7 @@ public class BadgeService
 
         var destroyer = badges.Destroyers.FirstOrDefault(d => d.PlayerId == playerId);
         if (destroyer != null)
-            result.Add(new PlayerBadgeInfo("bi bi-bomb-fill", "bg-danger", $"Destroyer - {destroyer.Value} wins by 7+ goal margin"));
+            result.Add(new PlayerBadgeInfo("bi bi-lightning-charge-fill", "bg-danger", $"Destroyer - {destroyer.Value} wins by 7+ goal margin"));
 
         if (badges.BestWinRate?.PlayerId == playerId)
             result.Add(new PlayerBadgeInfo("bi bi-percent", "bg-primary", $"Best Win Rate - {badges.BestWinRate.Value}%"));
