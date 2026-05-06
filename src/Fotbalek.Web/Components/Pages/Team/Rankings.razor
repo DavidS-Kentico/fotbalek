@@ -79,6 +79,108 @@ else
             </div>
         </div>
 
+        <!-- Position Rankings -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-shield-fill me-2"></i>Best Goalkeepers <small class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPositionBadge games as GK)</small></h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_goalkeepers.Count > 0)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 60px;">Rank</th>
+                                            <th>Player</th>
+                                            <th class="text-end">Games</th>
+                                            <th class="text-end" title="Average goals conceded per game">Avg Conceded</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var gk in _goalkeepers)
+                                        {
+                                            <tr>
+                                                <td class="text-center">
+                                                    <RankBadge Rank="@gk.Rank" Large="true" />
+                                                </td>
+                                                <td>
+                                                    <a href="/@TeamCode/players/@gk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                        <Avatar AvatarId="@gk.AvatarId" Size="sm" />
+                                                        <span>@gk.PlayerName</span>
+                                                    </a>
+                                                </td>
+                                                <td class="text-end">@gk.Games</td>
+                                                <td class="text-end fw-bold text-secondary">@gk.AverageGoals.ToString("F1")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-shield fs-1 d-block mb-2"></i>
+                                <p class="mb-0">No goalkeepers with at least @Constants.TimeThresholds.MinGamesForPositionBadge games yet.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>Best Attackers <small class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPositionBadge games as ATK)</small></h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_attackers.Count > 0)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 60px;">Rank</th>
+                                            <th>Player</th>
+                                            <th class="text-end">Games</th>
+                                            <th class="text-end" title="Average goals scored per game">Avg Scored</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var atk in _attackers)
+                                        {
+                                            <tr>
+                                                <td class="text-center">
+                                                    <RankBadge Rank="@atk.Rank" Large="true" />
+                                                </td>
+                                                <td>
+                                                    <a href="/@TeamCode/players/@atk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                        <Avatar AvatarId="@atk.AvatarId" Size="sm" />
+                                                        <span>@atk.PlayerName</span>
+                                                    </a>
+                                                </td>
+                                                <td class="text-end">@atk.Games</td>
+                                                <td class="text-end fw-bold text-danger">@atk.AverageGoals.ToString("F1")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-bullseye fs-1 d-block mb-2"></i>
+                                <p class="mb-0">No attackers with at least @Constants.TimeThresholds.MinGamesForPositionBadge games yet.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Pair Rankings -->
         <div class="card">
             <div class="card-header">
@@ -154,6 +256,8 @@ else
     private bool _loading = true;
     private List<PlayerRanking> _rankings = [];
     private List<PairStats> _pairRankings = [];
+    private List<PositionRanking> _goalkeepers = [];
+    private List<PositionRanking> _attackers = [];
     private TeamBadges? _badges;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -165,6 +269,7 @@ else
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);
                 _pairRankings = await StatsService.GetPairRankingsAsync(_team.Id);
+                (_goalkeepers, _attackers) = await StatsService.GetPositionRankingsAsync(_team.Id);
                 _badges = await StatsService.GetBadgesAsync(_team.Id);
             }
             _loading = false;

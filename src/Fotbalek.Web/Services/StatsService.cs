@@ -196,6 +196,74 @@ public class StatsService(AppDbContext db)
         return rankings;
     }
 
+    public async Task<(List<PositionRanking> Goalkeepers, List<PositionRanking> Attackers)> GetPositionRankingsAsync(int teamId)
+    {
+        var players = await db.Players
+            .Where(p => p.TeamId == teamId && p.IsActive)
+            .ToListAsync();
+
+        if (players.Count == 0)
+            return ([], []);
+
+        var playerIds = players.Select(p => p.Id).ToList();
+        var allMatchPlayers = await db.MatchPlayers
+            .Where(mp => playerIds.Contains(mp.PlayerId))
+            .Include(mp => mp.Match)
+            .ToListAsync();
+
+        var matchPlayersByPlayer = allMatchPlayers
+            .GroupBy(mp => mp.PlayerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var goalkeepers = new List<PositionRanking>();
+        var attackers = new List<PositionRanking>();
+        var minGames = Constants.TimeThresholds.MinGamesForPositionBadge;
+
+        foreach (var player in players)
+        {
+            var matchPlayers = matchPlayersByPlayer.GetValueOrDefault(player.Id) ?? [];
+            var stats = CalculateStreaksAndPositionStats(matchPlayers);
+
+            if (stats.GoalkeeperCount >= minGames)
+            {
+                goalkeepers.Add(new PositionRanking
+                {
+                    PlayerId = player.Id,
+                    PlayerName = player.Name,
+                    AvatarId = player.AvatarId,
+                    Games = stats.GoalkeeperCount,
+                    Goals = stats.GoalsConcededAsGk,
+                    AverageGoals = (double)stats.GoalsConcededAsGk / stats.GoalkeeperCount
+                });
+            }
+
+            if (stats.AttackerCount >= minGames)
+            {
+                attackers.Add(new PositionRanking
+                {
+                    PlayerId = player.Id,
+                    PlayerName = player.Name,
+                    AvatarId = player.AvatarId,
+                    Games = stats.AttackerCount,
+                    Goals = stats.GoalsScoredAsAtk,
+                    AverageGoals = (double)stats.GoalsScoredAsAtk / stats.AttackerCount
+                });
+            }
+        }
+
+        // Goalkeepers ranked by lowest goals conceded per game.
+        goalkeepers = goalkeepers.OrderBy(g => g.AverageGoals).ThenByDescending(g => g.Games).ToList();
+        var rank = 1;
+        foreach (var gk in goalkeepers) gk.Rank = rank++;
+
+        // Attackers ranked by highest goals scored per game.
+        attackers = attackers.OrderByDescending(a => a.AverageGoals).ThenByDescending(a => a.Games).ToList();
+        rank = 1;
+        foreach (var atk in attackers) atk.Rank = rank++;
+
+        return (goalkeepers, attackers);
+    }
+
     public async Task<List<PairStats>> GetPairRankingsAsync(int teamId)
     {
         var matches = await db.Matches
@@ -732,6 +800,17 @@ public class PlayerRanking
     public int Matches { get; set; }
     public int Wins { get; set; }
     public double WinRate { get; set; }
+}
+
+public class PositionRanking
+{
+    public int Rank { get; set; }
+    public int PlayerId { get; set; }
+    public string PlayerName { get; set; } = string.Empty;
+    public int AvatarId { get; set; }
+    public int Games { get; set; }
+    public int Goals { get; set; }
+    public double AverageGoals { get; set; }
 }
 
 public class PairStats
