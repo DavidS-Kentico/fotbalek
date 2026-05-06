@@ -3,9 +3,9 @@
 @rendermode InteractiveServer
 @inject AuthService AuthService
 @inject StatsService StatsService
+@inject StatsEngine StatsEngine
 @inject MatchService MatchService
 @inject PlayerService PlayerService
-@inject BadgeService BadgeService
 
 <PageTitle>@(_team?.Name ?? "Dashboard") - Foosball Manager</PageTitle>
 
@@ -49,7 +49,7 @@ else if (_team != null)
                                                         <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                         <span class="ms-2">@player.PlayerName</span>
                                                     </a>
-                                                    @foreach (var badge in BadgeService.GetPlayerBadges(player.PlayerId, _badges))
+                                                    @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
                                                     {
                                                         <span class="badge @badge.CssClass ms-1 px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
                                                     }
@@ -154,7 +154,7 @@ else if (_team != null)
     private bool _loading = true;
     private List<PlayerRanking> _rankings = [];
     private List<Match> _recentMatches = [];
-    private TeamBadges? _badges;
+    private List<StatResult> _stats = [];
     private int _playerCount;
     private int _matchCount;
     private int _matchesThisWeek;
@@ -169,7 +169,7 @@ else if (_team != null)
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);
                 _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, Constants.Pagination.DashboardRecentMatches);
-                _badges = await StatsService.GetBadgesAsync(_team.Id);
+                _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
                 _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
                 _matchCount = await MatchService.GetCountByTeamAsync(_team.Id);
                 _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id);

@@ -1,6 +1,7 @@
 using Fotbalek.Web.Components;
 using Fotbalek.Web.Data;
 using Fotbalek.Web.Services;
+using Fotbalek.Web.Services.Stats;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +21,7 @@ builder.Services.AddScoped<EloService>();
 builder.Services.AddScoped<StatsService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ShareTokenService>();
-builder.Services.AddScoped<BadgeService>();
+builder.Services.AddFoosballStats();
 
 // Add Blazor components
 builder.Services.AddRazorComponents()

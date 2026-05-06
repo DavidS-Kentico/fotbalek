@@ -302,6 +302,45 @@ h1:focus {
     color: white !important;
 }
 
+.bg-purple-subtle {
+    background-color: rgba(111, 66, 193, 0.1) !important;
+}
+
+/* Themed stats rows on the Statistics page */
+.stats-theme-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    column-gap: 12px;
+    align-items: start;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.stats-theme-row:last-child {
+    border-bottom: none;
+}
+
+.stats-theme-label {
+    padding-top: 4px;
+}
+
+.stats-theme-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+@media (max-width: 575.98px) {
+    .stats-theme-row {
+        grid-template-columns: 1fr;
+        row-gap: 4px;
+    }
+
+    .stats-theme-label {
+        padding-top: 0;
+    }
+}
+
 /* Head-to-Head Matrix */
 .h2h-matrix {
     border-collapse: separate;

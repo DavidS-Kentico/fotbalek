@@ -3,7 +3,7 @@
 @rendermode InteractiveServer
 @inject AuthService AuthService
 @inject StatsService StatsService
-@inject BadgeService BadgeService
+@inject StatsEngine StatsEngine
 
 <PageTitle>Rankings - Foosball Manager</PageTitle>
 
@@ -49,7 +49,7 @@ else
                                                     <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                     <span>@player.PlayerName</span>
                                                 </a>
-                                                @foreach (var badge in BadgeService.GetPlayerBadges(player.PlayerId, _badges))
+                                                @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
                                                 {
                                                     <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
                                                 }
@@ -258,7 +258,7 @@ else
     private List<PairStats> _pairRankings = [];
     private List<PositionRanking> _goalkeepers = [];
     private List<PositionRanking> _attackers = [];
-    private TeamBadges? _badges;
+    private List<StatResult> _stats = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -270,7 +270,7 @@ else
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);
                 _pairRankings = await StatsService.GetPairRankingsAsync(_team.Id);
                 (_goalkeepers, _attackers) = await StatsService.GetPositionRankingsAsync(_team.Id);
-                _badges = await StatsService.GetBadgesAsync(_team.Id);
+                _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
             }
             _loading = false;
             StateHasChanged();

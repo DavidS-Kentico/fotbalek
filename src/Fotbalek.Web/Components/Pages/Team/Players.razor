@@ -4,7 +4,7 @@
 @inject AuthService AuthService
 @inject PlayerService PlayerService
 @inject StatsService StatsService
-@inject BadgeService BadgeService
+@inject StatsEngine StatsEngine
 
 <PageTitle>Players - Foosball Manager</PageTitle>
 
@@ -37,7 +37,7 @@ else
             <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3 mb-4">
                 @foreach (var player in _activePlayers)
                 {
-                    var playerBadges = BadgeService.GetPlayerBadges(player.Id, _badges);
+                    var playerBadges = StatRegistry.PlayerBadges(_stats, player.Id);
                     <div class="col">
                         <div class="card h-100">
                             <div class="card-body text-center">
@@ -196,7 +196,7 @@ else
     private bool _loading = true;
     private List<Player> _activePlayers = [];
     private List<Player> _inactivePlayers = [];
-    private TeamBadges? _badges;
+    private List<StatResult> _stats = [];
 
     private bool _showModal;
     private Player? _editingPlayer;
@@ -219,7 +219,7 @@ else
             if (_team != null)
             {
                 await LoadPlayers();
-                _badges = await StatsService.GetBadgesAsync(_team.Id);
+                _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
             }
             _loading = false;
             StateHasChanged();
