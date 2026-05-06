@@ -12,6 +12,8 @@ public abstract class StatBase : IStat
     public abstract string Description { get; }
     public virtual StatBadge? Badge => null;
 
+    public virtual bool Applies(StatContext context) => true;
+
     public StatResult Calculate(StatContext context) =>
         new(Key, Name, Emoji, Theme, Description, Compute(context), Badge);
 

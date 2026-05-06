@@ -11,9 +11,10 @@ public class NewcomerStat : StatBase
     public override string Description => $"Joined in the last {Constants.TimeThresholds.RecentActivityDays} days";
     public override StatBadge? Badge => new("bi bi-stars", "bg-success");
 
+    public override bool Applies(StatContext context) => context.IsAllTime;
+
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
-        if (!context.IsAllTime) return [];
         var threshold = DateTimeOffset.UtcNow.AddDays(-Constants.TimeThresholds.RecentActivityDays);
         return context.ActivePlayers
             .Where(p => p.CreatedAt >= threshold)

@@ -9,9 +9,9 @@ public class StatRegistry(IEnumerable<IStat> stats)
 
     public IReadOnlyList<IStat> All => _stats;
 
-    /// <summary>Compute all stats; returns a result for every stat (with empty Holders when not applicable).</summary>
+    /// <summary>Compute every applicable stat for the context. Stats whose <c>Applies(ctx)</c> returns false are skipped entirely.</summary>
     public List<StatResult> ComputeAll(StatContext context) =>
-        _stats.Select(s => s.Calculate(context)).ToList();
+        _stats.Where(s => s.Applies(context)).Select(s => s.Calculate(context)).ToList();
 
     /// <summary>Returns only stats that opted into badge display AND produced a result for this context.</summary>
     public static List<StatResult> Badges(IEnumerable<StatResult> results) =>

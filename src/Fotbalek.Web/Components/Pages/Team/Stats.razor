@@ -278,7 +278,10 @@ else
                                             @foreach (var col in _h2hMatrix)
                                             {
                                                 <th class="h2h-col-header" title="@col.PlayerName">
-                                                    <Avatar AvatarId="col.AvatarId" Size="sm" />
+                                                    <div class="d-flex flex-column align-items-center gap-1">
+                                                        <Avatar AvatarId="col.AvatarId" Size="sm" />
+                                                        <span class="h2h-col-name">@col.PlayerName</span>
+                                                    </div>
                                                 </th>
                                             }
                                         </tr>

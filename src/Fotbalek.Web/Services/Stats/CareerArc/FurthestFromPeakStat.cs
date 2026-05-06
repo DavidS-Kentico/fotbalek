@@ -15,10 +15,10 @@ public class FurthestFromPeakStat : StatBase
     public override StatTheme Theme => StatTheme.CareerArc;
     public override string Description => $"Currently furthest below their peak ELO (min {MinDrop} drop)";
 
+    public override bool Applies(StatContext context) => context.IsAllTime;
+
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
-        if (!context.IsAllTime) return [];
-
         var peaks = context.Matches
             .SelectMany(m => m.MatchPlayers)
             .GroupBy(mp => mp.PlayerId)

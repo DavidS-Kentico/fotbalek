@@ -14,6 +14,12 @@ public interface IStat
     /// <summary>Optional inline-badge presentation. When non-null, the stat is rendered everywhere badges are shown.</summary>
     StatBadge? Badge { get; }
 
-    /// <summary>Compute the stat. Return a result with empty Holders when the stat does not apply to the given context.</summary>
+    /// <summary>
+    /// Whether this stat is meaningful in the given context. When false, the stat is hidden entirely
+    /// (not even greyed out). Use for stats that only make sense in all-time vs. filtered views.
+    /// </summary>
+    bool Applies(StatContext context);
+
+    /// <summary>Compute the stat. Return a result with empty Holders when no player qualifies (greyed-out display).</summary>
     StatResult Calculate(StatContext context);
 }

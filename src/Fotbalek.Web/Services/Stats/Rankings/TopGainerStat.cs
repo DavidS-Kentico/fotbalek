@@ -10,9 +10,11 @@ public class TopGainerStat : StatBase
     public override StatTheme Theme => StatTheme.Rankings;
     public override string Description => "Best ELO gain in the period";
 
+    public override bool Applies(StatContext context) => !context.IsAllTime;
+
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
-        if (context.IsAllTime || context.Matches.Count == 0) return [];
+        if (context.Matches.Count == 0) return [];
 
         var totals = context.Matches
             .SelectMany(m => m.MatchPlayers)

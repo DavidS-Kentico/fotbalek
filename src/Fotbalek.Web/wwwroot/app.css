@@ -365,6 +365,16 @@ h1:focus {
     text-align: center;
     width: 64px;
     min-width: 64px;
+    vertical-align: bottom;
+}
+
+.h2h-matrix .h2h-col-name {
+    font-size: 0.875rem;
+    line-height: 1.1;
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .h2h-matrix .h2h-cell {

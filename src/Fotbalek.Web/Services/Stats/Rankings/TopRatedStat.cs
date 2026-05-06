@@ -11,9 +11,10 @@ public class TopRatedStat : StatBase
     public override string Description => "Player with the highest current ELO";
     public override StatBadge? Badge => new("bi bi-star-fill", "bg-warning text-dark");
 
+    public override bool Applies(StatContext context) => context.IsAllTime;
+
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
-        if (!context.IsAllTime) return [];
         var top = context.ActivePlayers.MaxBy(p => p.Elo);
         return top is null ? [] : [top.ToHolder(top.Elo, $"{top.Elo} ELO")];
     }
