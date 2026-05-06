@@ -39,15 +39,15 @@ else
             </div>
         </div>
 
-        <!-- Badges (filtered by period) -->
+        <!-- Leaders (filtered by period) -->
         <div class="card mb-4">
             <div class="card-header py-2">
-                <h6 class="mb-0"><i class="bi bi-award me-2"></i>@(_selectedPeriod == "all" ? "Badge Holders" : "Period Leaders")</h6>
+                <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>Leaders</h6>
             </div>
             <div class="card-body py-2">
-                @* Rankings *@
+                @* Rankings — overall ELO standing *@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-bar-chart me-1"></i>Rankings</small>
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-bar-chart me-1"></i>Rankings</small>
                     <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TopRated != null ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="@(_selectedPeriod == "all" ? "Player with the highest current ELO rating" : "Best ELO gain in period")">
                         <span>&#11088;</span>
                         <span class="fw-semibold">@(_selectedPeriod == "all" ? "Top Rated" : "Top Gainer"):</span>
@@ -86,9 +86,9 @@ else
                     </div>
                 </div>
 
-                @* Streaks *@
+                @* Streaks — multi-game form (wins and losses) *@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-fire me-1"></i>Streaks</small>
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-fire me-1"></i>Streaks</small>
                     <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.HotStreak != null ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Player with the longest active winning streak (min 3 wins)">
                         <span>&#128293;</span>
                         <span class="fw-semibold">Hot Streak:</span>
@@ -139,9 +139,91 @@ else
                     </div>
                 </div>
 
-                @* Positions *@
+                @* Score Margins — single-match scoring extremes (wins first, then losses) *@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-person-badge me-1"></i>Positions</small>
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-arrow-down-up me-1"></i>Margins</small>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TableSenders.Count > 0 ? "bg-success bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most 10-0 wins (sent enemies under the table): @(string.Join(", ", _filteredBadges.TableSenders.Select(t => t.PlayerName)))">
+                        <span>&#128170;</span>
+                        <span class="fw-semibold">Table Sender:</span>
+                        @if (_filteredBadges.TableSenders.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.TableSenders.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.TableSenders[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Destroyers.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most wins by a 7+ goal margin: @(string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)))">
+                        <span>&#128165;</span>
+                        <span class="fw-semibold">Destroyer:</span>
+                        @if (_filteredBadges.Destroyers.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Destroyers[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TableDivers.Count > 0 ? "bg-info bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most losses with 0 score (under the table): @(string.Join(", ", _filteredBadges.TableDivers.Select(t => t.PlayerName)))">
+                        <span>&#129681;</span>
+                        <span class="fw-semibold">Table Diver:</span>
+                        @if (_filteredBadges.TableDivers.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.TableDivers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.TableDivers[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Luckers.Count > 0 ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most 1-10 losses — scored just one goal: @(string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)))">
+                        <span>&#127808;</span>
+                        <span class="fw-semibold">Lucker:</span>
+                        @if (_filteredBadges.Luckers.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Luckers[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                </div>
+
+                @* ELO Swings — single-match ELO impact *@
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-graph-up me-1"></i>ELO Swings</small>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloWins.Count > 0 ? "bg-success bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO gain in a single match: @(string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)))">
+                        <span>&#128640;</span>
+                        <span class="fw-semibold">Biggest Win:</span>
+                        @if (_filteredBadges.BiggestEloWins.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)) <span class="text-muted">(+@_filteredBadges.BiggestEloWins[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloLosses.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO loss in a single match: @(string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)))">
+                        <span>&#128201;</span>
+                        <span class="fw-semibold">Biggest Loss:</span>
+                        @if (_filteredBadges.BiggestEloLosses.Count > 0)
+                        {
+                            <span>@string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.BiggestEloLosses[0].Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                </div>
+
+                @* Positions — best in each role *@
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-person-badge me-1"></i>Positions</small>
                     <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BestGoalkeeper != null ? "bg-secondary bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Goalkeeper with lowest goals conceded per match (min @Constants.TimeThresholds.MinGamesForPositionBadge games)">
                         <span>&#129311;</span>
                         <span class="fw-semibold">Best GK:</span>
@@ -168,91 +250,9 @@ else
                     </div>
                 </div>
 
-                @* Under Table *@
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-arrow-down-up me-1"></i>Table</small>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TableDivers.Count > 0 ? "bg-info bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most losses with 0 score (under the table): @(string.Join(", ", _filteredBadges.TableDivers.Select(t => t.PlayerName)))">
-                        <span>&#129681;</span>
-                        <span class="fw-semibold">Diver:</span>
-                        @if (_filteredBadges.TableDivers.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.TableDivers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.TableDivers[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TableSenders.Count > 0 ? "bg-success bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most 10-0 wins (sent enemies under the table): @(string.Join(", ", _filteredBadges.TableSenders.Select(t => t.PlayerName)))">
-                        <span>&#128170;</span>
-                        <span class="fw-semibold">Sender:</span>
-                        @if (_filteredBadges.TableSenders.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.TableSenders.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.TableSenders[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Luckers.Count > 0 ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most 1-10 losses — scored just one goal, almost a table dive: @(string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)))">
-                        <span>&#127808;</span>
-                        <span class="fw-semibold">Lucker:</span>
-                        @if (_filteredBadges.Luckers.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.Luckers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Luckers[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Destroyers.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most wins by a 7+ goal margin: @(string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)))">
-                        <span>&#128165;</span>
-                        <span class="fw-semibold">Destroyer:</span>
-                        @if (_filteredBadges.Destroyers.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.Destroyers.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Destroyers[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                </div>
-
-                @* ELO Swings *@
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-graph-up me-1"></i>ELO Swings</small>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloWins.Count > 0 ? "bg-success bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO gain in a single match (shared by both teammates): @(string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)))">
-                        <span>&#128640;</span>
-                        <span class="fw-semibold">Biggest Win:</span>
-                        @if (_filteredBadges.BiggestEloWins.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.BiggestEloWins.Select(t => t.PlayerName)) <span class="text-muted">(+@_filteredBadges.BiggestEloWins[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.BiggestEloLosses.Count > 0 ? "bg-danger bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Biggest ELO loss in a single match (shared by both teammates): @(string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)))">
-                        <span>&#128201;</span>
-                        <span class="fw-semibold">Biggest Loss:</span>
-                        @if (_filteredBadges.BiggestEloLosses.Count > 0)
-                        {
-                            <span>@string.Join(", ", _filteredBadges.BiggestEloLosses.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.BiggestEloLosses[0].Value)</span></span>
-                        }
-                        else
-                        {
-                            <span class="text-muted fst-italic">-</span>
-                        }
-                    </div>
-                </div>
-
-                @* Special *@
+                @* Special — partnership and activity standouts *@
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <small class="text-muted fw-semibold" style="min-width: 70px;"><i class="bi bi-star me-1"></i>Special</small>
+                    <small class="text-muted fw-semibold" style="min-width: 90px;"><i class="bi bi-star me-1"></i>Special</small>
                     <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.TomkoMemorials.Count > 0 ? "bg-warning bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Most games played in a single day (min @Constants.TimeThresholds.MinGamesForTomkoBadge games): @(string.Join(", ", _filteredBadges.TomkoMemorials.Select(t => t.PlayerName)))">
                         <span>&#127942;</span>
                         <span class="fw-semibold">Tomko:</span>

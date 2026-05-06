@@ -47,7 +47,7 @@ public class BadgeService
 
         var lucker = badges.Luckers.FirstOrDefault(l => l.PlayerId == playerId);
         if (lucker != null)
-            result.Add(new PlayerBadgeInfo("bi bi-life-preserver", "bg-warning text-dark", $"Lucker - {lucker.Value} losses scoring just 1 goal (almost a table dive)"));
+            result.Add(new PlayerBadgeInfo("bi bi-life-preserver", "bg-warning text-dark", $"Lucker - {lucker.Value} losses scoring just 1 goal"));
 
         var destroyer = badges.Destroyers.FirstOrDefault(d => d.PlayerId == playerId);
         if (destroyer != null)

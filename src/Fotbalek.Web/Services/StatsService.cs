@@ -516,7 +516,7 @@ public class StatsService(AppDbContext db)
                 .ToList();
         }
 
-        // Lucker - most 1-10 losses (almost a table dive — scored just one goal)
+        // Lucker - most 1-10 losses
         var maxLucker = playerStreaks.Max(ps => ps.Value.lucker);
         if (maxLucker > 0)
         {
@@ -771,7 +771,7 @@ public class StatsService(AppDbContext db)
                 if (teamScore == 0)
                     result.UnderTableCount++;
 
-                // Lucker: lost with own team scoring exactly 1 goal (almost a table dive)
+                // Lucker: lost with own team scoring exactly 1 goal
                 if (teamScore == 1)
                     result.LuckyLossCount++;
             }
