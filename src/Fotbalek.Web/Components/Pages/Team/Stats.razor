@@ -113,6 +113,30 @@ else
                             <span class="text-muted fst-italic">-</span>
                         }
                     </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.ColdStreak != null ? "bg-info bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="Player with the longest active losing streak (min 3 losses)">
+                        <span>&#10052;</span>
+                        <span class="fw-semibold">Cold Streak:</span>
+                        @if (_filteredBadges.ColdStreak != null)
+                        {
+                            <span>@_filteredBadges.ColdStreak.PlayerName <span class="text-muted">(@_filteredBadges.ColdStreak.Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.SlumpKing != null ? "bg-dark bg-opacity-10" : "bg-secondary bg-opacity-10 opacity-50") rounded small" title="@(_selectedPeriod == "all" ? "Player with the longest losing streak in history (min 3 losses)" : "Longest losing streak in period (min 3 losses)")">
+                        <span>&#129398;</span>
+                        <span class="fw-semibold">Slump King:</span>
+                        @if (_filteredBadges.SlumpKing != null)
+                        {
+                            <span>@_filteredBadges.SlumpKing.PlayerName <span class="text-muted">(@_filteredBadges.SlumpKing.Value)</span></span>
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">-</span>
+                        }
+                    </div>
                 </div>
 
                 @* Positions *@
@@ -646,6 +670,8 @@ else
             _filteredBadges.TopRated = _badges.TopRated;
             _filteredBadges.HotStreak = _badges.HotStreak;
             _filteredBadges.StreakKing = _badges.StreakKing;
+            _filteredBadges.ColdStreak = _badges.ColdStreak;
+            _filteredBadges.SlumpKing = _badges.SlumpKing;
             _filteredBadges.BestGoalkeeper = _badges.BestGoalkeeper;
             _filteredBadges.BestAttacker = _badges.BestAttacker;
             _filteredBadges.BestWinRate = _badges.BestWinRate;
@@ -714,10 +740,14 @@ else
                     data.CurrentStreak++;
                     if (data.CurrentStreak > data.LongestStreak)
                         data.LongestStreak = data.CurrentStreak;
+                    data.CurrentLossStreak = 0;
                 }
                 else
                 {
                     data.CurrentStreak = 0;
+                    data.CurrentLossStreak++;
+                    if (data.CurrentLossStreak > data.LongestLossStreak)
+                        data.LongestLossStreak = data.CurrentLossStreak;
                 }
 
                 // Table diver: lost 0-10
@@ -805,6 +835,34 @@ else
                 PlayerId = streakKing.Key,
                 PlayerName = streakKing.Value.Name,
                 Value = streakKing.Value.LongestStreak
+            };
+        }
+
+        // Cold Streak (current losing streak at end of period, min 3 losses)
+        var coldStreak = playerData.Where(p => p.Value.CurrentLossStreak >= 3)
+            .OrderByDescending(p => p.Value.CurrentLossStreak)
+            .FirstOrDefault();
+        if (coldStreak.Value != null)
+        {
+            _filteredBadges.ColdStreak = new BadgeHolder
+            {
+                PlayerId = coldStreak.Key,
+                PlayerName = coldStreak.Value.Name,
+                Value = coldStreak.Value.CurrentLossStreak
+            };
+        }
+
+        // Slump King (longest losing streak in period, min 3 losses)
+        var slumpKing = playerData.Where(p => p.Value.LongestLossStreak >= 3)
+            .OrderByDescending(p => p.Value.LongestLossStreak)
+            .FirstOrDefault();
+        if (slumpKing.Value != null)
+        {
+            _filteredBadges.SlumpKing = new BadgeHolder
+            {
+                PlayerId = slumpKing.Key,
+                PlayerName = slumpKing.Value.Name,
+                Value = slumpKing.Value.LongestLossStreak
             };
         }
 
@@ -974,6 +1032,8 @@ else
         public int TotalEloChange { get; set; }
         public int CurrentStreak { get; set; }
         public int LongestStreak { get; set; }
+        public int CurrentLossStreak { get; set; }
+        public int LongestLossStreak { get; set; }
         public int UnderTableLosses { get; set; }
         public int TableSends { get; set; }
         public int GkGames { get; set; }
@@ -1057,6 +1117,8 @@ else
         public BadgeHolder? TopRated { get; set; }
         public BadgeHolder? HotStreak { get; set; }
         public BadgeHolder? StreakKing { get; set; }
+        public BadgeHolder? ColdStreak { get; set; }
+        public BadgeHolder? SlumpKing { get; set; }
         public BadgeHolder? BestGoalkeeper { get; set; }
         public BadgeHolder? BestAttacker { get; set; }
         public BadgeHolder? BestWinRate { get; set; }

@@ -22,6 +22,12 @@ public class BadgeService
         if (badges.StreakKing?.PlayerId == playerId)
             result.Add(new PlayerBadgeInfo("bi bi-gem", "bg-primary", $"Streak King - {badges.StreakKing.Value} wins (all-time)"));
 
+        if (badges.ColdStreak?.PlayerId == playerId)
+            result.Add(new PlayerBadgeInfo("bi bi-snow", "bg-info", $"Cold Streak - {badges.ColdStreak.Value} losses"));
+
+        if (badges.SlumpKing?.PlayerId == playerId)
+            result.Add(new PlayerBadgeInfo("bi bi-thermometer-snow", "bg-dark", $"Slump King - {badges.SlumpKing.Value} losses (all-time)"));
+
         if (badges.BestGoalkeeper?.PlayerId == playerId)
             result.Add(new PlayerBadgeInfo("bi bi-shield-fill", "bg-secondary", "Best Goalkeeper"));
 

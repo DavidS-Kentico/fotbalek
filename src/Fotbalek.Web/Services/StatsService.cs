@@ -290,7 +290,7 @@ public class StatsService(AppDbContext db)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Calculate streaks, under table counts, and position stats for all players
-        var playerStreaks = new Dictionary<int, (int current, int longest, int underTable, int tableSender, int wins, int totalGames)>();
+        var playerStreaks = new Dictionary<int, (int current, int longest, int longestLoss, int underTable, int tableSender, int wins, int totalGames)>();
         var positionStats = new Dictionary<int, (int gkGames, int gkTeamScored, int gkTeamConceded, int atkGames, int atkTeamScored, int atkTeamConceded)>();
 
         foreach (var player in players)
@@ -302,6 +302,7 @@ public class StatsService(AppDbContext db)
             playerStreaks[player.Id] = (
                 streakResult.CurrentStreak,
                 streakResult.LongestWinStreak,
+                streakResult.LongestLossStreak,
                 streakResult.UnderTableCount,
                 streakResult.TableSenderCount,
                 streakResult.Wins,
@@ -344,6 +345,36 @@ public class StatsService(AppDbContext db)
                 PlayerId = player.Id,
                 PlayerName = player.Name,
                 Value = streakKing.Value.longest
+            };
+        }
+
+        // Cold Streak - currently longest active losing streak (min 3 losses)
+        var coldStreak = playerStreaks
+            .Where(ps => ps.Value.current <= -Constants.TimeThresholds.MinGamesForPartnerStats)
+            .OrderBy(ps => ps.Value.current)
+            .FirstOrDefault();
+
+        if (coldStreak.Value.current <= -Constants.TimeThresholds.MinGamesForPartnerStats)
+        {
+            var player = players.First(p => p.Id == coldStreak.Key);
+            badges.ColdStreak = new BadgeHolder
+            {
+                PlayerId = player.Id,
+                PlayerName = player.Name,
+                Value = -coldStreak.Value.current
+            };
+        }
+
+        // Slump King - longest losing streak in history
+        var slumpKing = playerStreaks.OrderByDescending(ps => ps.Value.longestLoss).FirstOrDefault();
+        if (slumpKing.Value.longestLoss > 0)
+        {
+            var player = players.First(p => p.Id == slumpKing.Key);
+            badges.SlumpKing = new BadgeHolder
+            {
+                PlayerId = player.Id,
+                PlayerName = player.Name,
+                Value = slumpKing.Value.longestLoss
             };
         }
 
@@ -603,6 +634,7 @@ public class StatsService(AppDbContext db)
             {
                 result.Losses++;
                 tempStreak = tempStreak < 0 ? tempStreak - 1 : -1;
+                result.LongestLossStreak = Math.Max(result.LongestLossStreak, -tempStreak);
 
                 // Check for under the table (lost with 0 score)
                 if (teamScore == 0)
@@ -637,6 +669,7 @@ public class StatsService(AppDbContext db)
         public int Losses { get; set; }
         public int CurrentStreak { get; set; }
         public int LongestWinStreak { get; set; }
+        public int LongestLossStreak { get; set; }
         public int UnderTableCount { get; set; }
         public int TableSenderCount { get; set; }
         public int GoalkeeperCount { get; set; }
@@ -721,6 +754,8 @@ public class TeamBadges
 {
     public BadgeHolder? HotStreak { get; set; }
     public BadgeHolder? StreakKing { get; set; }
+    public BadgeHolder? ColdStreak { get; set; }
+    public BadgeHolder? SlumpKing { get; set; }
     public BadgeHolder? LastPlace { get; set; }
     public List<BadgeHolder> TableDivers { get; set; } = [];
     public List<BadgeHolder> TableSenders { get; set; } = [];
