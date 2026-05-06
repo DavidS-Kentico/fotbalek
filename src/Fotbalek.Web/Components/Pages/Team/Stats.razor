@@ -265,12 +265,12 @@ else
                             <span class="text-muted fst-italic">-</span>
                         }
                     </div>
-                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Carried.Count > 0 ? "" : "bg-secondary bg-opacity-10 opacity-50") rounded small" style="@(_filteredBadges.Carried.Count > 0 ? "background-color: rgba(111, 66, 193, 0.1);" : "")" title="Highest % of wins with higher ELO partner (min @Constants.TimeThresholds.MinGamesForCarriedBadge wins): @(string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)))">
+                    <div class="d-flex align-items-center gap-1 px-2 py-1 @(_filteredBadges.Carried.Count > 0 ? "" : "bg-secondary bg-opacity-10 opacity-50") rounded small" style="@(_filteredBadges.Carried.Count > 0 ? "background-color: rgba(111, 66, 193, 0.1);" : "")" title="Most wins where partner had 20%+ higher ELO and both opponents were lower than partner (min @Constants.TimeThresholds.MinGamesForCarriedBadge such wins): @(string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)))">
                         <span>&#129309;</span>
                         <span class="fw-semibold">Carried:</span>
                         @if (_filteredBadges.Carried.Count > 0)
                         {
-                            <span>@string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Carried[0].Value%)</span></span>
+                            <span>@string.Join(", ", _filteredBadges.Carried.Select(t => t.PlayerName)) <span class="text-muted">(@_filteredBadges.Carried[0].Value)</span></span>
                         }
                         else
                         {
@@ -722,28 +722,34 @@ else
             var isTableSend = (team1Won && match.Team1Score == 10 && match.Team2Score == 0) ||
                               (!team1Won && match.Team2Score == 10 && match.Team1Score == 0);
 
-            // Track carried wins - process winning team
+            // Track carried wins: partner ≥20% higher ELO and both opponents lower than partner.
             var winningTeamNumber = team1Won ? 1 : 2;
+            var losingTeamNumber = team1Won ? 2 : 1;
             var winningTeamPlayers = match.MatchPlayers.Where(p => p.TeamNumber == winningTeamNumber).ToList();
-            if (winningTeamPlayers.Count == 2)
+            var losingTeamPlayers = match.MatchPlayers.Where(p => p.TeamNumber == losingTeamNumber).ToList();
+            if (winningTeamPlayers.Count == 2 && losingTeamPlayers.Count == 2)
             {
-                var player1 = winningTeamPlayers[0];
-                var player2 = winningTeamPlayers[1];
+                var winner1 = winningTeamPlayers[0];
+                var winner2 = winningTeamPlayers[1];
+                var opp1 = losingTeamPlayers[0];
+                var opp2 = losingTeamPlayers[1];
 
-                // Player1 was carried if partner (player2) had higher ELO
-                if (player2.EloBefore > player1.EloBefore)
+                if (winner2.EloBefore >= winner1.EloBefore * 1.2 &&
+                    opp1.EloBefore < winner2.EloBefore &&
+                    opp2.EloBefore < winner2.EloBefore)
                 {
-                    if (!playerData.ContainsKey(player1.PlayerId))
-                        playerData[player1.PlayerId] = new PlayerBadgeData { Name = player1.Player.Name };
-                    playerData[player1.PlayerId].CarriedWins++;
+                    if (!playerData.ContainsKey(winner1.PlayerId))
+                        playerData[winner1.PlayerId] = new PlayerBadgeData { Name = winner1.Player.Name };
+                    playerData[winner1.PlayerId].CarriedWins++;
                 }
 
-                // Player2 was carried if partner (player1) had higher ELO
-                if (player1.EloBefore > player2.EloBefore)
+                if (winner1.EloBefore >= winner2.EloBefore * 1.2 &&
+                    opp1.EloBefore < winner1.EloBefore &&
+                    opp2.EloBefore < winner1.EloBefore)
                 {
-                    if (!playerData.ContainsKey(player2.PlayerId))
-                        playerData[player2.PlayerId] = new PlayerBadgeData { Name = player2.Player.Name };
-                    playerData[player2.PlayerId].CarriedWins++;
+                    if (!playerData.ContainsKey(winner2.PlayerId))
+                        playerData[winner2.PlayerId] = new PlayerBadgeData { Name = winner2.Player.Name };
+                    playerData[winner2.PlayerId].CarriedWins++;
                 }
             }
 
@@ -1016,21 +1022,21 @@ else
                 .ToList();
         }
 
-        // Carried - highest % of wins with higher ELO partner (min 10 wins)
+        // Carried - most carried wins (partner ≥20% stronger, opponents weaker than partner; min threshold)
         var qualifiedCarried = playerData
-            .Where(p => p.Value.Wins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
+            .Where(p => p.Value.CarriedWins >= Constants.TimeThresholds.MinGamesForCarriedBadge)
             .ToList();
 
         if (qualifiedCarried.Count > 0)
         {
-            var maxCarriedPercent = qualifiedCarried.Max(p => p.Value.CarriedPercent);
+            var maxCarried = qualifiedCarried.Max(p => p.Value.CarriedWins);
             _filteredBadges.Carried = qualifiedCarried
-                .Where(p => Math.Abs(p.Value.CarriedPercent - maxCarriedPercent) < 0.01)
+                .Where(p => p.Value.CarriedWins == maxCarried)
                 .Select(p => new BadgeHolder
                 {
                     PlayerId = p.Key,
                     PlayerName = p.Value.Name,
-                    Value = (int)Math.Round(p.Value.CarriedPercent)
+                    Value = maxCarried
                 })
                 .ToList();
         }
@@ -1106,7 +1112,6 @@ else
         public int AtkGoalsScored { get; set; }
         public Dictionary<DateTime, int> GamesPerDay { get; set; } = [];
         public int CarriedWins { get; set; }
-        public double CarriedPercent => Wins > 0 ? (double)CarriedWins / Wins * 100 : 0;
     }
 
     private async Task RenderCharts()

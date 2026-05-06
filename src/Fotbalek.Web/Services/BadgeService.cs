@@ -65,7 +65,7 @@ public class BadgeService
 
         var carried = badges.Carried.FirstOrDefault(c => c.PlayerId == playerId);
         if (carried != null)
-            result.Add(new PlayerBadgeInfo("bi bi-people-fill", "bg-purple", $"Carried - {carried.Value}% of wins with higher ELO partner"));
+            result.Add(new PlayerBadgeInfo("bi bi-people-fill", "bg-purple", $"Carried - {carried.Value} wins with a 20%+ stronger partner against weaker opponents"));
 
         return result;
     }
