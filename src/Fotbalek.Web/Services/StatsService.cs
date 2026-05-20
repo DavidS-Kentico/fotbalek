@@ -1,5 +1,7 @@
 using Fotbalek.Web.Data;
 using Fotbalek.Web.Data.Entities;
+using Fotbalek.Web.Services.Stats.Core;
+using Fotbalek.Web.Services.Stats.Special;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
@@ -43,6 +45,7 @@ public class StatsService(AppDbContext db)
         stats.Losses = streakResult.Losses;
         stats.CurrentStreak = streakResult.CurrentStreak;
         stats.LongestWinStreak = streakResult.LongestWinStreak;
+        stats.LongestLossStreak = streakResult.LongestLossStreak;
         stats.UnderTableCount = streakResult.UnderTableCount;
         stats.TableSenderCount = streakResult.TableSenderCount;
         stats.GamesAsGk = streakResult.GoalkeeperCount;
@@ -162,6 +165,44 @@ public class StatsService(AppDbContext db)
                 stats.HardestEnemyWinRate = (double)hardest.Wins / hardest.Games * 100;
                 stats.HardestEnemyGames = hardest.Games;
             }
+        }
+
+        // Average ELO change on wins / losses
+        var winningMps = matchPlayers.Where(mp => mp.EloChange > 0).ToList();
+        var losingMps = matchPlayers.Where(mp => mp.EloChange < 0).ToList();
+        stats.AvgEloChangeOnWin = winningMps.Count > 0 ? winningMps.Average(mp => mp.EloChange) : 0;
+        stats.AvgEloChangeOnLoss = losingMps.Count > 0 ? losingMps.Average(mp => mp.EloChange) : 0;
+
+        // Average opponent / teammate ELO (using pre-match ELO at the time of each match)
+        var opponentElos = matchPlayers
+            .SelectMany(mp => mp.Match.MatchPlayers
+                .Where(p => p.TeamNumber != mp.TeamNumber)
+                .Select(p => p.EloBefore))
+            .ToList();
+        stats.AvgOpponentElo = opponentElos.Count > 0 ? (int)Math.Round(opponentElos.Average()) : 0;
+
+        var teammateElos = matchPlayers
+            .SelectMany(mp => mp.Match.MatchPlayers
+                .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId)
+                .Select(p => p.EloBefore))
+            .ToList();
+        stats.AvgTeammateElo = teammateElos.Count > 0 ? (int)Math.Round(teammateElos.Average()) : 0;
+
+        // Recent form: last 10 matches (matchPlayers is ordered ascending by PlayedAt)
+        var recent = matchPlayers.TakeLast(10).ToList();
+        stats.RecentForm = recent.Select(mp => mp.EloChange > 0).ToList();
+        stats.RecentFormWinRate = recent.Count > 0
+            ? (double)stats.RecentForm.Count(w => w) / recent.Count * 100
+            : 0;
+
+        // Carry / Carried counts — uses the same predicate as CarriedStat (single source of truth).
+        foreach (var mp in matchPlayers)
+        {
+            if (!mp.Match.TryGetTeams(out var winners, out var losers)) continue;
+            var carry = CarriedStat.AnalyzeCarry(winners[0], winners[1], losers[0], losers[1]);
+            if (carry is null) continue;
+            if (carry.Value.CarriedId == playerId) stats.CarriedCount++;
+            if (carry.Value.CarrierId == playerId) stats.CarryCount++;
         }
 
         // ELO history for chart
@@ -467,6 +508,15 @@ public class PlayerStats
     public double WinRate { get; set; }
     public int CurrentStreak { get; set; }
     public int LongestWinStreak { get; set; }
+    public int LongestLossStreak { get; set; }
+    public double AvgEloChangeOnWin { get; set; }
+    public double AvgEloChangeOnLoss { get; set; }
+    public int AvgOpponentElo { get; set; }
+    public int AvgTeammateElo { get; set; }
+    public List<bool> RecentForm { get; set; } = [];
+    public double RecentFormWinRate { get; set; }
+    public int CarriedCount { get; set; }
+    public int CarryCount { get; set; }
     public string PreferredPosition { get; set; } = "Flexible";
     public string BetterPosition { get; set; } = "-";
     public int GamesAsGk { get; set; }

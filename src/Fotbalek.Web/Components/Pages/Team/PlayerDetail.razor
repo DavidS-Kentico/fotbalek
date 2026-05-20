@@ -82,7 +82,42 @@ else if (_player != null && _stats != null)
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Longest Win Streak</span>
-                            <strong>@_stats.LongestWinStreak</strong>
+                            <strong class="text-success">@_stats.LongestWinStreak</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Longest Loss Streak</span>
+                            <strong class="text-danger">@_stats.LongestLossStreak</strong>
+                        </li>
+                        @if (_stats.RecentForm.Count > 0)
+                        {
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span title="Win rate across the last @_stats.RecentForm.Count matches">Recent Form</span>
+                                    <strong class="@(_stats.RecentFormWinRate >= 50 ? "text-success" : "text-danger")">@_stats.RecentFormWinRate.ToString("F0")%</strong>
+                                </div>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    @foreach (var won in _stats.RecentForm)
+                                    {
+                                        <span class="badge @(won ? "bg-success" : "bg-danger")" style="min-width:1.5rem">@(won ? "W" : "L")</span>
+                                    }
+                                </div>
+                            </li>
+                        }
+                        <li class="list-group-item d-flex justify-content-between" title="Average ELO gained per win">
+                            <span>Avg ELO / Win</span>
+                            <strong class="text-success">@(_stats.AvgEloChangeOnWin > 0 ? "+" : "")@_stats.AvgEloChangeOnWin.ToString("F1")</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Average ELO lost per loss">
+                            <span>Avg ELO / Loss</span>
+                            <strong class="text-danger">@_stats.AvgEloChangeOnLoss.ToString("F1")</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Average ELO of opponents faced (at time of match)">
+                            <span>Avg Opponent ELO</span>
+                            <strong>@_stats.AvgOpponentElo</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Average ELO of teammates (at time of match)">
+                            <span>Avg Teammate ELO</span>
+                            <strong>@_stats.AvgTeammateElo</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Preferred Position</span>
@@ -99,6 +134,26 @@ else if (_player != null && _stats != null)
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Under Table Wins</span>
                             <strong class="text-success">@_stats.TableSenderCount</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Wins where a stronger partner (20%+ higher ELO) and both weaker opponents made the win expected — i.e. this player was carried">
+                            <span>Carried</span>
+                            <strong>
+                                @_stats.CarriedCount
+                                @if (_stats.Wins > 0 && _stats.CarriedCount > 0)
+                                {
+                                    <small class="text-muted ms-1">(@(((double)_stats.CarriedCount / _stats.Wins * 100).ToString("F0"))% of wins)</small>
+                                }
+                            </strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between" title="Wins where this player was the stronger partner (20%+ higher ELO) and both opponents were weaker — i.e. this player carried">
+                            <span>Carries</span>
+                            <strong>
+                                @_stats.CarryCount
+                                @if (_stats.Wins > 0 && _stats.CarryCount > 0)
+                                {
+                                    <small class="text-muted ms-1">(@(((double)_stats.CarryCount / _stats.Wins * 100).ToString("F0"))% of wins)</small>
+                                }
+                            </strong>
                         </li>
                     </ul>
                 </div>
