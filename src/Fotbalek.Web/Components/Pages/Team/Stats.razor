@@ -334,6 +334,82 @@ else
                 </div>
             </div>
         </div>
+
+        <!-- Teammate Matrix -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-people me-2"></i>Teammate Matrix</h6>
+                        <small class="text-muted">Win rate when row player teams up with column player. Cell brightness reflects sample size.</small>
+                    </div>
+                    <div class="card-body">
+                        @if (_teammateMatrix.Count >= 2)
+                        {
+                            <div class="table-responsive">
+                                <table class="h2h-matrix">
+                                    <thead>
+                                        <tr>
+                                            <th class="h2h-row-header"></th>
+                                            @foreach (var col in _teammateMatrix)
+                                            {
+                                                <th class="h2h-col-header" title="@col.PlayerName">
+                                                    <div class="d-flex flex-column align-items-center gap-1">
+                                                        <Avatar AvatarId="col.AvatarId" Size="sm" />
+                                                        <span class="h2h-col-name">@col.PlayerName</span>
+                                                    </div>
+                                                </th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in _teammateMatrix)
+                                        {
+                                            <tr>
+                                                <th class="h2h-row-header">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <Avatar AvatarId="row.AvatarId" Size="sm" />
+                                                        <span>@row.PlayerName</span>
+                                                    </div>
+                                                </th>
+                                                @foreach (var col in _teammateMatrix)
+                                                {
+                                                    @if (row.PlayerId == col.PlayerId)
+                                                    {
+                                                        <td class="h2h-cell h2h-diagonal"></td>
+                                                    }
+                                                    else
+                                                    {
+                                                        var cell = row.Cells.GetValueOrDefault(col.PlayerId);
+                                                        @if (cell == null || cell.Games == 0)
+                                                        {
+                                                            <td class="h2h-cell h2h-empty">—</td>
+                                                        }
+                                                        else
+                                                        {
+                                                            <td class="h2h-cell"
+                                                                style="@GetH2HCellStyle(cell)"
+                                                                title="@row.PlayerName with @col.PlayerName: @cell.Wins-@(cell.Games - cell.Wins) (@((int)Math.Round(cell.WinRate * 100))%)">
+                                                                <div class="h2h-pct">@((int)Math.Round(cell.WinRate * 100))%</div>
+                                                                <div class="h2h-record">@cell.Wins-@(cell.Games - cell.Wins)</div>
+                                                            </td>
+                                                        }
+                                                    }
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 }
 
@@ -367,6 +443,7 @@ else
     private Dictionary<string, int> _matchesOverTime = [];
     private int[] _dayOfWeekStats = new int[7];
     private List<H2HRow> _h2hMatrix = [];
+    private List<H2HRow> _teammateMatrix = [];
     private List<string> _eloTrajectoryLabels = [];
     private List<EloTrajectoryDataset> _eloTrajectoryDatasets = [];
 
@@ -463,6 +540,7 @@ else
         _stats = StatsEngine.Compute(_playersById, _filteredMatches, isAllTime: _selectedPeriod == "all");
 
         CalculateH2HMatrix();
+        CalculateTeammateMatrix();
         CalculateEloTrajectory();
     }
 
@@ -547,6 +625,56 @@ else
             .ToList();
 
         _h2hMatrix = orderedIds
+            .Select(rowId =>
+            {
+                var ranking = rankingByPlayerId[rowId];
+                var row = new H2HRow
+                {
+                    PlayerId = rowId,
+                    PlayerName = ranking.PlayerName,
+                    AvatarId = ranking.AvatarId
+                };
+                foreach (var colId in orderedIds)
+                {
+                    if (rowId == colId) continue;
+                    pairs.TryGetValue((rowId, colId), out var p);
+                    row.Cells[colId] = new H2HCell { Wins = p.Wins, Games = p.Games };
+                }
+                return row;
+            })
+            .ToList();
+    }
+
+    private void CalculateTeammateMatrix()
+    {
+        _teammateMatrix = [];
+
+        if (_filteredMatches.Count == 0 || _filteredRankings.Count < 2) return;
+
+        var pairs = new Dictionary<(int Row, int Col), (int Wins, int Games)>();
+
+        foreach (var match in _filteredMatches)
+        {
+            foreach (var team in new[] { 1, 2 })
+            {
+                var players = match.MatchPlayers.Where(mp => mp.TeamNumber == team).ToList();
+                if (players.Count != 2) continue;
+
+                var won = match.Team1Score > match.Team2Score ? team == 1 : team == 2;
+                AccumulatePair(pairs, players[0].PlayerId, players[1].PlayerId, won);
+                AccumulatePair(pairs, players[1].PlayerId, players[0].PlayerId, won);
+            }
+        }
+
+        var participantIds = _filteredRankings.Select(r => r.PlayerId).ToHashSet();
+        var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
+        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
+
+        var orderedIds = participantIds
+            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .ToList();
+
+        _teammateMatrix = orderedIds
             .Select(rowId =>
             {
                 var ranking = rankingByPlayerId[rowId];
