@@ -28,6 +28,6 @@ public class LuckerStat : StatBase
                 }
             }
         }
-        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} narrow losses");
+        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} crushing defeats");
     }
 }
