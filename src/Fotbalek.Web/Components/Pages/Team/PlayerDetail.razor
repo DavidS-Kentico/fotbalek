@@ -119,6 +119,20 @@ else if (_player != null && _stats != null)
                             <span>Avg Teammate ELO</span>
                             <strong>@_stats.AvgTeammateElo</strong>
                         </li>
+                        <li class="list-group-item d-flex justify-content-between" title="How evenly games are distributed across the current active roster (100% = perfectly even across all @_stats.ActiveRosterPartners teammates). Needs at least @Constants.TimeThresholds.MinGamesForVarietyBadge games with active teammates.">
+                            <span>Teammate Variety</span>
+                            <strong>
+                                @if (_stats.HasEnoughGamesForVariety && _stats.ActiveRosterPartners >= 2)
+                                {
+                                    @($"{Math.Round(_stats.TeammateVariety * 100)}%")
+                                    <small class="text-muted ms-1">(@_stats.UniqueTeammates/@_stats.ActiveRosterPartners)</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted fst-italic">n/a</span>
+                                }
+                            </strong>
+                        </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Preferred Position</span>
                             <strong>@_stats.PreferredPosition</strong>

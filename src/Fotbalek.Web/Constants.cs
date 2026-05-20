@@ -36,6 +36,7 @@ public static class Constants
         public const int MinGamesForPositionBadge = 5;
         public const int MinGamesForTomkoBadge = 7;
         public const int MinGamesForCarriedBadge = 10;
+        public const int MinGamesForVarietyBadge = 10;
     }
 
     /// <summary>

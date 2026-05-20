@@ -1,5 +1,6 @@
 using Fotbalek.Web.Data;
 using Fotbalek.Web.Data.Entities;
+using Fotbalek.Web.Services.Stats.Activity;
 using Fotbalek.Web.Services.Stats.Core;
 using Fotbalek.Web.Services.Stats.Special;
 using Microsoft.EntityFrameworkCore;
@@ -194,6 +195,29 @@ public class StatsService(AppDbContext db)
         stats.RecentFormWinRate = recent.Count > 0
             ? (double)stats.RecentForm.Count(w => w) / recent.Count * 100
             : 0;
+
+        // Teammate variety — Pielou's evenness against the current active roster.
+        // Single source of truth: VarietyPlayerStat.ComputeEvenness.
+        var activeTeammateIds = await db.Players
+            .Where(p => p.TeamId == player.TeamId && p.IsActive && p.Id != playerId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var activeTeammateIdSet = activeTeammateIds.ToHashSet();
+        var gamesPerActivePartner = matchPlayers
+            .SelectMany(mp => mp.Match.MatchPlayers
+                .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId))
+            .Where(p => activeTeammateIdSet.Contains(p.PlayerId))
+            .GroupBy(p => p.PlayerId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        stats.UniqueTeammates = gamesPerActivePartner.Count;
+        stats.ActiveRosterPartners = activeTeammateIds.Count;
+        var teammateGames = gamesPerActivePartner.Values.Sum();
+        stats.TeammateVariety = teammateGames >= Constants.TimeThresholds.MinGamesForVarietyBadge
+            ? VarietyPlayerStat.ComputeEvenness(gamesPerActivePartner, activeTeammateIds.Count)
+            : 0;
+        stats.HasEnoughGamesForVariety = teammateGames >= Constants.TimeThresholds.MinGamesForVarietyBadge;
 
         // Carry / Carried counts — uses the same predicate as CarriedStat (single source of truth).
         foreach (var mp in matchPlayers)
@@ -517,6 +541,10 @@ public class PlayerStats
     public double RecentFormWinRate { get; set; }
     public int CarriedCount { get; set; }
     public int CarryCount { get; set; }
+    public double TeammateVariety { get; set; }
+    public int UniqueTeammates { get; set; }
+    public int ActiveRosterPartners { get; set; }
+    public bool HasEnoughGamesForVariety { get; set; }
     public string PreferredPosition { get; set; } = "Flexible";
     public string BetterPosition { get; set; } = "-";
     public int GamesAsGk { get; set; }
