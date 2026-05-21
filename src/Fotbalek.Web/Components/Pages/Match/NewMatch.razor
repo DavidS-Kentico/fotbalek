@@ -6,6 +6,7 @@
 @inject CurrentUserService CurrentUser
 @inject PlayerService PlayerService
 @inject MatchService MatchService
+@inject EloService EloService
 
 <PageTitle>New Match - Foosball Manager</PageTitle>
 
@@ -29,7 +30,7 @@ else if (_players.Count < 4)
 }
 else
 {
-    <div class="container py-4">
+    <div class="container py-4 match-page">
         <h2 class="text-center mb-4"><i class="bi bi-plus-circle me-2"></i>New Match</h2>
 
         @if (!string.IsNullOrEmpty(_error))
@@ -56,12 +57,44 @@ else
             </div>
         }
 
+        <!-- Action Toolbar -->
+        <div class="match-toolbar">
+            <div class="match-toolbar-status @(AllPlayersSelected ? "" : "incomplete")">
+                <span class="status-icon">
+                    <i class="bi @(AllPlayersSelected ? "bi-check-lg" : "bi-people-fill")"></i>
+                </span>
+                <span>
+                    @if (AllPlayersSelected)
+                    {
+                        <text>Lineup ready</text>
+                    }
+                    else
+                    {
+                        <text>@(4 - PlayersSelectedCount) more @(PlayersSelectedCount == 3 ? "player" : "players") to pick</text>
+                    }
+                </span>
+            </div>
+            <div class="match-toolbar-actions">
+                <button class="btn btn-success btn-sm" @onclick="OpenBalancePicker" title="Pick 4 players and split them into balanced teams">
+                    <i class="bi bi-shuffle me-1"></i> Pick &amp; balance&hellip;
+                </button>
+            </div>
+        </div>
+
         <!-- Foosball Table -->
-        <div class="foosball-table-container mb-4">
+        <div class="foosball-table-container mb-3">
             <div class="foosball-table">
                 <!-- Team 1 Side (Top) -->
                 <div class="team-side team-1-side">
-                    <div class="team-label">Team 1</div>
+                    <div class="team-label">
+                        <div class="team-label-row">
+                            <span>Team 1</span>
+                            @if (Team1AvgIfReady is int t1Avg)
+                            {
+                                <span class="team-avg-elo">ELO @t1Avg</span>
+                            }
+                        </div>
+                    </div>
                     <div class="player-positions">
                         <div class="player-slot atk-slot">
                             @if (Team1AtkId > 0)
@@ -171,46 +204,117 @@ else
                             <span class="position-badge atk">ATK</span>
                         </div>
                     </div>
-                    <div class="team-label">Team 2</div>
+                    <div class="team-label">
+                        <div class="team-label-row">
+                            <span>Team 2</span>
+                            @if (Team2AvgIfReady is int t2Avg)
+                            {
+                                <span class="team-avg-elo">ELO @t2Avg</span>
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Score Input -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="d-flex align-items-end justify-content-center gap-2">
-                    <div class="text-center">
-                        <label class="form-label fw-bold text-warning">Team 1</label>
-                        <input type="number" class="form-control form-control-lg text-center score-input"
-                               min="0" max="10" @bind="Team1Score" />
+        @if (PlayersSelectedCount > 0 || Team1Score > 0 || Team2Score > 0)
+        {
+            <div class="text-center mb-3">
+                <button class="btn btn-link btn-sm text-muted text-decoration-none" @onclick="ResetMatch">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Clear lineup
+                </button>
+            </div>
+        }
+
+        <!-- Match Preview: Win Probability -->
+        @if (AllPlayersSelected)
+        {
+            <div class="match-preview">
+                <div class="match-preview-header">Match Preview</div>
+                <div class="elo-comparison">
+                    <div class="elo-side team-1">
+                        <span class="label">Team 1</span>
+                        <span class="value">@Team1AvgElo</span>
                     </div>
-                    <div class="text-center pb-2">
-                        <span class="fs-2 text-muted">:</span>
-                    </div>
-                    <div class="text-center">
-                        <label class="form-label fw-bold text-primary">Team 2</label>
-                        <input type="number" class="form-control form-control-lg text-center score-input"
-                               min="0" max="10" @bind="Team2Score" />
+                    <div class="elo-vs">vs</div>
+                    <div class="elo-side team-2">
+                        <span class="label">Team 2</span>
+                        <span class="value">@Team2AvgElo</span>
                     </div>
                 </div>
-
-                <!-- Quick Winner Buttons -->
-                <div class="d-flex justify-content-center gap-3 mt-3">
-                    <button type="button" class="btn btn-outline-warning" @onclick="() => SetWinner(1)">
-                        <i class="bi bi-trophy me-1"></i> Team 1 Wins
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" @onclick="() => SetWinner(2)">
-                        <i class="bi bi-trophy me-1"></i> Team 2 Wins
-                    </button>
+                <div class="win-probability-bar">
+                    <div class="prob-fill team-1" style="width: @Team1WinProb%">
+                        @if (Team1WinProb >= 12)
+                        {
+                            <span>@Team1WinProb%</span>
+                        }
+                    </div>
+                    <div class="prob-fill team-2" style="width: @Team2WinProb%">
+                        @if (Team2WinProb >= 12)
+                        {
+                            <span>@Team2WinProb%</span>
+                        }
+                    </div>
                 </div>
+                <div class="match-preview-footer">
+                    <i class="bi bi-bar-chart-fill me-1"></i> Win probability based on team ELO
+                </div>
+            </div>
+        }
 
+        <!-- Outcome cards -->
+        <div class="outcome-cards">
+            <button type="button" class="outcome-card team-1 @(IsValid() && Team1Score > Team2Score ? "active" : "")"
+                    @onclick="() => SetWinner(1)" disabled="@(!AllPlayersSelected)">
+                <i class="bi bi-trophy-fill trophy-icon"></i>
+                <span class="outcome-label">Team 1 Wins</span>
+                @if (AllPlayersSelected)
+                {
+                    <span class="elo-delta">
+                        <span class="gain">+@GetWinDelta(1)</span>
+                        <span class="text-muted">/</span>
+                        <span class="loss">-@GetWinDelta(1)</span>
+                    </span>
+                }
+                else
+                {
+                    <span class="elo-delta text-muted">pick lineup</span>
+                }
+            </button>
+            <button type="button" class="outcome-card team-2 @(IsValid() && Team2Score > Team1Score ? "active" : "")"
+                    @onclick="() => SetWinner(2)" disabled="@(!AllPlayersSelected)">
+                <i class="bi bi-trophy-fill trophy-icon"></i>
+                <span class="outcome-label">Team 2 Wins</span>
+                @if (AllPlayersSelected)
+                {
+                    <span class="elo-delta">
+                        <span class="gain">+@GetWinDelta(2)</span>
+                        <span class="text-muted">/</span>
+                        <span class="loss">-@GetWinDelta(2)</span>
+                    </span>
+                }
+                else
+                {
+                    <span class="elo-delta text-muted">pick lineup</span>
+                }
+            </button>
+        </div>
+
+        <!-- Final Score -->
+        <div class="score-card">
+            <span class="score-card-label">Final Score</span>
+            <div class="score-card-inputs">
+                <input type="number" class="form-control form-control-lg text-center score-input"
+                       min="0" max="10" @bind="Team1Score" />
+                <span class="fs-3 text-muted">:</span>
+                <input type="number" class="form-control form-control-lg text-center score-input"
+                       min="0" max="10" @bind="Team2Score" />
             </div>
         </div>
 
         <!-- Submit Button -->
-        <div class="d-grid">
-            <button class="btn btn-success btn-lg" @onclick="SubmitMatch" disabled="@(_saving || !IsValid())">
+        <div class="text-center">
+            <button class="btn btn-success btn-lg px-5 record-match-btn" @onclick="SubmitMatch" disabled="@(_saving || !IsValid())">
                 @if (_saving)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
@@ -229,6 +333,52 @@ else
             </div>
         }
     </div>
+
+    <!-- Balance Picker Modal -->
+    @if (_showBalancePicker)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-shuffle me-2"></i>Balance Teams</h5>
+                        <button type="button" class="btn-close" @onclick="CloseBalancePicker"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Pick exactly 4 players. We'll split them into the most balanced 2v2 and assign positions.</p>
+                        <div class="row row-cols-3 g-2">
+                            @foreach (var player in _players.OrderByDescending(p => p.Id == MyPlayerId).ThenBy(p => p.Name))
+                            {
+                                var isSelected = _balanceSelectedIds.Contains(player.Id);
+                                var isMe = player.Id == MyPlayerId;
+                                <div class="col">
+                                    <button class="btn w-100 p-2 @(isSelected ? "btn-success" : (isMe ? "btn-outline-success border-2" : "btn-outline-secondary"))"
+                                            @onclick="() => ToggleBalanceSelection(player.Id)">
+                                        <Avatar AvatarId="@player.AvatarId" Size="md" />
+                                        <div class="small mt-1">
+                                            @player.Name
+                                            @if (isMe)
+                                            {
+                                                <span class="badge badge-you ms-1">you</span>
+                                            }
+                                        </div>
+                                        <div class="small text-muted">@player.Elo</div>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <span class="me-auto text-muted small">@_balanceSelectedIds.Count / 4 selected</span>
+                        <button class="btn btn-secondary" @onclick="CloseBalancePicker">Cancel</button>
+                        <button class="btn btn-success" @onclick="ApplyBalance" disabled="@(_balanceSelectedIds.Count != 4)">
+                            <i class="bi bi-shuffle me-1"></i> Balance
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Player Picker Modal -->
     @if (_showPlayerPicker)
@@ -285,6 +435,9 @@ else
     private bool _showPlayerPicker;
     private int _pickerTeam;
     private bool _pickerIsGk;
+
+    private bool _showBalancePicker;
+    private readonly HashSet<int> _balanceSelectedIds = new();
 
     private bool _saving;
     private string? _error;
@@ -348,6 +501,119 @@ else
         ClosePlayerPicker();
     }
 
+    private int PlayersSelectedCount =>
+        new[] { Team1AtkId, Team1GkId, Team2AtkId, Team2GkId }.Count(id => id > 0);
+
+    private bool AllPlayersSelected
+    {
+        get
+        {
+            if (Team1AtkId == 0 || Team1GkId == 0 || Team2AtkId == 0 || Team2GkId == 0)
+                return false;
+            return new[] { Team1AtkId, Team1GkId, Team2AtkId, Team2GkId }.Distinct().Count() == 4;
+        }
+    }
+
+    private int? Team1AvgIfReady => (Team1AtkId > 0 && Team1GkId > 0)
+        ? EloService.GetTeamElo(EloOf(Team1AtkId), EloOf(Team1GkId))
+        : null;
+
+    private int? Team2AvgIfReady => (Team2AtkId > 0 && Team2GkId > 0)
+        ? EloService.GetTeamElo(EloOf(Team2AtkId), EloOf(Team2GkId))
+        : null;
+
+    private int Team1AvgElo => Team1AvgIfReady ?? 0;
+    private int Team2AvgElo => Team2AvgIfReady ?? 0;
+
+    private int Team1WinProb
+    {
+        get
+        {
+            if (!AllPlayersSelected) return 50;
+            var expected = 1.0 / (1.0 + Math.Pow(10, (Team2AvgElo - Team1AvgElo) / 400.0));
+            return (int)Math.Round(expected * 100);
+        }
+    }
+
+    private int Team2WinProb => 100 - Team1WinProb;
+
+    private int GetWinDelta(int winningTeam)
+    {
+        if (!AllPlayersSelected) return 0;
+        var (c1, c2) = EloService.CalculateEloChange(Team1AvgElo, Team2AvgElo, winningTeam == 1);
+        return winningTeam == 1 ? c1 : c2;
+    }
+
+    private int EloOf(int playerId) => _players.First(p => p.Id == playerId).Elo;
+
+    private void OpenBalancePicker()
+    {
+        _balanceSelectedIds.Clear();
+        foreach (var id in new[] { Team1AtkId, Team1GkId, Team2AtkId, Team2GkId })
+        {
+            if (id > 0) _balanceSelectedIds.Add(id);
+        }
+        _showBalancePicker = true;
+    }
+
+    private void CloseBalancePicker() => _showBalancePicker = false;
+
+    private void ToggleBalanceSelection(int playerId)
+    {
+        if (_balanceSelectedIds.Contains(playerId))
+        {
+            _balanceSelectedIds.Remove(playerId);
+        }
+        else if (_balanceSelectedIds.Count < 4)
+        {
+            _balanceSelectedIds.Add(playerId);
+        }
+    }
+
+    private void ApplyBalance()
+    {
+        if (_balanceSelectedIds.Count != 4) return;
+
+        var picked = _balanceSelectedIds.Select(id => _players.First(p => p.Id == id)).ToList();
+
+        // Three possible 2v2 splits — pick the one minimizing team ELO gap
+        var splits = new (Player a1, Player a2, Player b1, Player b2)[]
+        {
+            (picked[0], picked[1], picked[2], picked[3]),
+            (picked[0], picked[2], picked[1], picked[3]),
+            (picked[0], picked[3], picked[1], picked[2]),
+        };
+
+        var best = splits.OrderBy(s => Math.Abs((s.a1.Elo + s.a2.Elo) - (s.b1.Elo + s.b2.Elo))).First();
+
+        // Assign positions to minimize per-position imbalance across teams
+        Player bestAtk1 = best.a1, bestGk1 = best.a2, bestAtk2 = best.b1, bestGk2 = best.b2;
+        int bestScore = int.MaxValue;
+        foreach (var swap1 in new[] { false, true })
+        {
+            foreach (var swap2 in new[] { false, true })
+            {
+                var atk1 = swap1 ? best.a2 : best.a1;
+                var gk1 = swap1 ? best.a1 : best.a2;
+                var atk2 = swap2 ? best.b2 : best.b1;
+                var gk2 = swap2 ? best.b1 : best.b2;
+                var score = Math.Abs(atk1.Elo - atk2.Elo) + Math.Abs(gk1.Elo - gk2.Elo);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestAtk1 = atk1; bestGk1 = gk1; bestAtk2 = atk2; bestGk2 = gk2;
+                }
+            }
+        }
+
+        Team1AtkId = bestAtk1.Id;
+        Team1GkId = bestGk1.Id;
+        Team2AtkId = bestAtk2.Id;
+        Team2GkId = bestGk2.Id;
+
+        _showBalancePicker = false;
+    }
+
     private void SwapPositions(int team)
     {
         if (team == 1)
@@ -373,6 +639,8 @@ else
 
     private void SetWinner(int team)
     {
+        if (!AllPlayersSelected) return;
+
         if (team == 1)
         {
             Team1Score = 10;
