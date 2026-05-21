@@ -7,8 +7,16 @@ namespace Fotbalek.Web.Services;
 
 public class ShareTokenService(AppDbContext db)
 {
-    public async Task<string> GenerateTokenAsync(int teamId)
+    /// <summary>
+    /// Generates a share link for a team. The caller must be a member of that team.
+    /// Returns null when the caller is not a member.
+    /// </summary>
+    public async Task<string?> GenerateTokenAsync(int teamId, int actorUserId)
     {
+        var isMember = await db.TeamMemberships
+            .AnyAsync(m => m.TeamId == teamId && m.UserId == actorUserId);
+        if (!isMember) return null;
+
         // Generate a secure random token
         var tokenBytes = RandomNumberGenerator.GetBytes(32);
         var token = Convert.ToBase64String(tokenBytes)
@@ -37,18 +45,5 @@ public class ShareTokenService(AppDbContext db)
             .FirstOrDefaultAsync(st => st.Token == token && st.ExpiresAt > DateTimeOffset.UtcNow);
 
         return shareToken?.Team;
-    }
-
-    public async Task CleanupExpiredTokensAsync()
-    {
-        var expiredTokens = await db.ShareTokens
-            .Where(st => st.ExpiresAt <= DateTimeOffset.UtcNow)
-            .ToListAsync();
-
-        if (expiredTokens.Count > 0)
-        {
-            db.ShareTokens.RemoveRange(expiredTokens);
-            await db.SaveChangesAsync();
-        }
     }
 }

@@ -1,7 +1,8 @@
 @page "/{TeamCode}/stats"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject PlayerService PlayerService
@@ -451,7 +452,7 @@ else
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);

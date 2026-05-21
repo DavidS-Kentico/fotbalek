@@ -1,7 +1,9 @@
 @page "/{TeamCode}/match/new"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
+@inject CurrentUserService CurrentUser
 @inject PlayerService PlayerService
 @inject MatchService MatchService
 
@@ -68,7 +70,7 @@ else
                                     <i class="bi bi-x"></i>
                                 </button>
                             }
-                            <button class="player-circle team-1 @(Team1AtkId > 0 ? "filled" : "")"
+                            <button class="player-circle team-1 @(Team1AtkId > 0 ? "filled" : "") @(Team1AtkId > 0 && Team1AtkId == MyPlayerId ? "is-me" : "")"
                                     @onclick="() => OpenPlayerPicker(1, false)">
                                 @if (Team1AtkId > 0)
                                 {
@@ -94,7 +96,7 @@ else
                                     <i class="bi bi-x"></i>
                                 </button>
                             }
-                            <button class="player-circle team-1 @(Team1GkId > 0 ? "filled" : "")"
+                            <button class="player-circle team-1 @(Team1GkId > 0 ? "filled" : "") @(Team1GkId > 0 && Team1GkId == MyPlayerId ? "is-me" : "")"
                                     @onclick="() => OpenPlayerPicker(1, true)">
                                 @if (Team1GkId > 0)
                                 {
@@ -126,7 +128,7 @@ else
                                     <i class="bi bi-x"></i>
                                 </button>
                             }
-                            <button class="player-circle team-2 @(Team2GkId > 0 ? "filled" : "")"
+                            <button class="player-circle team-2 @(Team2GkId > 0 ? "filled" : "") @(Team2GkId > 0 && Team2GkId == MyPlayerId ? "is-me" : "")"
                                     @onclick="() => OpenPlayerPicker(2, true)">
                                 @if (Team2GkId > 0)
                                 {
@@ -152,7 +154,7 @@ else
                                     <i class="bi bi-x"></i>
                                 </button>
                             }
-                            <button class="player-circle team-2 @(Team2AtkId > 0 ? "filled" : "")"
+                            <button class="player-circle team-2 @(Team2AtkId > 0 ? "filled" : "") @(Team2AtkId > 0 && Team2AtkId == MyPlayerId ? "is-me" : "")"
                                     @onclick="() => OpenPlayerPicker(2, false)">
                                 @if (Team2AtkId > 0)
                                 {
@@ -242,10 +244,17 @@ else
                         <div class="row row-cols-3 g-2">
                             @foreach (var player in GetAvailablePlayers())
                             {
+                                var isMe = player.Id == MyPlayerId;
                                 <div class="col">
-                                    <button class="btn btn-outline-secondary w-100 p-2" @onclick="() => SelectPlayer(player.Id)">
+                                    <button class="btn w-100 p-2 @(isMe ? "btn-outline-success border-2" : "btn-outline-secondary")" @onclick="() => SelectPlayer(player.Id)">
                                         <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                        <div class="small mt-1">@player.Name</div>
+                                        <div class="small mt-1">
+                                            @player.Name
+                                            @if (isMe)
+                                            {
+                                                <span class="badge badge-you ms-1">you</span>
+                                            }
+                                        </div>
                                         <div class="small text-muted">@player.Elo</div>
                                     </button>
                                 </div>
@@ -264,6 +273,7 @@ else
     private Team? _team;
     private bool _loading = true;
     private List<Player> _players = [];
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     private int Team1GkId { get; set; }
     private int Team1AtkId { get; set; }
@@ -285,7 +295,7 @@ else
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
                 _players = await PlayerService.GetByTeamAsync(_team.Id);
@@ -311,7 +321,6 @@ else
     {
         var selectedIds = new HashSet<int> { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId };
 
-        // Get current slot's player to allow reselection
         var currentId = (_pickerTeam, _pickerIsGk) switch
         {
             (1, true) => Team1GkId,
@@ -321,7 +330,10 @@ else
             _ => 0
         };
 
-        return _players.Where(p => !selectedIds.Contains(p.Id) || p.Id == currentId);
+        return _players
+            .Where(p => !selectedIds.Contains(p.Id) || p.Id == currentId)
+            .OrderByDescending(p => p.Id == MyPlayerId)
+            .ThenBy(p => p.Name);
     }
 
     private void SelectPlayer(int playerId)
@@ -420,11 +432,19 @@ else
 
         try
         {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
+            {
+                _error = "You must be logged in to record a match.";
+                return;
+            }
+
             var match = await MatchService.CreateAsync(
                 _team.Id,
                 Team1GkId, Team1AtkId,
                 Team2GkId, Team2AtkId,
-                Team1Score, Team2Score);
+                Team1Score, Team2Score,
+                userId.Value);
 
             // Reload players to get updated ELOs
             _players = await PlayerService.GetByTeamAsync(_team.Id);
@@ -435,6 +455,10 @@ else
             _showSuccess = true;
         }
         catch (ArgumentException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (UnauthorizedAccessException ex)
         {
             _error = ex.Message;
         }

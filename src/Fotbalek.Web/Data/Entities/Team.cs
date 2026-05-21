@@ -6,9 +6,12 @@ public class Team
     public string Name { get; set; } = string.Empty;
     public string CodeName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public int? AdminUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    public AppUser? AdminUser { get; set; }
     public ICollection<Player> Players { get; set; } = new List<Player>();
     public ICollection<Match> Matches { get; set; } = new List<Match>();
     public ICollection<ShareToken> ShareTokens { get; set; } = new List<ShareToken>();
+    public ICollection<TeamMembership> Members { get; set; } = new List<TeamMembership>();
 }

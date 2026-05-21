@@ -2,16 +2,21 @@
     var team1Players = Match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
     var team2Players = Match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
     var team1Won = Match.Team1Score > Match.Team2Score;
+    var meInTeam1 = MyPlayerId.HasValue && team1Players.Any(mp => mp.PlayerId == MyPlayerId);
+    var meInTeam2 = MyPlayerId.HasValue && team2Players.Any(mp => mp.PlayerId == MyPlayerId);
+    var meWon = (team1Won && meInTeam1) || (!team1Won && meInTeam2);
+    var meLost = (meInTeam1 || meInTeam2) && !meWon;
 }
 
-<div class="card mb-3 @(Compact ? "" : "shadow-sm")">
+<div class="card mb-3 @(Compact ? "" : "shadow-sm") @(meWon ? "border-success" : meLost ? "border-danger" : "")">
     <div class="card-body @(Compact ? "p-2" : "")">
         <div class="row align-items-center">
             <div class="col">
                 <div class="d-flex align-items-center justify-content-end gap-2 @(team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team1Players.OrderBy(p => p.Position))
                     {
-                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none text-end @(team1Won ? "text-success" : "text-muted")">
+                        var isMe = mp.PlayerId == MyPlayerId;
+                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none text-end @(team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
                             <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
                             <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
                         </a>
@@ -33,7 +38,8 @@
                 <div class="d-flex align-items-center gap-2 @(!team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team2Players.OrderBy(p => p.Position))
                     {
-                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none @(!team1Won ? "text-success" : "text-muted")">
+                        var isMe = mp.PlayerId == MyPlayerId;
+                        <a href="/@TeamCode/players/@mp.PlayerId" class="text-decoration-none @(!team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
                             <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
                             <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
                         </a>
@@ -60,4 +66,5 @@
     [Parameter, EditorRequired] public Match Match { get; set; } = null!;
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 }

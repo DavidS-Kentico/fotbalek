@@ -1,7 +1,8 @@
 @page "/{TeamCode}"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject MatchService MatchService
@@ -40,7 +41,8 @@ else if (_team != null)
                                     <tbody>
                                         @foreach (var player in _rankings.Take(Constants.Pagination.DashboardTopPlayers))
                                         {
-                                            <tr>
+                                            var isMine = player.PlayerId == MyPlayerId;
+                                            <tr class="@(isMine ? "table-success" : "")">
                                                 <td class="text-center">
                                                     <RankBadge Rank="@player.Rank" />
                                                 </td>
@@ -49,6 +51,10 @@ else if (_team != null)
                                                         <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                         <span class="ms-2">@player.PlayerName</span>
                                                     </a>
+                                                    @if (isMine)
+                                                    {
+                                                        <span class="badge badge-you ms-1">you</span>
+                                                    }
                                                     @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
                                                     {
                                                         <span class="badge @badge.CssClass ms-1 px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
@@ -159,12 +165,13 @@ else if (_team != null)
     private int _matchCount;
     private int _matchesThisWeek;
     private double _avgMatchScore;
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);

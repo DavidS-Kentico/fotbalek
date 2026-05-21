@@ -1,10 +1,12 @@
 @page "/{TeamCode}/players"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject PlayerService PlayerService
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
+@inject CurrentUserService CurrentUser
 
 <PageTitle>Players - Foosball Manager</PageTitle>
 
@@ -17,9 +19,12 @@ else
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="bi bi-people me-2"></i>Players</h2>
-            <button class="btn btn-success" @onclick="ShowAddModal">
-                <i class="bi bi-plus-lg me-1"></i> Add Player
-            </button>
+            @if (_isAdmin)
+            {
+                <button class="btn btn-success" @onclick="ShowAddModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add Player
+                </button>
+            }
         </div>
 
         @if (!string.IsNullOrEmpty(_message))
@@ -38,11 +43,18 @@ else
                 @foreach (var player in _activePlayers)
                 {
                     var playerBadges = StatRegistry.PlayerBadges(_stats, player.Id);
+                    var isMine = player.Id == MyPlayerId;
                     <div class="col">
-                        <div class="card h-100">
+                        <div class="card h-100 @(isMine ? "border-success" : "")">
                             <div class="card-body text-center">
                                 <Avatar AvatarId="@player.AvatarId" Size="lg" />
-                                <h6 class="card-title mt-2 mb-1">@player.Name</h6>
+                                <h6 class="card-title mt-2 mb-1">
+                                    @player.Name
+                                    @if (isMine)
+                                    {
+                                        <span class="badge badge-you ms-1">you</span>
+                                    }
+                                </h6>
                                 <p class="text-muted small mb-1">ELO: @player.Elo</p>
                                 @if (playerBadges.Count > 0)
                                 {
@@ -56,15 +68,15 @@ else
                             </div>
                             <div class="card-footer bg-transparent border-top-0">
                                 <div class="d-flex gap-1 justify-content-center">
-                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View Stats">
+                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View stats">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditModal(player)" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeactivateConfirm(player)" title="Deactivate">
-                                        <i class="bi bi-person-dash"></i>
-                                    </button>
+                                    @if (_isAdmin)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeactivateConfirm(player)" title="Deactivate">
+                                            <i class="bi bi-person-dash"></i>
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -97,12 +109,15 @@ else
                             </div>
                             <div class="card-footer bg-transparent border-top-0">
                                 <div class="d-flex gap-1 justify-content-center">
-                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View Stats">
+                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View stats">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivatePlayer(player)" title="Reactivate">
-                                        <i class="bi bi-person-check"></i>
-                                    </button>
+                                    @if (_isAdmin)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivatePlayer(player)" title="Reactivate">
+                                            <i class="bi bi-person-check"></i>
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -112,14 +127,14 @@ else
         }
     </div>
 
-    <!-- Add/Edit Modal -->
+    <!-- Add Modal -->
     @if (_showModal)
     {
         <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">@(_editingPlayer == null ? "Add Player" : "Edit Player")</h5>
+                        <h5 class="modal-title">Add Player</h5>
                         <button type="button" class="btn-close" @onclick="HideModal"></button>
                     </div>
                     <EditForm Model="@_formModel" OnValidSubmit="SavePlayer">
@@ -199,7 +214,6 @@ else
     private List<StatResult> _stats = [];
 
     private bool _showModal;
-    private Player? _editingPlayer;
     private PlayerFormModel _formModel = new();
     private string? _modalError;
     private bool _saving;
@@ -210,14 +224,17 @@ else
 
     private string? _message;
     private bool _messageIsError;
+    private bool _isAdmin;
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
+                _isAdmin = await TeamAccess.IsAdminAsync(_team);
                 await LoadPlayers();
                 _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
             }
@@ -236,20 +253,7 @@ else
 
     private void ShowAddModal()
     {
-        _editingPlayer = null;
         _formModel = new PlayerFormModel { AvatarId = 1 };
-        _modalError = null;
-        _showModal = true;
-    }
-
-    private void ShowEditModal(Player player)
-    {
-        _editingPlayer = player;
-        _formModel = new PlayerFormModel
-        {
-            Name = player.Name,
-            AvatarId = player.AvatarId
-        };
         _modalError = null;
         _showModal = true;
     }
@@ -257,7 +261,6 @@ else
     private void HideModal()
     {
         _showModal = false;
-        _editingPlayer = null;
         _modalError = null;
     }
 
@@ -276,29 +279,25 @@ else
                 return;
             }
 
-            var excludeId = _editingPlayer?.Id;
-            if (await PlayerService.IsNameTakenAsync(_team.Id, _formModel.Name, excludeId))
+            if (await PlayerService.IsNameTakenAsync(_team.Id, _formModel.Name))
             {
                 _modalError = "A player with this name already exists.";
                 return;
             }
 
-            if (_editingPlayer != null)
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
             {
-                var updated = await PlayerService.UpdateAsync(_editingPlayer.Id, _team.Id, _formModel.Name, _formModel.AvatarId);
-                if (!updated)
-                {
-                    _modalError = "Failed to update player.";
-                    return;
-                }
-                _message = $"Player '{_formModel.Name}' updated successfully.";
+                _modalError = "You must be logged in.";
+                return;
             }
-            else
+            var created = await PlayerService.CreatePlaceholderAsync(_team.Id, userId.Value, _formModel.Name, _formModel.AvatarId);
+            if (created == null)
             {
-                await PlayerService.CreateAsync(_team.Id, _formModel.Name, _formModel.AvatarId);
-                _message = $"Player '{_formModel.Name}' added successfully.";
+                _modalError = "Only the team admin can add players.";
+                return;
             }
-
+            _message = $"Player '{_formModel.Name}' added successfully.";
             _messageIsError = false;
             await LoadPlayers();
             HideModal();
@@ -335,7 +334,13 @@ else
                 return;
             }
 
-            var deactivated = await PlayerService.DeactivateAsync(_playerToDeactivate.Id, _team.Id);
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
+            {
+                _deactivateError = "You must be logged in.";
+                return;
+            }
+            var deactivated = await PlayerService.DeactivateAsync(_playerToDeactivate.Id, _team.Id, userId.Value);
             if (!deactivated)
             {
                 _deactivateError = "Failed to deactivate player.";
@@ -363,7 +368,14 @@ else
 
         try
         {
-            var reactivated = await PlayerService.ReactivateAsync(player.Id, _team.Id);
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
+            {
+                _message = "You must be logged in.";
+                _messageIsError = true;
+                return;
+            }
+            var reactivated = await PlayerService.ReactivateAsync(player.Id, _team.Id, userId.Value);
             if (!reactivated)
             {
                 _message = "Failed to reactivate player.";

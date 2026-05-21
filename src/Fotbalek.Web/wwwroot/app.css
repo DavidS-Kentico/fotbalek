@@ -164,6 +164,10 @@ h1:focus {
     background: white;
 }
 
+.player-circle.is-me {
+    box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.65), 0 4px 12px rgba(25, 135, 84, 0.25);
+}
+
 .player-circle .player-name {
     font-size: 0.7rem;
     font-weight: bold;
@@ -297,6 +301,20 @@ h1:focus {
     font-weight: 500;
 }
 
+/* Subtle "you" indicator on rows/cards referencing the current user's player */
+.badge-you {
+    background-color: rgba(25, 135, 84, 0.12);
+    color: #198754;
+    border: 1px solid rgba(25, 135, 84, 0.35);
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.15em 0.45em;
+    border-radius: 8px;
+    vertical-align: middle;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+}
+
 .bg-purple {
     background-color: #6f42c1 !important;
     color: white !important;
@@ -408,4 +426,50 @@ h1:focus {
     background-color: #f1f3f5;
     color: #adb5bd;
     font-size: 1rem;
+}
+
+.presence-stack {
+    display: inline-flex;
+    align-items: center;
+}
+
+.presence-stack .presence-avatar {
+    position: relative;
+    display: inline-block;
+    margin-left: -8px;
+    text-decoration: none;
+    transition: transform 120ms ease;
+}
+
+.presence-stack .presence-avatar:first-child {
+    margin-left: 0;
+}
+
+.presence-stack .presence-avatar:hover {
+    transform: translateY(-2px);
+    z-index: 1;
+}
+
+.presence-stack .presence-avatar .avatar {
+    border: 2px solid #dee2e6;
+    box-shadow: 0 0 0 2px #fff;
+    background-color: #fff;
+}
+
+.presence-stack .presence-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #28a745;
+    border: 2px solid #fff;
+}
+
+.presence-stack .presence-more {
+    margin-left: 6px;
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
 }

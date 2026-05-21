@@ -1,0 +1,218 @@
+@page "/{TeamCode}/settings"
+@layout TeamLayout
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
+@inject TeamService TeamService
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+
+<PageTitle>Team settings - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_team == null)
+{
+    <div class="container py-4">
+        <div class="alert alert-warning">Team not found.</div>
+    </div>
+}
+else if (!_isAdmin)
+{
+    <div class="container py-4">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-2"></i>Only the team admin can change settings.
+        </div>
+        <a href="/@TeamCode" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to team
+        </a>
+    </div>
+}
+else
+{
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <h2 class="mb-4"><i class="bi bi-gear me-2"></i>Team settings</h2>
+
+                <!-- Team name -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Team name</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_nameSuccess))
+                        {
+                            <div class="alert alert-success">@_nameSuccess</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_nameError))
+                        {
+                            <div class="alert alert-danger">@_nameError</div>
+                        }
+                        <div class="mb-3">
+                            <label for="teamName" class="form-label">Display name</label>
+                            <input id="teamName" class="form-control" @bind="_name" maxlength="100" />
+                            <small class="text-muted">The URL code <code>/@_team.CodeName</code> can't be changed.</small>
+                        </div>
+                        <button class="btn btn-success" @onclick="SaveName" disabled="@_savingName">
+                            @if (_savingName)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Save name
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Team password -->
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-key me-2"></i>Team password</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_pwdSuccess))
+                        {
+                            <div class="alert alert-success">@_pwdSuccess</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_pwdError))
+                        {
+                            <div class="alert alert-danger">@_pwdError</div>
+                        }
+                        <p class="text-muted small">Anyone who already joined the team stays a member. Future joiners (via the secondary link) will need the new password.</p>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New password</label>
+                            <input id="newPassword" type="password" class="form-control" @bind="_newPassword" />
+                            <small class="text-muted">Min 4 characters.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm new password</label>
+                            <input id="confirmPassword" type="password" class="form-control" @bind="_confirmPassword" />
+                        </div>
+                        <button class="btn btn-success" @onclick="SavePassword" disabled="@_savingPassword">
+                            @if (_savingPassword)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Change password
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private bool _isAdmin;
+
+    private string _name = string.Empty;
+    private string? _nameError;
+    private string? _nameSuccess;
+    private bool _savingName;
+
+    private string _newPassword = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string? _pwdError;
+    private string? _pwdSuccess;
+    private bool _savingPassword;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
+        {
+            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _name = _team.Name;
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveName()
+    {
+        if (_team == null) return;
+        _nameError = null;
+        _nameSuccess = null;
+
+        var trimmed = _name?.Trim() ?? string.Empty;
+        if (trimmed.Length < 1 || trimmed.Length > 100)
+        {
+            _nameError = "Name must be 1-100 characters.";
+            return;
+        }
+
+        _savingName = true;
+        try
+        {
+            var actorId = await CurrentUser.GetUserIdAsync();
+            if (actorId == null)
+            {
+                _nameError = "You must be logged in.";
+                return;
+            }
+            var ok = await TeamService.UpdateNameAsync(_team.Id, actorId.Value, trimmed);
+            if (!ok)
+            {
+                _nameError = "Could not update — you may not have permission.";
+                return;
+            }
+            _team.Name = trimmed;
+            _nameSuccess = "Team name updated.";
+        }
+        finally
+        {
+            _savingName = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SavePassword()
+    {
+        if (_team == null) return;
+        _pwdError = null;
+        _pwdSuccess = null;
+
+        if (string.IsNullOrEmpty(_newPassword) || _newPassword.Length < 4)
+        {
+            _pwdError = "Password must be at least 4 characters.";
+            return;
+        }
+        if (_newPassword != _confirmPassword)
+        {
+            _pwdError = "Passwords do not match.";
+            return;
+        }
+
+        _savingPassword = true;
+        try
+        {
+            var actorId = await CurrentUser.GetUserIdAsync();
+            if (actorId == null)
+            {
+                _pwdError = "You must be logged in.";
+                return;
+            }
+            var ok = await TeamService.UpdatePasswordAsync(_team.Id, actorId.Value, _newPassword);
+            if (!ok)
+            {
+                _pwdError = "Could not update — you may not have permission.";
+                return;
+            }
+            _newPassword = string.Empty;
+            _confirmPassword = string.Empty;
+            _pwdSuccess = "Team password updated.";
+        }
+        finally
+        {
+            _savingPassword = false;
+            StateHasChanged();
+        }
+    }
+}

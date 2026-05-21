@@ -1,7 +1,8 @@
 @page "/{TeamCode}/rankings"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 
@@ -39,7 +40,8 @@ else
                             <tbody>
                                 @foreach (var player in _rankings)
                                 {
-                                    <tr>
+                                    var isMine = player.PlayerId == MyPlayerId;
+                                    <tr class="@(isMine ? "table-success" : "")">
                                         <td class="text-center">
                                             <RankBadge Rank="@player.Rank" Large="true" />
                                         </td>
@@ -49,6 +51,10 @@ else
                                                     <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                     <span>@player.PlayerName</span>
                                                 </a>
+                                                @if (isMine)
+                                                {
+                                                    <span class="badge badge-you ms-1">you</span>
+                                                }
                                                 @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
                                                 {
                                                     <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
@@ -102,7 +108,8 @@ else
                                     <tbody>
                                         @foreach (var gk in _goalkeepers)
                                         {
-                                            <tr>
+                                            var isMineGk = gk.PlayerId == MyPlayerId;
+                                            <tr class="@(isMineGk ? "table-success" : "")">
                                                 <td class="text-center">
                                                     <RankBadge Rank="@gk.Rank" Large="true" />
                                                 </td>
@@ -110,6 +117,10 @@ else
                                                     <a href="/@TeamCode/players/@gk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
                                                         <Avatar AvatarId="@gk.AvatarId" Size="sm" />
                                                         <span>@gk.PlayerName</span>
+                                                        @if (isMineGk)
+                                                        {
+                                                            <span class="badge badge-you ms-1">you</span>
+                                                        }
                                                     </a>
                                                 </td>
                                                 <td class="text-end">@gk.Games</td>
@@ -151,7 +162,8 @@ else
                                     <tbody>
                                         @foreach (var atk in _attackers)
                                         {
-                                            <tr>
+                                            var isMineAtk = atk.PlayerId == MyPlayerId;
+                                            <tr class="@(isMineAtk ? "table-success" : "")">
                                                 <td class="text-center">
                                                     <RankBadge Rank="@atk.Rank" Large="true" />
                                                 </td>
@@ -159,6 +171,10 @@ else
                                                     <a href="/@TeamCode/players/@atk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
                                                         <Avatar AvatarId="@atk.AvatarId" Size="sm" />
                                                         <span>@atk.PlayerName</span>
+                                                        @if (isMineAtk)
+                                                        {
+                                                            <span class="badge badge-you ms-1">you</span>
+                                                        }
                                                     </a>
                                                 </td>
                                                 <td class="text-end">@atk.Games</td>
@@ -207,17 +223,18 @@ else
                                 }
                                 @foreach (var pair in _pairRankings)
                                 {
-                                    <tr>
+                                    var pairContainsMe = MyPlayerId.HasValue && (pair.Player1Id == MyPlayerId || pair.Player2Id == MyPlayerId);
+                                    <tr class="@(pairContainsMe ? "table-success" : "")">
                                         <td class="text-center">
                                             <RankBadge Rank="@rank" Large="true" />
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
                                                 <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
-                                                <span>@pair.Player1Name</span>
+                                                <span class="@(pair.Player1Id == MyPlayerId ? "fw-bold" : "")">@pair.Player1Name</span>
                                                 <span class="text-muted">&</span>
                                                 <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
-                                                <span>@pair.Player2Name</span>
+                                                <span class="@(pair.Player2Id == MyPlayerId ? "fw-bold" : "")">@pair.Player2Name</span>
                                             </div>
                                         </td>
                                         <td class="text-end">@pair.Matches</td>
@@ -259,12 +276,13 @@ else
     private List<PositionRanking> _goalkeepers = [];
     private List<PositionRanking> _attackers = [];
     private List<StatResult> _stats = [];
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
                 _rankings = await StatsService.GetRankingsAsync(_team.Id);

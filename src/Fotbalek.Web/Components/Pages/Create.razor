@@ -1,7 +1,9 @@
 @page "/create"
 @rendermode InteractiveServer
+@attribute [Authorize]
 @inject TeamService TeamService
-@inject AuthService AuthService
+@inject TeamMembershipService MembershipService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
 
 <PageTitle>Create Team - Foosball Manager</PageTitle>
@@ -85,7 +87,6 @@
     private void OnCodeNameInput(ChangeEventArgs e)
     {
         var value = e.Value?.ToString() ?? "";
-        // Auto-format: lowercase, replace spaces with hyphens, remove invalid chars
         _model.CodeName = System.Text.RegularExpressions.Regex.Replace(value.ToLowerInvariant(), @"[^a-z0-9\-]", "");
     }
 
@@ -138,17 +139,21 @@
                 return;
             }
 
-            var team = await TeamService.CreateAsync(_model.Name, _model.CodeName, _model.Password);
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
+            {
+                Navigation.NavigateTo("/login", forceLoad: true);
+                return;
+            }
 
-            // Authenticate as the newly created team
-            await AuthService.LoginAsync(_model.CodeName, _model.Password);
+            var team = await TeamService.CreateAsync(_model.Name, _model.CodeName, _model.Password, userId.Value);
+            await MembershipService.JoinAsync(userId.Value, team.Id);
 
-            // Navigate to players page
-            Navigation.NavigateTo($"/{team.CodeName}/players", forceLoad: true);
+            Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _error = $"Something went wrong: {ex.Message}";
+            _error = "Something went wrong. Please try again.";
         }
         finally
         {

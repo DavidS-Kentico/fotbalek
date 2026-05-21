@@ -1,7 +1,8 @@
 @page "/{TeamCode}/matches"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject MatchService MatchService
 @inject PlayerService PlayerService
 @using Fotbalek.Web.Helpers
@@ -166,7 +167,7 @@ else
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
+            _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
                 // Load all matches and players

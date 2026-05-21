@@ -1,9 +1,11 @@
 using Fotbalek.Web.Data.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -14,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<MatchPlayer> MatchPlayers => Set<MatchPlayer>();
     public DbSet<ShareToken> ShareTokens => Set<ShareToken>();
+    public DbSet<TeamMembership> TeamMemberships => Set<TeamMembership>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +30,11 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CodeName).IsRequired().HasMaxLength(50);
             entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(256);
             entity.HasIndex(e => e.CodeName).IsUnique();
+
+            entity.HasOne(e => e.AdminUser)
+                .WithMany(u => u.AdministeredTeams)
+                .HasForeignKey(e => e.AdminUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Player configuration
@@ -43,6 +51,16 @@ public class AppDbContext : DbContext
                 .WithMany(t => t.Players)
                 .HasForeignKey(e => e.TeamId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Players)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // At most one user-Player per team (placeholders allowed any number)
+            entity.HasIndex(e => new { e.TeamId, e.UserId })
+                .IsUnique()
+                .HasFilter("[UserId] IS NOT NULL");
         });
 
         // Match configuration
@@ -92,6 +110,24 @@ public class AppDbContext : DbContext
 
             entity.HasOne(e => e.Team)
                 .WithMany(t => t.ShareTokens)
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // TeamMembership configuration
+        modelBuilder.Entity<TeamMembership>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.UserId, e.TeamId }).IsUnique();
+            entity.HasIndex(e => e.TeamId);
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Memberships)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                .WithMany(t => t.Members)
                 .HasForeignKey(e => e.TeamId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

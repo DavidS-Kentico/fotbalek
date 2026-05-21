@@ -1,12 +1,17 @@
+@implements IDisposable
 @inherits LayoutComponentBase
-@inject AuthService AuthService
+@inject TeamAccessService TeamAccess
 @inject TeamService TeamService
+@inject TeamMembershipService MembershipService
+@inject PlayerService PlayerService
+@inject CurrentUserService CurrentUser
 @inject ShareTokenService ShareTokenService
+@inject PresenceTracker Presence
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
 <div class="min-vh-100 d-flex flex-column">
-    @if (_team != null)
+    @if (_team != null && _user != null)
     {
         <header class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
             <div class="container">
@@ -48,23 +53,118 @@
                         </li>
                     </ul>
 
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        @{
+                            var onlinePlayers = GetOnlinePlayers();
+                        }
+                        @if (onlinePlayers.Count > 0)
+                        {
+                            <div class="presence-stack d-flex align-items-center me-2" title="@($"{onlinePlayers.Count} online")">
+                                @foreach (var p in onlinePlayers.Take(5))
+                                {
+                                    <a href="/@_team.CodeName/players/@p.Id" class="presence-avatar">
+                                        <Avatar AvatarId="@p.AvatarId" Size="sm" Title="@p.Name" />
+                                        <span class="presence-dot"></span>
+                                    </a>
+                                }
+                                @if (onlinePlayers.Count > 5)
+                                {
+                                    <span class="presence-more">+@(onlinePlayers.Count - 5)</span>
+                                }
+                            </div>
+                        }
                         <a href="@($"/{_team.CodeName}/match/new")" class="btn btn-success">
                             <i class="bi bi-plus-lg me-1"></i> New Match
                         </a>
                         <button class="btn btn-outline-secondary" @onclick="ShowShareModal" title="Share Team URL">
                             <i class="bi bi-share"></i>
                         </button>
-                        <button class="btn btn-outline-secondary" @onclick="Logout" title="Logout">
-                            <i class="bi bi-box-arrow-right"></i>
-                        </button>
+
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                                @if (_myPlayer != null)
+                                {
+                                    <Avatar AvatarId="@_myPlayer.AvatarId" Size="sm" />
+                                }
+                                else
+                                {
+                                    <i class="bi bi-person-circle"></i>
+                                }
+                                <span>@DisplayName</span>
+                                @if (_isAdmin)
+                                {
+                                    <span class="badge bg-warning text-dark">Admin</span>
+                                }
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                @if (_myPlayer != null)
+                                {
+                                    <li>
+                                        <a class="dropdown-item" href="/@_team.CodeName/players/@_myPlayer.Id">
+                                            <i class="bi bi-person-badge me-2"></i>My player
+                                        </a>
+                                    </li>
+                                }
+                                @if (_isAdmin)
+                                {
+                                    <li>
+                                        <a class="dropdown-item" href="/@_team.CodeName/settings">
+                                            <i class="bi bi-gear me-2"></i>Team settings
+                                        </a>
+                                    </li>
+                                }
+                                @if (_myPlayer != null || _isAdmin)
+                                {
+                                    <li><hr class="dropdown-divider" /></li>
+                                }
+                                <li><h6 class="dropdown-header">Switch team</h6></li>
+                                @foreach (var team in _userTeams)
+                                {
+                                    <li>
+                                        <button type="button" class="dropdown-item @(team.Id == _team.Id ? "active" : "")" @onclick="() => SwitchTeam(team.CodeName)">
+                                            <i class="bi bi-trophy me-2"></i>@team.Name
+                                        </button>
+                                    </li>
+                                }
+                                <li><a class="dropdown-item" href="/create"><i class="bi bi-plus-circle me-2"></i>Create team</a></li>
+                                <li><a class="dropdown-item" href="/join"><i class="bi bi-box-arrow-in-right me-2"></i>Join team</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li class="px-3 py-1 small text-muted">@(_user?.UserName)</li>
+                                <li>
+                                    <form method="post" action="/account/logout" class="m-0">
+                                        <AntiforgeryToken />
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bi bi-box-arrow-right me-2"></i>Sign out
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
         </header>
 
+        @if (_team.AdminUserId == null)
+        {
+            <div class="alert alert-warning rounded-0 mb-0">
+                <div class="container d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-exclamation-triangle me-2"></i>This team has no admin yet.</span>
+                    <button class="btn btn-sm btn-warning" @onclick="ClaimAdmin" disabled="@_claimingAdmin">
+                        @if (_claimingAdmin)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Become admin
+                    </button>
+                </div>
+            </div>
+        }
+
         <main class="flex-grow-1 bg-light">
-            @Body
+            <CascadingValue Value="_myPlayer?.Id" Name="MyPlayerId">
+                @Body
+            </CascadingValue>
         </main>
 
         @if (_showShareModal)
@@ -104,7 +204,7 @@
                                 </small>
                             }
                             <hr />
-                            <p class="text-muted mb-2 small">Or share the team URL (requires password):</p>
+                            <p class="text-muted mb-2 small">Or share the team URL (requires password + login):</p>
                             <div class="input-group input-group-sm">
                                 <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
                                 <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
@@ -138,12 +238,44 @@
 
 @code {
     private Team? _team;
+    private AppUser? _user;
+    private Player? _myPlayer;
     private bool _loading = true;
+    private bool _isAdmin;
+    private bool _claimingAdmin;
     private bool _showShareModal;
     private bool _copied;
     private bool _copiedBasic;
     private bool _generatingToken;
     private string? _shareToken;
+    private List<Team> _userTeams = new();
+    private List<Player> _teamPlayersWithUser = new();
+    private bool _presenceSubscribed;
+
+    private string DisplayName => _myPlayer?.Name ?? _user?.UserName ?? "User";
+
+    private List<Player> GetOnlinePlayers()
+    {
+        if (_teamPlayersWithUser.Count == 0) return new();
+        return _teamPlayersWithUser
+            .Where(p => p.UserId.HasValue && Presence.IsOnline(p.UserId.Value))
+            .OrderBy(p => p.Name)
+            .ToList();
+    }
+
+    private async void OnPresenceChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (_presenceSubscribed)
+        {
+            Presence.Changed -= OnPresenceChanged;
+            _presenceSubscribed = false;
+        }
+    }
 
     private string GetTeamUrl()
     {
@@ -168,14 +300,13 @@
 
         try
         {
-            if (_team != null)
+            if (_team != null && _user != null)
             {
-                _shareToken = await ShareTokenService.GenerateTokenAsync(_team.Id);
+                _shareToken = await ShareTokenService.GenerateTokenAsync(_team.Id, _user.Id);
             }
         }
         catch
         {
-            // Token generation failed
         }
         finally
         {
@@ -193,10 +324,7 @@
             _copiedBasic = false;
             StateHasChanged();
         }
-        catch
-        {
-            // Clipboard API not available
-        }
+        catch { }
     }
 
     private async Task CopyTeamUrl()
@@ -208,18 +336,32 @@
             _copied = false;
             StateHasChanged();
         }
-        catch
-        {
-            // Clipboard API not available
-        }
+        catch { }
     }
 
-    private string? GetTeamCodeFromUrl()
+    private void SwitchTeam(string codeName)
     {
-        var uri = new Uri(Navigation.Uri);
-        var path = uri.AbsolutePath.TrimStart('/');
-        var segments = path.Split('/');
-        return segments.Length > 0 && !string.IsNullOrEmpty(segments[0]) ? segments[0] : null;
+        Navigation.NavigateTo($"/{codeName}", forceLoad: true);
+    }
+
+    private async Task ClaimAdmin()
+    {
+        if (_team == null || _user == null) return;
+        _claimingAdmin = true;
+        try
+        {
+            var success = await TeamService.TryClaimAdminAsync(_team.Id, _user.Id);
+            if (success)
+            {
+                _team.AdminUserId = _user.Id;
+                _isAdmin = true;
+            }
+        }
+        finally
+        {
+            _claimingAdmin = false;
+            StateHasChanged();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -228,13 +370,49 @@
         {
             try
             {
-                var teamCode = GetTeamCodeFromUrl();
-                _team = await AuthService.GetCurrentTeamAsync();
+                var teamCode = TeamAccess.GetTeamCodeFromUrl();
+                _user = await CurrentUser.GetUserAsync();
 
-                if (_team == null || (teamCode != null && !_team.CodeName.Equals(teamCode, StringComparison.OrdinalIgnoreCase)))
+                if (_user == null)
                 {
-                    var redirectUrl = teamCode != null ? $"/join?team={teamCode}" : "/";
-                    Navigation.NavigateTo(redirectUrl, forceLoad: true);
+                    var ret = teamCode != null ? $"/{teamCode}" : "/";
+                    Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(ret)}", forceLoad: true);
+                    return;
+                }
+
+                _team = await TeamAccess.GetCurrentTeamAsync();
+
+                if (_team == null)
+                {
+                    if (teamCode != null)
+                    {
+                        // Authenticated but not a member of this team
+                        Navigation.NavigateTo($"/join?team={teamCode}", forceLoad: true);
+                    }
+                    else
+                    {
+                        Navigation.NavigateTo("/", forceLoad: true);
+                    }
+                    return;
+                }
+
+                _isAdmin = _team.AdminUserId == _user.Id;
+                _userTeams = await MembershipService.GetTeamsForUserAsync(_user.Id);
+
+                _myPlayer = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+
+                var allPlayers = await PlayerService.GetByTeamAsync(_team.Id);
+                _teamPlayersWithUser = allPlayers.Where(p => p.UserId.HasValue).ToList();
+
+                Presence.Changed += OnPresenceChanged;
+                _presenceSubscribed = true;
+
+                // Gate: if user has no Player in this team, redirect to claim screen
+                // (except when we're already on the claim page)
+                var path = new Uri(Navigation.Uri).AbsolutePath;
+                if (_myPlayer == null && !path.EndsWith("/claim", StringComparison.OrdinalIgnoreCase))
+                {
+                    Navigation.NavigateTo($"/{_team.CodeName}/claim", forceLoad: true);
                     return;
                 }
 
@@ -247,11 +425,5 @@
                 StateHasChanged();
             }
         }
-    }
-
-    private async Task Logout()
-    {
-        await AuthService.LogoutAsync();
-        Navigation.NavigateTo("/", forceLoad: true);
     }
 }

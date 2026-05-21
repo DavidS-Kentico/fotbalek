@@ -1,8 +1,10 @@
 @page "/{TeamCode}/matches/{MatchId:int}"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject MatchService MatchService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
 
 <PageTitle>Match Detail - Foosball Manager</PageTitle>
@@ -201,17 +203,18 @@ else
     {
         if (firstRender)
         {
-            _team = await AuthService.GetCurrentTeamAsync();
-            if (_team != null)
+            _team = await TeamAccess.GetCurrentTeamAsync();
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (_team != null && userId != null)
             {
                 _match = await MatchService.GetByIdAsync(MatchId);
                 if (_match != null && _match.TeamId == _team.Id)
                 {
-                    _canEditOrDelete = await MatchService.CanEditOrDeleteAsync(MatchId);
+                    _canEditOrDelete = await MatchService.CanUserEditOrDeleteAsync(MatchId, _team.Id, userId.Value);
                 }
                 else
                 {
-                    _match = null; // Clear if not belonging to team
+                    _match = null;
                 }
             }
             _loading = false;
@@ -231,7 +234,9 @@ else
         _deleting = true;
         try
         {
-            var deleted = await MatchService.DeleteAsync(MatchId, _team.Id);
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) return;
+            var deleted = await MatchService.DeleteAsync(MatchId, _team.Id, userId.Value);
             if (deleted)
             {
                 Navigation.NavigateTo($"/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);

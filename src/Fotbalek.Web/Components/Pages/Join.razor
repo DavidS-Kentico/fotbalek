@@ -1,8 +1,10 @@
 @page "/join"
 @rendermode InteractiveServer
+@attribute [Authorize]
 @inject TeamService TeamService
-@inject AuthService AuthService
+@inject TeamMembershipService MembershipService
 @inject ShareTokenService ShareTokenService
+@inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
 
 <PageTitle>Join Team - Foosball Manager</PageTitle>
@@ -105,11 +107,18 @@
 
             try
             {
+                var userId = await CurrentUser.GetUserIdAsync();
+                if (userId == null)
+                {
+                    Navigation.NavigateTo("/login", forceLoad: true);
+                    return;
+                }
+
                 var team = await ShareTokenService.ValidateTokenAsync(Token);
                 if (team != null && team.CodeName.Equals(TeamCode, StringComparison.OrdinalIgnoreCase))
                 {
-                    await AuthService.SetCurrentTeamAsync(team);
-                    Navigation.NavigateTo($"/{team.CodeName}", forceLoad: true);
+                    await MembershipService.JoinAsync(userId.Value, team.Id);
+                    Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
                     return;
                 }
                 else
@@ -136,6 +145,13 @@
 
         try
         {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null)
+            {
+                Navigation.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
             var team = await TeamService.GetByCodeNameAsync(_model.CodeName);
             if (team == null)
             {
@@ -143,13 +159,14 @@
                 return;
             }
 
-            if (!await AuthService.LoginAsync(_model.CodeName, _model.Password))
+            if (!await TeamService.ValidatePasswordAsync(_model.CodeName, _model.Password))
             {
                 _error = "Invalid password.";
                 return;
             }
 
-            Navigation.NavigateTo($"/{team.CodeName}", forceLoad: true);
+            await MembershipService.JoinAsync(userId.Value, team.Id);
+            Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)
         {

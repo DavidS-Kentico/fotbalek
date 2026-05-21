@@ -1,0 +1,218 @@
+@page "/{TeamCode}/claim"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject TeamService TeamService
+@inject PlayerService PlayerService
+@inject TeamMembershipService MembershipService
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+
+<PageTitle>Choose your player - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center align-items-center min-vh-100">
+        <div class="spinner-border text-success"></div>
+    </div>
+}
+else if (_team != null)
+{
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-10 col-lg-8">
+                <div class="text-center mb-4">
+                    <h2><i class="bi bi-person-check text-success me-2"></i>Choose your player</h2>
+                    <p class="text-muted">You've joined <strong>@_team.Name</strong>. Pick an existing unclaimed player, or create a new one.</p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div class="alert alert-danger">@_error</div>
+                }
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Claim an existing player</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_claimable.Count == 0)
+                        {
+                            <p class="text-muted mb-0">No unclaimed players in this team. Create a new one below.</p>
+                        }
+                        else
+                        {
+                            <div class="row row-cols-2 row-cols-md-3 g-2">
+                                @foreach (var p in _claimable)
+                                {
+                                    <div class="col">
+                                        <button type="button" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-start gap-2 py-2"
+                                                @onclick="() => Claim(p.Id)" disabled="@_busy">
+                                            <Avatar AvatarId="@p.AvatarId" Size="sm" />
+                                            <span>@p.Name</span>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Or create a new player</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="newName" class="form-label">Name</label>
+                            <input id="newName" class="form-control" @bind="_newName" maxlength="50" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Avatar</label>
+                            <AvatarPicker @bind-Value="_newAvatar" />
+                        </div>
+                        <button class="btn btn-success" @onclick="CreateNew" disabled="@_busy">
+                            @if (_busy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Create &amp; continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private AppUser? _user;
+    private List<Player> _claimable = new();
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string _newName = string.Empty;
+    private int _newAvatar = 1;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _user = await CurrentUser.GetUserAsync();
+        if (_user == null)
+        {
+            Navigation.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        _team = await TeamService.GetByCodeNameAsync(TeamCode);
+        if (_team == null)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+            return;
+        }
+
+        var isMember = await MembershipService.IsMemberAsync(_user.Id, _team.Id);
+        if (!isMember)
+        {
+            Navigation.NavigateTo($"/join?team={_team.CodeName}", forceLoad: true);
+            return;
+        }
+
+        var existing = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+        if (existing != null)
+        {
+            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            return;
+        }
+
+        _claimable = await PlayerService.GetClaimablePlayersAsync(_team.Id);
+
+        // If no players are available to claim, auto-create one with the user's username as the name
+        // and skip the claim screen. The user can rename in their player detail page later.
+        if (_claimable.Count == 0)
+        {
+            var autoName = TruncateName(_user.UserName ?? "Player");
+            // Ensure uniqueness within the team — append a digit suffix if a clash is detected
+            var finalName = autoName;
+            var suffix = 2;
+            while (await PlayerService.IsNameTakenAsync(_team.Id, finalName))
+            {
+                finalName = TruncateName($"{autoName} {suffix}");
+                suffix++;
+            }
+            await PlayerService.CreateAsync(_team.Id, finalName, 1, _user.Id);
+            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            return;
+        }
+
+        _newName = string.Empty;
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private static string TruncateName(string input)
+    {
+        var trimmed = (input ?? string.Empty).Trim();
+        return trimmed.Length <= 50 ? trimmed : trimmed[..50];
+    }
+
+    private async Task Claim(int playerId)
+    {
+        if (_team == null || _user == null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            var ok = await PlayerService.ClaimAsync(playerId, _team.Id, _user.Id);
+            if (ok)
+            {
+                Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            }
+            else
+            {
+                _error = "Could not claim that player. It may have just been taken; please refresh.";
+            }
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateNew()
+    {
+        if (_team == null || _user == null) return;
+        var name = _newName?.Trim() ?? string.Empty;
+        if (name.Length < 1 || name.Length > 50)
+        {
+            _error = "Name must be 1-50 characters.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (await PlayerService.IsNameTakenAsync(_team.Id, name))
+            {
+                _error = "A player with that name already exists in this team.";
+                return;
+            }
+            await PlayerService.CreateAsync(_team.Id, name, _newAvatar, _user.Id);
+            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+        }
+        catch (Exception)
+        {
+            _error = "Could not create player. Please try again.";
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+}

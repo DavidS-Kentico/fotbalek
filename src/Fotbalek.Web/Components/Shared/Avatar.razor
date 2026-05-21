@@ -33,12 +33,13 @@
     };
 }
 
-<span class="avatar @sizeClass @CssClass" title="@GetAvatarName(AvatarId)">@emoji</span>
+<span class="avatar @sizeClass @CssClass" title="@(Title ?? GetAvatarName(AvatarId))">@emoji</span>
 
 @code {
     [Parameter] public int AvatarId { get; set; } = 1;
     [Parameter] public string Size { get; set; } = "md";
     [Parameter] public string? CssClass { get; set; }
+    [Parameter] public string? Title { get; set; }
 
     private static string GetAvatarName(int id) => id switch
     {

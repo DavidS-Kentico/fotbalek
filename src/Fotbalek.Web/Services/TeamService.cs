@@ -13,18 +13,14 @@ public class TeamService(AppDbContext db)
             .FirstOrDefaultAsync(t => t.CodeName == codeName.ToLowerInvariant());
     }
 
-    public async Task<Team?> GetByIdAsync(int id)
-    {
-        return await db.Teams.FindAsync(id);
-    }
-
-    public async Task<Team> CreateAsync(string name, string codeName, string password)
+    public async Task<Team> CreateAsync(string name, string codeName, string password, int adminUserId)
     {
         var team = new Team
         {
             Name = name,
             CodeName = codeName.ToLowerInvariant(),
             PasswordHash = PasswordHasher.Hash(password),
+            AdminUserId = adminUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -45,5 +41,45 @@ public class TeamService(AppDbContext db)
     public async Task<bool> IsCodeNameTakenAsync(string codeName)
     {
         return await db.Teams.AnyAsync(t => t.CodeName == codeName.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Atomically claim the admin role for a team if it currently has no admin
+    /// and the caller is a member. Returns true if the caller became admin.
+    /// </summary>
+    public async Task<bool> TryClaimAdminAsync(int teamId, int userId)
+    {
+        var isMember = await db.TeamMemberships
+            .AnyAsync(m => m.TeamId == teamId && m.UserId == userId);
+        if (!isMember) return false;
+
+        var rows = await db.Teams
+            .Where(t => t.Id == teamId && t.AdminUserId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.AdminUserId, userId));
+        return rows > 0;
+    }
+
+    /// <summary>
+    /// Updates the team display name. Caller must be the team admin.
+    /// </summary>
+    public async Task<bool> UpdateNameAsync(int teamId, int actorUserId, string newName)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
+        if (team == null || team.AdminUserId != actorUserId) return false;
+        team.Name = newName;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Updates the team password. Caller must be the team admin.
+    /// </summary>
+    public async Task<bool> UpdatePasswordAsync(int teamId, int actorUserId, string newPassword)
+    {
+        var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
+        if (team == null || team.AdminUserId != actorUserId) return false;
+        team.PasswordHash = PasswordHasher.Hash(newPassword);
+        await db.SaveChangesAsync();
+        return true;
     }
 }

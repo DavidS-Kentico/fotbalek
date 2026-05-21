@@ -35,8 +35,15 @@ public class MatchService(AppDbContext db, EloService eloService)
         int teamId,
         int team1GkId, int team1AtkId,
         int team2GkId, int team2AtkId,
-        int team1Score, int team2Score)
+        int team1Score, int team2Score,
+        int userId)
     {
+        // Authorization: admin OR one of the four players belongs to the user.
+        var playerIds = new[] { team1GkId, team1AtkId, team2GkId, team2AtkId };
+        if (!await CanUserCreateMatchAsync(teamId, userId, playerIds))
+            throw new UnauthorizedAccessException("You can only create matches you participate in.");
+
+
         // Validate scores
         if (team1Score < 0 || team2Score < 0)
             throw new ArgumentException("Scores cannot be negative");
@@ -48,7 +55,6 @@ public class MatchService(AppDbContext db, EloService eloService)
             throw new ArgumentException("At least one team must score 10");
 
         // Validate all players are unique
-        var playerIds = new[] { team1GkId, team1AtkId, team2GkId, team2AtkId };
         if (playerIds.Distinct().Count() != 4)
             throw new ArgumentException("All players must be different");
 
@@ -134,10 +140,40 @@ public class MatchService(AppDbContext db, EloService eloService)
         };
     }
 
-    public async Task<bool> CanEditOrDeleteAsync(int matchId)
+    /// <summary>
+    /// Returns true if the current user can delete/edit this match:
+    /// - the time window and "no later matches" rules are satisfied, AND
+    /// - the user is the team admin OR has a Player participating in the match.
+    /// </summary>
+    public async Task<bool> CanUserEditOrDeleteAsync(int matchId, int teamId, int userId)
     {
         var (canDelete, _) = await CanDeleteWithReasonAsync(matchId);
-        return canDelete;
+        if (!canDelete) return false;
+
+        var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
+        if (team == null) return false;
+        if (team.AdminUserId == userId) return true;
+
+        var hasPlayerInMatch = await db.MatchPlayers
+            .AsNoTracking()
+            .AnyAsync(mp => mp.MatchId == matchId && mp.Player.UserId == userId);
+        return hasPlayerInMatch;
+    }
+
+    /// <summary>
+    /// Returns true if user is admin of the team OR one of the player ids belongs to the user.
+    /// Used to gate match creation.
+    /// </summary>
+    public async Task<bool> CanUserCreateMatchAsync(int teamId, int userId, IEnumerable<int> playerIds)
+    {
+        var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
+        if (team == null) return false;
+        if (team.AdminUserId == userId) return true;
+
+        var ids = playerIds.ToList();
+        return await db.Players
+            .AsNoTracking()
+            .AnyAsync(p => p.TeamId == teamId && p.UserId == userId && ids.Contains(p.Id));
     }
 
     public async Task<(bool CanDelete, string? Reason)> CanDeleteWithReasonAsync(int matchId)
@@ -168,14 +204,13 @@ public class MatchService(AppDbContext db, EloService eloService)
         return (true, null);
     }
 
-    public async Task<bool> DeleteAsync(int matchId, int teamId)
+    public async Task<bool> DeleteAsync(int matchId, int teamId, int userId)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
             // Re-check permissions before delete (inside transaction to prevent race condition)
-            var (canDelete, _) = await CanDeleteWithReasonAsync(matchId);
-            if (!canDelete)
+            if (!await CanUserEditOrDeleteAsync(matchId, teamId, userId))
                 return false;
 
             var match = await GetByIdAsync(matchId);

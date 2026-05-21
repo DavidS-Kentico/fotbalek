@@ -1,10 +1,12 @@
 @page "/{TeamCode}/players/{PlayerId:int}"
 @layout TeamLayout
 @rendermode InteractiveServer
-@inject AuthService AuthService
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
 @inject PlayerService PlayerService
 @inject StatsService StatsService
 @inject MatchService MatchService
+@inject CurrentUserService CurrentUser
 @inject IJSRuntime JS
 
 <PageTitle>@(_player?.Name ?? "Player") - Foosball Manager</PageTitle>
@@ -27,14 +29,28 @@ else if (_player != null && _stats != null)
         <div class="row">
             <!-- Player Info Card -->
             <div class="col-lg-4 mb-4">
-                <div class="card">
+                <div class="card @(_isMyPlayer ? "border-success" : "")">
                     <div class="card-body text-center">
                         <Avatar AvatarId="@_player.AvatarId" Size="xl" />
-                        <h3 class="mt-3 mb-1">@_player.Name</h3>
+                        <h3 class="mt-3 mb-1">
+                            @_player.Name
+                            @if (_isMyPlayer)
+                            {
+                                <span class="badge badge-you ms-1">you</span>
+                            }
+                        </h3>
                         <h4 class="text-success">@_stats.CurrentElo ELO</h4>
                         @if (!_player.IsActive)
                         {
                             <span class="badge bg-secondary">Inactive</span>
+                        }
+                        @if (_canEdit)
+                        {
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="ShowEditModal">
+                                    <i class="bi bi-pencil me-1"></i> Edit name &amp; avatar
+                                </button>
+                            </div>
                         }
 
                         <hr />
@@ -363,6 +379,44 @@ else if (_player != null && _stats != null)
             </div>
         </div>
     </div>
+
+    @if (_showEditModal && _player != null)
+    {
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit player</h5>
+                        <button type="button" class="btn-close" @onclick="HideEditModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (!string.IsNullOrEmpty(_editError))
+                        {
+                            <div class="alert alert-danger">@_editError</div>
+                        }
+                        <div class="mb-3">
+                            <label for="editName" class="form-label">Name</label>
+                            <input id="editName" class="form-control" @bind="_editName" maxlength="50" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Avatar</label>
+                            <AvatarPicker @bind-Value="_editAvatar" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HideEditModal">Cancel</button>
+                        <button type="button" class="btn btn-success" @onclick="SaveEdit" disabled="@_savingEdit">
+                            @if (_savingEdit)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -387,6 +441,15 @@ else
     private bool _loading = true;
     private int _lastLoadedPlayerId;
     private bool _chartRendered;
+    private bool _isMyPlayer;
+    private bool _canEdit;
+    private bool _showEditModal;
+    private string _editName = string.Empty;
+    private int _editAvatar = 1;
+    private string? _editError;
+    private bool _savingEdit;
+
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -407,7 +470,7 @@ else
         _chartRendered = false;
         StateHasChanged();
 
-        _team = await AuthService.GetCurrentTeamAsync();
+        _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
             _player = await PlayerService.GetByIdWithTeamAsync(PlayerId);
@@ -416,6 +479,11 @@ else
                 _stats = await StatsService.GetPlayerStatsAsync(PlayerId);
                 _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches);
                 _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId);
+
+                var userId = await CurrentUser.GetUserIdAsync();
+                var isAdmin = await TeamAccess.IsAdminAsync(_team);
+                _isMyPlayer = userId != null && _player.UserId == userId;
+                _canEdit = isAdmin || _isMyPlayer;
             }
             else
             {
@@ -423,6 +491,8 @@ else
                 _stats = null;
                 _recentMatches = [];
                 _totalMatchCount = 0;
+                _isMyPlayer = false;
+                _canEdit = false;
             }
         }
         _lastLoadedPlayerId = PlayerId;
@@ -434,6 +504,62 @@ else
         {
             await RenderChart();
             _chartRendered = true;
+        }
+    }
+
+    private void ShowEditModal()
+    {
+        if (_player == null) return;
+        _editName = _player.Name;
+        _editAvatar = _player.AvatarId;
+        _editError = null;
+        _showEditModal = true;
+    }
+
+    private void HideEditModal()
+    {
+        _showEditModal = false;
+        _editError = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_team == null || _player == null) return;
+        var name = _editName?.Trim() ?? string.Empty;
+        if (name.Length < 1 || name.Length > 50)
+        {
+            _editError = "Name must be 1-50 characters.";
+            return;
+        }
+
+        _savingEdit = true;
+        _editError = null;
+        try
+        {
+            if (await PlayerService.IsNameTakenAsync(_team.Id, name, _player.Id))
+            {
+                _editError = "A player with that name already exists in this team.";
+                return;
+            }
+            var actorId = await CurrentUser.GetUserIdAsync();
+            if (actorId == null)
+            {
+                _editError = "You must be logged in.";
+                return;
+            }
+            var ok = await PlayerService.UpdateAsync(_player.Id, _team.Id, actorId.Value, name, _editAvatar);
+            if (!ok)
+            {
+                _editError = "Could not update. You may not have permission.";
+                return;
+            }
+            _showEditModal = false;
+            await LoadPlayerDataAsync();
+        }
+        finally
+        {
+            _savingEdit = false;
+            StateHasChanged();
         }
     }
 
