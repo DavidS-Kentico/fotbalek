@@ -1,0 +1,75 @@
+@* Position-specific ranking table (Goalkeepers / Attackers). *@
+
+<div class="card h-100">
+    <div class="card-header">
+        <h5 class="mb-0">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <i class="@Icon me-2"></i>
+            }
+            @Title
+            @if (!string.IsNullOrEmpty(HeaderHint))
+            {
+                <small class="text-muted fw-normal">@HeaderHint</small>
+            }
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        @if (Players.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width: 60px;">Rank</th>
+                            <th>Player</th>
+                            <th class="text-end">Games</th>
+                            <th class="text-end" title="@AverageColumnTooltip">@AverageColumnLabel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Players)
+                        {
+                            var isMine = p.PlayerId == MyPlayerId;
+                            <tr class="@(isMine ? "table-success" : "")">
+                                <td class="text-center">
+                                    <RankBadge Rank="@p.Rank" Large="true" />
+                                </td>
+                                <td>
+                                    <a href="/@TeamCode/players/@p.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                        <Avatar AvatarId="@p.AvatarId" Size="sm" />
+                                        <span>@p.PlayerName</span>
+                                        @if (isMine)
+                                        {
+                                            <span class="badge badge-you ms-1">you</span>
+                                        }
+                                    </a>
+                                </td>
+                                <td class="text-end">@p.Games</td>
+                                <td class="text-end fw-bold @AverageColumnClass">@p.AverageGoals.ToString("F1")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <EmptyState Icon="@EmptyIcon" Message="@EmptyMessage" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PositionRanking> Players { get; set; } = [];
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? HeaderHint { get; set; }
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public string AverageColumnLabel { get; set; } = "Avg";
+    [Parameter] public string? AverageColumnTooltip { get; set; }
+    [Parameter] public string AverageColumnClass { get; set; } = "text-secondary";
+    [Parameter] public string? EmptyIcon { get; set; }
+    [Parameter] public string? EmptyMessage { get; set; }
+}

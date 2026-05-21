@@ -1,0 +1,36 @@
+@* Card containing a Chart.js canvas with a header and a fallback when there's no data. *@
+
+<div class="card h-100">
+    <div class="card-header">
+        <h6 class="mb-0">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <i class="@Icon me-2"></i>
+            }
+            @Title
+        </h6>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <small class="text-muted">@Subtitle</small>
+        }
+    </div>
+    <div class="card-body">
+        @if (HasData)
+        {
+            <canvas id="@CanvasId" height="@Height"></canvas>
+        }
+        else
+        {
+            <p class="text-muted text-center mb-0">No data available</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string CanvasId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public int Height { get; set; } = 250;
+    [Parameter] public bool HasData { get; set; }
+}

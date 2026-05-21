@@ -1,0 +1,39 @@
+@* Responsive grid of player buttons. Used by both player and balance pickers. *@
+
+<div class="row row-cols-3 g-2">
+    @foreach (var player in Players)
+    {
+        var isSelected = SelectedIds?.Contains(player.Id) == true;
+        var isMe = player.Id == MyPlayerId;
+        var buttonClass = isSelected
+            ? "btn-success"
+            : (isMe ? "btn-outline-success border-2" : "btn-outline-secondary");
+        <div class="col">
+            <button class="btn w-100 p-2 @buttonClass"
+                    disabled="@(DisablePlayer?.Invoke(player) ?? false)"
+                    @onclick="() => OnSelect.InvokeAsync(player.Id)">
+                <Avatar AvatarId="@player.AvatarId" Size="md" />
+                <div class="small mt-1">
+                    @player.Name
+                    @if (isMe)
+                    {
+                        <span class="badge badge-you ms-1">you</span>
+                    }
+                </div>
+                @if (ShowElo)
+                {
+                    <div class="small text-muted">@player.Elo</div>
+                }
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<Player> Players { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<int>? SelectedIds { get; set; }
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public bool ShowElo { get; set; } = true;
+    [Parameter] public Func<Player, bool>? DisablePlayer { get; set; }
+    [Parameter] public EventCallback<int> OnSelect { get; set; }
+}

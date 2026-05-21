@@ -1,0 +1,38 @@
+@* Compact card highlighting a notable partner or opponent for a player. *@
+
+<div class="card border-@Variant h-100 @(string.IsNullOrEmpty(PlayerName) ? "opacity-50" : "")">
+    <div class="card-header bg-@Variant @(Variant == "warning" ? "text-dark" : "text-white") py-2">
+        <small class="mb-0">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <i class="@Icon me-1"></i>
+            }
+            @Title
+        </small>
+    </div>
+    <div class="card-body text-center py-2">
+        @if (!string.IsNullOrEmpty(PlayerName))
+        {
+            <h6 class="mb-1">@PlayerName</h6>
+            <small class="@WinRateClass fw-bold">@WinRate.ToString("F1")%</small>
+            <small class="text-muted d-block">@Games games</small>
+        }
+        else
+        {
+            <h6 class="mb-1 text-muted">-</h6>
+            <small class="text-muted fst-italic">Not enough data</small>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter, EditorRequired] public string Variant { get; set; } = "success";
+    [Parameter] public string? PlayerName { get; set; }
+    [Parameter] public double WinRate { get; set; }
+    [Parameter] public int Games { get; set; }
+    [Parameter] public bool HighlightWin { get; set; } = true;
+
+    private string WinRateClass => HighlightWin ? "text-success" : "text-danger";
+}

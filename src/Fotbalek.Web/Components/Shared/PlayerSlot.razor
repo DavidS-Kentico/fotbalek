@@ -1,0 +1,37 @@
+@* A single foosball table slot — empty plus-button or a filled avatar with remove button. *@
+
+<div class="player-slot @SlotClass">
+    @if (Player != null)
+    {
+        <button class="remove-player-btn" @onclick="OnRemove" @onclick:stopPropagation="true">
+            <i class="bi bi-x"></i>
+        </button>
+    }
+    <button class="player-circle team-@Team @(Player != null ? "filled" : "") @(Player != null && Player.Id == MyPlayerId ? "is-me" : "")"
+            @onclick="OnSelect">
+        @if (Player != null)
+        {
+            <Avatar AvatarId="@Player.AvatarId" Size="md" />
+            <span class="player-name">@Player.Name</span>
+        }
+        else
+        {
+            <i class="bi bi-plus-lg"></i>
+            <span class="position-label">@PositionLabel</span>
+        }
+    </button>
+    <span class="position-badge @PositionBadgeClass">@PositionLabel</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int Team { get; set; }
+    [Parameter, EditorRequired] public bool IsGoalkeeper { get; set; }
+    [Parameter] public Player? Player { get; set; }
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public EventCallback OnSelect { get; set; }
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private string PositionLabel => IsGoalkeeper ? "GK" : "ATK";
+    private string PositionBadgeClass => IsGoalkeeper ? "gk" : "atk";
+    private string SlotClass => IsGoalkeeper ? "gk-slot" : "atk-slot";
+}

@@ -3,60 +3,44 @@
 
 <PageTitle>Login - Foosball Manager</PageTitle>
 
-<div class="container">
-    <div class="row min-vh-100 align-items-center justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="text-center mb-4">
-                <a href="/" class="text-decoration-none">
-                    <h1 class="display-5 fw-bold text-success">
-                        <i class="bi bi-trophy-fill me-2"></i>
-                        Fotbalek
-                    </h1>
-                </a>
-            </div>
+<AuthCardLayout>
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-box-arrow-in-right me-2"></i>Login</h5>
+        </div>
+        <div class="card-body p-4">
+            <AlertMessage Message="@(string.IsNullOrEmpty(Error) ? null : ErrorMessage)" Variant="danger" />
 
-            <div class="card shadow">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-box-arrow-in-right me-2"></i>Login</h5>
+            <form method="post" action="/account/login">
+                <AntiforgeryToken />
+                @if (!string.IsNullOrEmpty(ReturnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                }
+
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input id="username" name="username" type="text" class="form-control" value="@Username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
                 </div>
-                <div class="card-body p-4">
-                    @if (!string.IsNullOrEmpty(Error))
-                    {
-                        <div class="alert alert-danger">@ErrorMessage</div>
-                    }
 
-                    <form method="post" action="/account/login">
-                        <AntiforgeryToken />
-                        @if (!string.IsNullOrEmpty(ReturnUrl))
-                        {
-                            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
-                        }
-
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input id="username" name="username" type="text" class="form-control" value="@Username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-success">Sign in</button>
-                            <a href="@RegisterUrl" class="btn btn-outline-secondary">Create new account</a>
-                        </div>
-                    </form>
-
-                    <hr />
-                    <p class="text-muted small mb-0 text-center">
-                        Forgot your password? Contact the service administrator.
-                    </p>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
                 </div>
-            </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-success">Sign in</button>
+                    <a href="@RegisterUrl" class="btn btn-outline-secondary">Create new account</a>
+                </div>
+            </form>
+
+            <hr />
+            <p class="text-muted small mb-0 text-center">
+                Forgot your password? Contact the service administrator.
+            </p>
         </div>
     </div>
-</div>
+</AuthCardLayout>
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]

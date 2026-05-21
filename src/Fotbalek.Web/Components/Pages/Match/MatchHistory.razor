@@ -23,15 +23,8 @@ else
             </a>
         </div>
 
-        @if (!string.IsNullOrEmpty(_message))
-        {
-            <div class="alert alert-success alert-dismissible fade show">
-                @_message
-                <button type="button" class="btn-close" @onclick="() => _message = null"></button>
-            </div>
-        }
+        <AlertMessage Message="@_message" Variant="success" Dismissible="true" OnDismiss="() => _message = null" />
 
-        <!-- Filters -->
         <div class="card mb-4">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
@@ -41,10 +34,9 @@ else
                                       OnFilterChanged="OnFilterChanged" />
                 </div>
 
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                    <!-- Player Filter (multi-select up to 4) -->
-                    @if (_players.Count > 0)
-                    {
+                @if (_players.Count > 0)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-2">
                         <span class="text-muted small"><i class="bi bi-people me-1"></i>Players:</span>
                         @foreach (var player in _players)
                         {
@@ -62,15 +54,13 @@ else
                                 <i class="bi bi-x-circle"></i> Clear
                             </button>
                         }
-                    }
-                </div>
+                    </div>
+                }
 
-                @if (_selectedPeriod != "all" || _selectedPlayerIds.Count > 0)
+                @if (HasActiveFilters)
                 {
                     <div class="mt-2">
-                        <span class="badge bg-secondary">
-                            @GetFilterDescription()
-                        </span>
+                        <span class="badge bg-secondary">@GetFilterDescription()</span>
                     </div>
                 }
             </div>
@@ -87,7 +77,6 @@ else
                 <MatchCard Match="@match" TeamCode="@TeamCode" />
             }
 
-            <!-- Pagination -->
             @if (_totalPages > 1)
             {
                 <nav aria-label="Match history pagination">
@@ -97,11 +86,9 @@ else
                         </li>
                         @foreach (var pageNum in GetPageNumbers())
                         {
-                            @if (pageNum == -1)
+                            if (pageNum == -1)
                             {
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
                             }
                             else
                             {
@@ -119,21 +106,18 @@ else
         }
         else
         {
-            <div class="text-center text-muted py-5">
-                <i class="bi bi-calendar-x display-1 d-block mb-3"></i>
-                @if (_selectedPeriod != "all" || _selectedPlayerIds.Count > 0)
+            <EmptyState Icon="bi bi-calendar-x" IconSize="xl" Padding="py-5"
+                        Title="@(HasActiveFilters ? "No matches found for the selected filters" : "No matches recorded yet")"
+                        Message="@(HasActiveFilters ? "Try adjusting your filters or selecting a different time period." : "Start playing and record your first match!")">
+                @if (HasActiveFilters)
                 {
-                    <h5>No matches found for the selected filters</h5>
-                    <p>Try adjusting your filters or selecting a different time period.</p>
                     <button class="btn btn-outline-success" @onclick="ClearAllFilters">Clear Filters</button>
                 }
                 else
                 {
-                    <h5>No matches recorded yet</h5>
-                    <p>Start playing and record your first match!</p>
                     <a href="/@TeamCode/match/new" class="btn btn-success">Record First Match</a>
                 }
-            </div>
+            </EmptyState>
         }
     </div>
 }
@@ -157,11 +141,12 @@ else
     private const int PageSize = 10;
     private string? _message;
 
-    // Filter state
     private string _selectedPeriod = "all";
     private HashSet<int> _selectedPlayerIds = [];
     private DateOnly? _customStartDate;
     private DateOnly? _customEndDate;
+
+    private bool HasActiveFilters => _selectedPeriod != "all" || _selectedPlayerIds.Count > 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -170,15 +155,12 @@ else
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
-                // Load all matches and players
                 _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);
                 _players = await PlayerService.GetByTeamAsync(_team.Id);
 
-                // Initialize custom date range
                 _customEndDate = DateOnly.FromDateTime(DateTime.Today);
                 _customStartDate = _customEndDate.Value.AddMonths(-1);
 
-                // Apply player filter from URL if provided
                 if (PlayerParam.HasValue && _players.Any(p => p.Id == PlayerParam.Value))
                 {
                     _selectedPlayerIds.Add(PlayerParam.Value);
@@ -186,7 +168,6 @@ else
 
                 _message = MessageParam;
 
-                // Apply initial filter
                 ApplyFilter();
             }
             _loading = false;
@@ -231,7 +212,6 @@ else
 
     private void ApplyFilter()
     {
-        // Apply time filter
         _filteredMatches = _allMatches
             .Where(m => DateFilterHelper.IsDateInPeriod(
                 DateOnly.FromDateTime(m.PlayedAt.Date),
@@ -240,7 +220,6 @@ else
                 _customEndDate))
             .ToList();
 
-        // Apply player filter - match must include ALL selected players
         if (_selectedPlayerIds.Count > 0)
         {
             _filteredMatches = _filteredMatches
@@ -248,23 +227,14 @@ else
                 .ToList();
         }
 
-        // Calculate pagination
         _totalPages = Math.Max(1, (int)Math.Ceiling((double)_filteredMatches.Count / PageSize));
-        if (_currentPage > _totalPages)
-        {
-            _currentPage = _totalPages;
-        }
+        if (_currentPage > _totalPages) _currentPage = _totalPages;
 
         StateHasChanged();
     }
 
-    private List<Match> GetCurrentPageMatches()
-    {
-        return _filteredMatches
-            .Skip((_currentPage - 1) * PageSize)
-            .Take(PageSize)
-            .ToList();
-    }
+    private List<Match> GetCurrentPageMatches() =>
+        _filteredMatches.Skip((_currentPage - 1) * PageSize).Take(PageSize).ToList();
 
     private void GoToPage(int page)
     {
@@ -277,52 +247,19 @@ else
 
     private IEnumerable<int> GetPageNumbers()
     {
-        // Show smart pagination with ellipsis for large page counts
         const int maxVisible = 7;
+        if (_totalPages <= maxVisible) return Enumerable.Range(1, _totalPages);
 
-        if (_totalPages <= maxVisible)
-        {
-            return Enumerable.Range(1, _totalPages);
-        }
-
-        var pages = new List<int>();
-
-        // Always show first page
-        pages.Add(1);
-
-        // Calculate range around current page
+        var pages = new List<int> { 1 };
         var start = Math.Max(2, _currentPage - 2);
         var end = Math.Min(_totalPages - 1, _currentPage + 2);
 
-        // Adjust range if near beginning or end
-        if (_currentPage <= 3)
-        {
-            end = Math.Min(_totalPages - 1, 5);
-        }
-        else if (_currentPage >= _totalPages - 2)
-        {
-            start = Math.Max(2, _totalPages - 4);
-        }
+        if (_currentPage <= 3) end = Math.Min(_totalPages - 1, 5);
+        else if (_currentPage >= _totalPages - 2) start = Math.Max(2, _totalPages - 4);
 
-        // Add ellipsis if needed before range
-        if (start > 2)
-        {
-            pages.Add(-1); // -1 represents ellipsis
-        }
-
-        // Add range
-        for (int i = start; i <= end; i++)
-        {
-            pages.Add(i);
-        }
-
-        // Add ellipsis if needed after range
-        if (end < _totalPages - 1)
-        {
-            pages.Add(-1); // -1 represents ellipsis
-        }
-
-        // Always show last page
+        if (start > 2) pages.Add(-1);
+        for (var i = start; i <= end; i++) pages.Add(i);
+        if (end < _totalPages - 1) pages.Add(-1);
         pages.Add(_totalPages);
 
         return pages;
@@ -333,17 +270,13 @@ else
         var parts = new List<string>();
 
         var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
-        if (periodDesc != null)
-        {
-            parts.Add(periodDesc);
-        }
+        if (periodDesc != null) parts.Add(periodDesc);
 
         if (_selectedPlayerIds.Count > 0)
         {
             var playerNames = _players
                 .Where(p => _selectedPlayerIds.Contains(p.Id))
-                .Select(p => p.Name)
-                .ToList();
+                .Select(p => p.Name);
             parts.Add(string.Join(" + ", playerNames));
         }
 

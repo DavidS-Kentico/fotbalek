@@ -17,7 +17,6 @@ else
     <div class="container py-4">
         <h2 class="mb-4"><i class="bi bi-bar-chart me-2"></i>Rankings</h2>
 
-        <!-- Player Rankings -->
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-person me-2"></i>Player Rankings</h5>
@@ -77,127 +76,40 @@ else
                 }
                 else
                 {
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-people fs-1 d-block mb-2"></i>
-                        <p>No players yet.</p>
-                    </div>
+                    <EmptyState Icon="bi bi-people" Message="No players yet." />
                 }
             </div>
         </div>
 
-        <!-- Position Rankings -->
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-shield-fill me-2"></i>Best Goalkeepers <small class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPositionBadge games as GK)</small></h5>
-                    </div>
-                    <div class="card-body p-0">
-                        @if (_goalkeepers.Count > 0)
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="text-center" style="width: 60px;">Rank</th>
-                                            <th>Player</th>
-                                            <th class="text-end">Games</th>
-                                            <th class="text-end" title="Average goals conceded per game">Avg Conceded</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var gk in _goalkeepers)
-                                        {
-                                            var isMineGk = gk.PlayerId == MyPlayerId;
-                                            <tr class="@(isMineGk ? "table-success" : "")">
-                                                <td class="text-center">
-                                                    <RankBadge Rank="@gk.Rank" Large="true" />
-                                                </td>
-                                                <td>
-                                                    <a href="/@TeamCode/players/@gk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
-                                                        <Avatar AvatarId="@gk.AvatarId" Size="sm" />
-                                                        <span>@gk.PlayerName</span>
-                                                        @if (isMineGk)
-                                                        {
-                                                            <span class="badge badge-you ms-1">you</span>
-                                                        }
-                                                    </a>
-                                                </td>
-                                                <td class="text-end">@gk.Games</td>
-                                                <td class="text-end fw-bold text-secondary">@gk.AverageGoals.ToString("F1")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-center text-muted py-4">
-                                <i class="bi bi-shield fs-1 d-block mb-2"></i>
-                                <p class="mb-0">No goalkeepers with at least @Constants.TimeThresholds.MinGamesForPositionBadge games yet.</p>
-                            </div>
-                        }
-                    </div>
-                </div>
+                <PositionRankingTable Players="_goalkeepers"
+                                      Title="Best Goalkeepers"
+                                      Icon="bi bi-shield-fill"
+                                      HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as GK)")"
+                                      TeamCode="@TeamCode"
+                                      MyPlayerId="MyPlayerId"
+                                      AverageColumnLabel="Avg Conceded"
+                                      AverageColumnTooltip="Average goals conceded per game"
+                                      AverageColumnClass="text-secondary"
+                                      EmptyIcon="bi bi-shield"
+                                      EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
             </div>
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>Best Attackers <small class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPositionBadge games as ATK)</small></h5>
-                    </div>
-                    <div class="card-body p-0">
-                        @if (_attackers.Count > 0)
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="text-center" style="width: 60px;">Rank</th>
-                                            <th>Player</th>
-                                            <th class="text-end">Games</th>
-                                            <th class="text-end" title="Average goals scored per game">Avg Scored</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var atk in _attackers)
-                                        {
-                                            var isMineAtk = atk.PlayerId == MyPlayerId;
-                                            <tr class="@(isMineAtk ? "table-success" : "")">
-                                                <td class="text-center">
-                                                    <RankBadge Rank="@atk.Rank" Large="true" />
-                                                </td>
-                                                <td>
-                                                    <a href="/@TeamCode/players/@atk.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
-                                                        <Avatar AvatarId="@atk.AvatarId" Size="sm" />
-                                                        <span>@atk.PlayerName</span>
-                                                        @if (isMineAtk)
-                                                        {
-                                                            <span class="badge badge-you ms-1">you</span>
-                                                        }
-                                                    </a>
-                                                </td>
-                                                <td class="text-end">@atk.Games</td>
-                                                <td class="text-end fw-bold text-danger">@atk.AverageGoals.ToString("F1")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-center text-muted py-4">
-                                <i class="bi bi-bullseye fs-1 d-block mb-2"></i>
-                                <p class="mb-0">No attackers with at least @Constants.TimeThresholds.MinGamesForPositionBadge games yet.</p>
-                            </div>
-                        }
-                    </div>
-                </div>
+                <PositionRankingTable Players="_attackers"
+                                      Title="Best Attackers"
+                                      Icon="bi bi-bullseye"
+                                      HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as ATK)")"
+                                      TeamCode="@TeamCode"
+                                      MyPlayerId="MyPlayerId"
+                                      AverageColumnLabel="Avg Scored"
+                                      AverageColumnTooltip="Average goals scored per game"
+                                      AverageColumnClass="text-danger"
+                                      EmptyIcon="bi bi-bullseye"
+                                      EmptyMessage="@($"No attackers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
             </div>
         </div>
 
-        <!-- Pair Rankings -->
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-people me-2"></i>Best Pairs (min @Constants.TimeThresholds.MinGamesForPartnerStats matches)</h5>
@@ -256,10 +168,8 @@ else
                 }
                 else
                 {
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-people fs-1 d-block mb-2"></i>
-                        <p>Not enough matches to rank pairs yet (minimum @Constants.TimeThresholds.MinGamesForPartnerStats matches per pair).</p>
-                    </div>
+                    <EmptyState Icon="bi bi-people"
+                                Message="@($"Not enough matches to rank pairs yet (minimum {Constants.TimeThresholds.MinGamesForPartnerStats} matches per pair).")" />
                 }
             </div>
         </div>

@@ -167,66 +167,51 @@
             </CascadingValue>
         </main>
 
-        @if (_showShareModal)
-        {
-            <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title"><i class="bi bi-share me-2"></i>Share Team</h5>
-                            <button type="button" class="btn-close" @onclick="() => _showShareModal = false"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="text-muted">Share this link with your teammates so they can join without entering a password:</p>
-                            @if (_generatingToken)
-                            {
-                                <div class="text-center py-3">
-                                    <div class="spinner-border spinner-border-sm text-success" role="status">
-                                        <span class="visually-hidden">Generating link...</span>
-                                    </div>
-                                </div>
-                            }
-                            else if (!string.IsNullOrEmpty(_shareToken))
-                            {
-                                <div class="input-group">
-                                    <input type="text" class="form-control" readonly value="@GetShareUrl()" />
-                                    <button class="btn btn-success" @onclick="CopyShareUrl">
-                                        <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
-                                        @(_copied ? "Copied!" : "Copy")
-                                    </button>
-                                </div>
-                                @if (_copied)
-                                {
-                                    <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
-                                }
-                                <small class="text-muted mt-2 d-block">
-                                    <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
-                                </small>
-                            }
-                            <hr />
-                            <p class="text-muted mb-2 small">Or share the team URL (requires password + login):</p>
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
-                                <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
-                                    <i class="bi @(_copiedBasic ? "bi-check" : "bi-clipboard")"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @onclick="() => _showShareModal = false">Close</button>
+        <Modal Show="_showShareModal" Title="Share Team" Icon="bi bi-share" OnClose="() => _showShareModal = false">
+            <Body>
+                <p class="text-muted">Share this link with your teammates so they can join without entering a password:</p>
+                @if (_generatingToken)
+                {
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-success" role="status">
+                            <span class="visually-hidden">Generating link...</span>
                         </div>
                     </div>
+                }
+                else if (!string.IsNullOrEmpty(_shareToken))
+                {
+                    <div class="input-group">
+                        <input type="text" class="form-control" readonly value="@GetShareUrl()" />
+                        <button class="btn btn-success" @onclick="CopyShareUrl">
+                            <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
+                            @(_copied ? "Copied!" : "Copy")
+                        </button>
+                    </div>
+                    @if (_copied)
+                    {
+                        <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
+                    }
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
+                    </small>
+                }
+                <hr />
+                <p class="text-muted mb-2 small">Or share the team URL (requires password + login):</p>
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
+                    <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
+                        <i class="bi @(_copiedBasic ? "bi-check" : "bi-clipboard")"></i>
+                    </button>
                 </div>
-            </div>
-        }
+            </Body>
+            <Footer>
+                <button type="button" class="btn btn-secondary" @onclick="() => _showShareModal = false">Close</button>
+            </Footer>
+        </Modal>
     }
     else if (_loading)
     {
-        <div class="d-flex justify-content-center align-items-center min-vh-100">
-            <div class="spinner-border text-success" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        </div>
+        <LoadingSpinner FullScreen="true" />
     }
 </div>
 

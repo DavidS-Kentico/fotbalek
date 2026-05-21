@@ -1,0 +1,46 @@
+@if (Show)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered @SizeClass">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @if (!string.IsNullOrEmpty(Icon))
+                        {
+                            <i class="@Icon me-2"></i>
+                        }
+                        @Title
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="OnClose"></button>
+                </div>
+                <div class="modal-body">
+                    @Body
+                </div>
+                @if (Footer != null)
+                {
+                    <div class="modal-footer">
+                        @Footer
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Size { get; set; } = "";
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? Body { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    private string SizeClass => Size switch
+    {
+        "lg" => "modal-lg",
+        "xl" => "modal-xl",
+        "sm" => "modal-sm",
+        _ => ""
+    };
+}

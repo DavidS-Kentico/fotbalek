@@ -12,20 +12,15 @@
 
 @if (_loading)
 {
-    <div class="d-flex justify-content-center align-items-center py-5">
-        <div class="spinner-border text-success" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <LoadingSpinner />
 }
 else if (_players.Count < 4)
 {
     <div class="container py-4">
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle me-2"></i>
+        <AlertMessage Variant="warning" Icon="bi bi-exclamation-triangle">
             You need at least 4 active players to record a match.
             <a href="/@TeamCode/players" class="alert-link">Add more players</a>
-        </div>
+        </AlertMessage>
     </div>
 }
 else
@@ -33,13 +28,7 @@ else
     <div class="container py-4 match-page">
         <h2 class="text-center mb-4"><i class="bi bi-plus-circle me-2"></i>New Match</h2>
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <div class="alert alert-danger alert-dismissible fade show">
-                @_error
-                <button type="button" class="btn-close" @onclick="() => _error = null"></button>
-            </div>
-        }
+        <AlertMessage Message="@_error" Variant="danger" Dismissible="true" OnDismiss="() => _error = null" />
 
         @if (_showSuccess)
         {
@@ -57,7 +46,6 @@ else
             </div>
         }
 
-        <!-- Action Toolbar -->
         <div class="match-toolbar">
             <div class="match-toolbar-status @(AllPlayersSelected ? "" : "incomplete")">
                 <span class="status-icon">
@@ -81,10 +69,8 @@ else
             </div>
         </div>
 
-        <!-- Foosball Table -->
         <div class="foosball-table-container mb-3">
             <div class="foosball-table">
-                <!-- Team 1 Side (Top) -->
                 <div class="team-side team-1-side">
                     <div class="team-label">
                         <div class="team-label-row">
@@ -96,113 +82,27 @@ else
                         </div>
                     </div>
                     <div class="player-positions">
-                        <div class="player-slot atk-slot">
-                            @if (Team1AtkId > 0)
-                            {
-                                <button class="remove-player-btn" @onclick="() => RemovePlayer(1, false)" @onclick:stopPropagation="true">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            }
-                            <button class="player-circle team-1 @(Team1AtkId > 0 ? "filled" : "") @(Team1AtkId > 0 && Team1AtkId == MyPlayerId ? "is-me" : "")"
-                                    @onclick="() => OpenPlayerPicker(1, false)">
-                                @if (Team1AtkId > 0)
-                                {
-                                    var player = _players.First(p => p.Id == Team1AtkId);
-                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                    <span class="player-name">@player.Name</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-plus-lg"></i>
-                                    <span class="position-label">ATK</span>
-                                }
-                            </button>
-                            <span class="position-badge atk">ATK</span>
-                        </div>
+                        <PlayerSlot Team="1" IsGoalkeeper="false" Player="GetPlayer(Team1AtkId)" MyPlayerId="MyPlayerId"
+                                    OnSelect="() => OpenPlayerPicker(1, false)" OnRemove="() => RemovePlayer(1, false)" />
                         <button class="swap-btn" @onclick="() => SwapPositions(1)" title="Swap positions">
                             <i class="bi bi-arrow-left-right"></i>
                         </button>
-                        <div class="player-slot gk-slot">
-                            @if (Team1GkId > 0)
-                            {
-                                <button class="remove-player-btn" @onclick="() => RemovePlayer(1, true)" @onclick:stopPropagation="true">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            }
-                            <button class="player-circle team-1 @(Team1GkId > 0 ? "filled" : "") @(Team1GkId > 0 && Team1GkId == MyPlayerId ? "is-me" : "")"
-                                    @onclick="() => OpenPlayerPicker(1, true)">
-                                @if (Team1GkId > 0)
-                                {
-                                    var player = _players.First(p => p.Id == Team1GkId);
-                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                    <span class="player-name">@player.Name</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-plus-lg"></i>
-                                    <span class="position-label">GK</span>
-                                }
-                            </button>
-                            <span class="position-badge gk">GK</span>
-                        </div>
+                        <PlayerSlot Team="1" IsGoalkeeper="true" Player="GetPlayer(Team1GkId)" MyPlayerId="MyPlayerId"
+                                    OnSelect="() => OpenPlayerPicker(1, true)" OnRemove="() => RemovePlayer(1, true)" />
                     </div>
                 </div>
 
-                <!-- Midfield Line -->
                 <div class="midfield-line"></div>
 
-                <!-- Team 2 Side (Bottom) -->
                 <div class="team-side team-2-side">
                     <div class="player-positions">
-                        <div class="player-slot gk-slot">
-                            @if (Team2GkId > 0)
-                            {
-                                <button class="remove-player-btn" @onclick="() => RemovePlayer(2, true)" @onclick:stopPropagation="true">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            }
-                            <button class="player-circle team-2 @(Team2GkId > 0 ? "filled" : "") @(Team2GkId > 0 && Team2GkId == MyPlayerId ? "is-me" : "")"
-                                    @onclick="() => OpenPlayerPicker(2, true)">
-                                @if (Team2GkId > 0)
-                                {
-                                    var player = _players.First(p => p.Id == Team2GkId);
-                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                    <span class="player-name">@player.Name</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-plus-lg"></i>
-                                    <span class="position-label">GK</span>
-                                }
-                            </button>
-                            <span class="position-badge gk">GK</span>
-                        </div>
+                        <PlayerSlot Team="2" IsGoalkeeper="true" Player="GetPlayer(Team2GkId)" MyPlayerId="MyPlayerId"
+                                    OnSelect="() => OpenPlayerPicker(2, true)" OnRemove="() => RemovePlayer(2, true)" />
                         <button class="swap-btn" @onclick="() => SwapPositions(2)" title="Swap positions">
                             <i class="bi bi-arrow-left-right"></i>
                         </button>
-                        <div class="player-slot atk-slot">
-                            @if (Team2AtkId > 0)
-                            {
-                                <button class="remove-player-btn" @onclick="() => RemovePlayer(2, false)" @onclick:stopPropagation="true">
-                                    <i class="bi bi-x"></i>
-                                </button>
-                            }
-                            <button class="player-circle team-2 @(Team2AtkId > 0 ? "filled" : "") @(Team2AtkId > 0 && Team2AtkId == MyPlayerId ? "is-me" : "")"
-                                    @onclick="() => OpenPlayerPicker(2, false)">
-                                @if (Team2AtkId > 0)
-                                {
-                                    var player = _players.First(p => p.Id == Team2AtkId);
-                                    <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                    <span class="player-name">@player.Name</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-plus-lg"></i>
-                                    <span class="position-label">ATK</span>
-                                }
-                            </button>
-                            <span class="position-badge atk">ATK</span>
-                        </div>
+                        <PlayerSlot Team="2" IsGoalkeeper="false" Player="GetPlayer(Team2AtkId)" MyPlayerId="MyPlayerId"
+                                    OnSelect="() => OpenPlayerPicker(2, false)" OnRemove="() => RemovePlayer(2, false)" />
                     </div>
                     <div class="team-label">
                         <div class="team-label-row">
@@ -226,7 +126,6 @@ else
             </div>
         }
 
-        <!-- Match Preview: Win Probability -->
         @if (AllPlayersSelected)
         {
             <div class="match-preview">
@@ -262,45 +161,11 @@ else
             </div>
         }
 
-        <!-- Outcome cards -->
         <div class="outcome-cards">
-            <button type="button" class="outcome-card team-1 @(IsValid() && Team1Score > Team2Score ? "active" : "")"
-                    @onclick="() => SetWinner(1)" disabled="@(!AllPlayersSelected)">
-                <i class="bi bi-trophy-fill trophy-icon"></i>
-                <span class="outcome-label">Team 1 Wins</span>
-                @if (AllPlayersSelected)
-                {
-                    <span class="elo-delta">
-                        <span class="gain">+@GetWinDelta(1)</span>
-                        <span class="text-muted">/</span>
-                        <span class="loss">-@GetWinDelta(1)</span>
-                    </span>
-                }
-                else
-                {
-                    <span class="elo-delta text-muted">pick lineup</span>
-                }
-            </button>
-            <button type="button" class="outcome-card team-2 @(IsValid() && Team2Score > Team1Score ? "active" : "")"
-                    @onclick="() => SetWinner(2)" disabled="@(!AllPlayersSelected)">
-                <i class="bi bi-trophy-fill trophy-icon"></i>
-                <span class="outcome-label">Team 2 Wins</span>
-                @if (AllPlayersSelected)
-                {
-                    <span class="elo-delta">
-                        <span class="gain">+@GetWinDelta(2)</span>
-                        <span class="text-muted">/</span>
-                        <span class="loss">-@GetWinDelta(2)</span>
-                    </span>
-                }
-                else
-                {
-                    <span class="elo-delta text-muted">pick lineup</span>
-                }
-            </button>
+            @OutcomeCard(1)
+            @OutcomeCard(2)
         </div>
 
-        <!-- Final Score -->
         <div class="score-card">
             <span class="score-card-label">Final Score</span>
             <div class="score-card-inputs">
@@ -312,109 +177,43 @@ else
             </div>
         </div>
 
-        <!-- Submit Button -->
         <div class="text-center">
-            <button class="btn btn-success btn-lg px-5 record-match-btn" @onclick="SubmitMatch" disabled="@(_saving || !IsValid())">
-                @if (_saving)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                }
-                <i class="bi bi-check-lg me-2"></i>
+            <SpinnerButton CssClass="btn-lg px-5 record-match-btn" Busy="_saving" Disabled="!IsValid()"
+                           Icon="bi bi-check-lg" OnClick="SubmitMatch">
                 Record Match
-            </button>
+            </SpinnerButton>
         </div>
 
         @if (!IsValid())
         {
             <div class="text-center mt-2">
-                <small class="text-muted">
-                    @GetValidationMessage()
-                </small>
+                <small class="text-muted">@GetValidationMessage()</small>
             </div>
         }
     </div>
 
-    <!-- Balance Picker Modal -->
-    @if (_showBalancePicker)
-    {
-        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="bi bi-shuffle me-2"></i>Balance Teams</h5>
-                        <button type="button" class="btn-close" @onclick="CloseBalancePicker"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-muted small mb-3">Pick exactly 4 players. We'll split them into the most balanced 2v2 and assign positions.</p>
-                        <div class="row row-cols-3 g-2">
-                            @foreach (var player in _players.OrderByDescending(p => p.Id == MyPlayerId).ThenBy(p => p.Name))
-                            {
-                                var isSelected = _balanceSelectedIds.Contains(player.Id);
-                                var isMe = player.Id == MyPlayerId;
-                                <div class="col">
-                                    <button class="btn w-100 p-2 @(isSelected ? "btn-success" : (isMe ? "btn-outline-success border-2" : "btn-outline-secondary"))"
-                                            @onclick="() => ToggleBalanceSelection(player.Id)">
-                                        <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                        <div class="small mt-1">
-                                            @player.Name
-                                            @if (isMe)
-                                            {
-                                                <span class="badge badge-you ms-1">you</span>
-                                            }
-                                        </div>
-                                        <div class="small text-muted">@player.Elo</div>
-                                    </button>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <span class="me-auto text-muted small">@_balanceSelectedIds.Count / 4 selected</span>
-                        <button class="btn btn-secondary" @onclick="CloseBalancePicker">Cancel</button>
-                        <button class="btn btn-success" @onclick="ApplyBalance" disabled="@(_balanceSelectedIds.Count != 4)">
-                            <i class="bi bi-shuffle me-1"></i> Balance
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
+    <Modal Show="_showBalancePicker" Title="Balance Teams" Icon="bi bi-shuffle" Size="lg" OnClose="CloseBalancePicker">
+        <Body>
+            <p class="text-muted small mb-3">Pick exactly 4 players. We'll split them into the most balanced 2v2 and assign positions.</p>
+            <PlayerPickerGrid Players="@_players.OrderByDescending(p => p.Id == MyPlayerId).ThenBy(p => p.Name)"
+                              SelectedIds="_balanceSelectedIds"
+                              MyPlayerId="MyPlayerId"
+                              OnSelect="ToggleBalanceSelection" />
+        </Body>
+        <Footer>
+            <span class="me-auto text-muted small">@_balanceSelectedIds.Count / 4 selected</span>
+            <button class="btn btn-secondary" @onclick="CloseBalancePicker">Cancel</button>
+            <SpinnerButton Icon="bi bi-shuffle" Disabled="_balanceSelectedIds.Count != 4" OnClick="ApplyBalance">
+                Balance
+            </SpinnerButton>
+        </Footer>
+    </Modal>
 
-    <!-- Player Picker Modal -->
-    @if (_showPlayerPicker)
-    {
-        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Select Player</h5>
-                        <button type="button" class="btn-close" @onclick="ClosePlayerPicker"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row row-cols-3 g-2">
-                            @foreach (var player in GetAvailablePlayers())
-                            {
-                                var isMe = player.Id == MyPlayerId;
-                                <div class="col">
-                                    <button class="btn w-100 p-2 @(isMe ? "btn-outline-success border-2" : "btn-outline-secondary")" @onclick="() => SelectPlayer(player.Id)">
-                                        <Avatar AvatarId="@player.AvatarId" Size="md" />
-                                        <div class="small mt-1">
-                                            @player.Name
-                                            @if (isMe)
-                                            {
-                                                <span class="badge badge-you ms-1">you</span>
-                                            }
-                                        </div>
-                                        <div class="small text-muted">@player.Elo</div>
-                                    </button>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
+    <Modal Show="_showPlayerPicker" Title="Select Player" OnClose="ClosePlayerPicker">
+        <Body>
+            <PlayerPickerGrid Players="GetAvailablePlayers()" MyPlayerId="MyPlayerId" OnSelect="SelectPlayer" />
+        </Body>
+    </Modal>
 }
 
 @code {
@@ -446,17 +245,18 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender) return;
+
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
         {
-            _team = await TeamAccess.GetCurrentTeamAsync();
-            if (_team != null)
-            {
-                _players = await PlayerService.GetByTeamAsync(_team.Id);
-            }
-            _loading = false;
-            StateHasChanged();
+            _players = await PlayerService.GetByTeamAsync(_team.Id);
         }
+        _loading = false;
+        StateHasChanged();
     }
+
+    private Player? GetPlayer(int id) => id > 0 ? _players.FirstOrDefault(p => p.Id == id) : null;
 
     private void OpenPlayerPicker(int team, bool isGk)
     {
@@ -465,10 +265,7 @@ else
         _showPlayerPicker = true;
     }
 
-    private void ClosePlayerPicker()
-    {
-        _showPlayerPicker = false;
-    }
+    private void ClosePlayerPicker() => _showPlayerPicker = false;
 
     private IEnumerable<Player> GetAvailablePlayers()
     {
@@ -493,9 +290,9 @@ else
     {
         switch ((_pickerTeam, _pickerIsGk))
         {
-            case (1, true): Team1GkId = playerId; break;
+            case (1, true):  Team1GkId  = playerId; break;
             case (1, false): Team1AtkId = playerId; break;
-            case (2, true): Team2GkId = playerId; break;
+            case (2, true):  Team2GkId  = playerId; break;
             case (2, false): Team2AtkId = playerId; break;
         }
         ClosePlayerPicker();
@@ -508,8 +305,7 @@ else
     {
         get
         {
-            if (Team1AtkId == 0 || Team1GkId == 0 || Team2AtkId == 0 || Team2GkId == 0)
-                return false;
+            if (Team1AtkId == 0 || Team1GkId == 0 || Team2AtkId == 0 || Team2GkId == 0) return false;
             return new[] { Team1AtkId, Team1GkId, Team2AtkId, Team2GkId }.Distinct().Count() == 4;
         }
     }
@@ -560,11 +356,7 @@ else
 
     private void ToggleBalanceSelection(int playerId)
     {
-        if (_balanceSelectedIds.Contains(playerId))
-        {
-            _balanceSelectedIds.Remove(playerId);
-        }
-        else if (_balanceSelectedIds.Count < 4)
+        if (!_balanceSelectedIds.Remove(playerId) && _balanceSelectedIds.Count < 4)
         {
             _balanceSelectedIds.Add(playerId);
         }
@@ -576,7 +368,7 @@ else
 
         var picked = _balanceSelectedIds.Select(id => _players.First(p => p.Id == id)).ToList();
 
-        // Three possible 2v2 splits — pick the one minimizing team ELO gap
+        // Three possible 2v2 splits — pick the one minimizing team ELO gap.
         var splits = new (Player a1, Player a2, Player b1, Player b2)[]
         {
             (picked[0], picked[1], picked[2], picked[3]),
@@ -586,23 +378,21 @@ else
 
         var best = splits.OrderBy(s => Math.Abs((s.a1.Elo + s.a2.Elo) - (s.b1.Elo + s.b2.Elo))).First();
 
-        // Assign positions to minimize per-position imbalance across teams
+        // Assign positions to minimize per-position imbalance across teams.
         Player bestAtk1 = best.a1, bestGk1 = best.a2, bestAtk2 = best.b1, bestGk2 = best.b2;
-        int bestScore = int.MaxValue;
+        var bestScore = int.MaxValue;
         foreach (var swap1 in new[] { false, true })
+        foreach (var swap2 in new[] { false, true })
         {
-            foreach (var swap2 in new[] { false, true })
+            var atk1 = swap1 ? best.a2 : best.a1;
+            var gk1  = swap1 ? best.a1 : best.a2;
+            var atk2 = swap2 ? best.b2 : best.b1;
+            var gk2  = swap2 ? best.b1 : best.b2;
+            var score = Math.Abs(atk1.Elo - atk2.Elo) + Math.Abs(gk1.Elo - gk2.Elo);
+            if (score < bestScore)
             {
-                var atk1 = swap1 ? best.a2 : best.a1;
-                var gk1 = swap1 ? best.a1 : best.a2;
-                var atk2 = swap2 ? best.b2 : best.b1;
-                var gk2 = swap2 ? best.b1 : best.b2;
-                var score = Math.Abs(atk1.Elo - atk2.Elo) + Math.Abs(gk1.Elo - gk2.Elo);
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestAtk1 = atk1; bestGk1 = gk1; bestAtk2 = atk2; bestGk2 = gk2;
-                }
+                bestScore = score;
+                bestAtk1 = atk1; bestGk1 = gk1; bestAtk2 = atk2; bestGk2 = gk2;
             }
         }
 
@@ -616,23 +406,17 @@ else
 
     private void SwapPositions(int team)
     {
-        if (team == 1)
-        {
-            (Team1GkId, Team1AtkId) = (Team1AtkId, Team1GkId);
-        }
-        else
-        {
-            (Team2GkId, Team2AtkId) = (Team2AtkId, Team2GkId);
-        }
+        if (team == 1) (Team1GkId, Team1AtkId) = (Team1AtkId, Team1GkId);
+        else (Team2GkId, Team2AtkId) = (Team2AtkId, Team2GkId);
     }
 
     private void RemovePlayer(int team, bool isGk)
     {
         switch ((team, isGk))
         {
-            case (1, true): Team1GkId = 0; break;
+            case (1, true):  Team1GkId  = 0; break;
             case (1, false): Team1AtkId = 0; break;
-            case (2, true): Team2GkId = 0; break;
+            case (2, true):  Team2GkId  = 0; break;
             case (2, false): Team2AtkId = 0; break;
         }
     }
@@ -655,38 +439,19 @@ else
 
     private bool IsValid()
     {
-        // All 4 players selected
-        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0)
-            return false;
-
-        // All different
-        var ids = new[] { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId };
-        if (ids.Distinct().Count() != 4)
-            return false;
-
-        // Scores in range
-        if (Team1Score < 0 || Team1Score > 10 || Team2Score < 0 || Team2Score > 10)
-            return false;
-
-        // No ties
-        if (Team1Score == Team2Score)
-            return false;
-
-        // At least one team scored 10
-        if (Team1Score != 10 && Team2Score != 10)
-            return false;
-
+        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0) return false;
+        if (new[] { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId }.Distinct().Count() != 4) return false;
+        if (Team1Score < 0 || Team1Score > 10 || Team2Score < 0 || Team2Score > 10) return false;
+        if (Team1Score == Team2Score) return false;
+        if (Team1Score != 10 && Team2Score != 10) return false;
         return true;
     }
 
     private string GetValidationMessage()
     {
-        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0)
-            return "Select all 4 players";
-        if (Team1Score == Team2Score)
-            return "Scores cannot be equal (no ties)";
-        if (Team1Score != 10 && Team2Score != 10)
-            return "At least one team must score 10";
+        if (Team1GkId == 0 || Team1AtkId == 0 || Team2GkId == 0 || Team2AtkId == 0) return "Select all 4 players";
+        if (Team1Score == Team2Score) return "Scores cannot be equal (no ties)";
+        if (Team1Score != 10 && Team2Score != 10) return "At least one team must score 10";
         return "";
     }
 
@@ -714,7 +479,6 @@ else
                 Team1Score, Team2Score,
                 userId.Value);
 
-            // Reload players to get updated ELOs
             _players = await PlayerService.GetByTeamAsync(_team.Id);
 
             var winner = Team1Score > Team2Score ? "Team 1" : "Team 2";
@@ -742,7 +506,6 @@ else
 
     private void PlayAgain()
     {
-        // Keep players, reset scores
         Team1Score = 0;
         Team2Score = 0;
         _showSuccess = false;
@@ -750,7 +513,6 @@ else
 
     private void ResetMatch()
     {
-        // Reset everything
         Team1GkId = 0;
         Team1AtkId = 0;
         Team2GkId = 0;
@@ -759,4 +521,28 @@ else
         Team2Score = 0;
         _showSuccess = false;
     }
+
+    private RenderFragment OutcomeCard(int team) => __builder =>
+    {
+        var teamWon = team == 1 ? Team1Score > Team2Score : Team2Score > Team1Score;
+        var activeClass = IsValid() && teamWon ? "active" : "";
+
+        <button type="button" class="outcome-card team-@team @activeClass"
+                @onclick="() => SetWinner(team)" disabled="@(!AllPlayersSelected)">
+            <i class="bi bi-trophy-fill trophy-icon"></i>
+            <span class="outcome-label">Team @team Wins</span>
+            @if (AllPlayersSelected)
+            {
+                <span class="elo-delta">
+                    <span class="gain">+@GetWinDelta(team)</span>
+                    <span class="text-muted">/</span>
+                    <span class="loss">-@GetWinDelta(team)</span>
+                </span>
+            }
+            else
+            {
+                <span class="elo-delta text-muted">pick lineup</span>
+            }
+        </button>;
+    };
 }

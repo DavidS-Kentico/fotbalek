@@ -11,9 +11,7 @@
 
 @if (_loading)
 {
-    <div class="d-flex justify-content-center align-items-center min-vh-100">
-        <div class="spinner-border text-success"></div>
-    </div>
+    <LoadingSpinner FullScreen="true" />
 }
 else if (_team != null)
 {
@@ -25,10 +23,7 @@ else if (_team != null)
                     <p class="text-muted">You've joined <strong>@_team.Name</strong>. Pick an existing unclaimed player, or create a new one.</p>
                 </div>
 
-                @if (!string.IsNullOrEmpty(_error))
-                {
-                    <div class="alert alert-danger">@_error</div>
-                }
+                <AlertMessage Message="@_error" Variant="danger" />
 
                 <div class="card shadow-sm mb-4">
                     <div class="card-header">
@@ -70,13 +65,7 @@ else if (_team != null)
                             <label class="form-label">Avatar</label>
                             <AvatarPicker @bind-Value="_newAvatar" />
                         </div>
-                        <button class="btn btn-success" @onclick="CreateNew" disabled="@_busy">
-                            @if (_busy)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            Create &amp; continue
-                        </button>
+                        <SpinnerButton Busy="_busy" OnClick="CreateNew">Create &amp; continue</SpinnerButton>
                     </div>
                 </div>
             </div>
@@ -130,12 +119,10 @@ else if (_team != null)
 
         _claimable = await PlayerService.GetClaimablePlayersAsync(_team.Id);
 
-        // If no players are available to claim, auto-create one with the user's username as the name
-        // and skip the claim screen. The user can rename in their player detail page later.
+        // No unclaimed players — auto-create one using the username so the user can skip the picker.
         if (_claimable.Count == 0)
         {
             var autoName = TruncateName(_user.UserName ?? "Player");
-            // Ensure uniqueness within the team — append a digit suffix if a clash is detected
             var finalName = autoName;
             var suffix = 2;
             while (await PlayerService.IsNameTakenAsync(_team.Id, finalName))

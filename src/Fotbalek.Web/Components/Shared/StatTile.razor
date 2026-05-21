@@ -1,0 +1,19 @@
+@* Colored summary tile used on dashboards. *@
+
+<div class="card bg-@Variant @(Variant == "warning" ? "text-dark" : "text-white") h-100">
+    <div class="card-body text-center">
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon fs-2 d-block mb-2"></i>
+        }
+        <h3 class="mb-0">@Value</h3>
+        <small>@Label</small>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Variant { get; set; } = "success";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+}

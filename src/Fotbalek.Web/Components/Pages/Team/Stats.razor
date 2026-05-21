@@ -21,7 +21,6 @@ else
     <div class="container py-4">
         <h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Statistics</h2>
 
-        <!-- Time Period Filter -->
         <div class="card mb-4">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap align-items-center gap-3">
@@ -33,27 +32,18 @@ else
 
                     @if (_selectedPeriod != "all")
                     {
-                        <span class="badge bg-secondary">
-                            @GetFilterDescription()
-                        </span>
+                        <span class="badge bg-secondary">@GetFilterDescription()</span>
                     }
                 </div>
             </div>
         </div>
 
-        <!-- Stats grouped by theme -->
         <div class="card mb-4">
             <div class="card-header py-2">
                 <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>Stats</h6>
             </div>
             <div class="card-body py-2">
-                @{
-                    var statsByTheme = _stats
-                        .GroupBy(s => s.Theme)
-                        .OrderBy(g => (int)g.Key)
-                        .ToList();
-                }
-                @foreach (var themeGroup in statsByTheme)
+                @foreach (var themeGroup in _stats.GroupBy(s => s.Theme).OrderBy(g => (int)g.Key))
                 {
                     <div class="stats-theme-row">
                         <small class="text-muted fw-semibold stats-theme-label">
@@ -84,331 +74,87 @@ else
             </div>
         </div>
 
-        <!-- Overall Stats -->
         <div class="row mb-4">
             <div class="col-md-3 mb-3">
-                <div class="card bg-success text-white h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-people fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_filteredPlayerCount</h3>
-                        <small>@(_selectedPeriod == "all" ? "Active Players" : "Players in Period")</small>
-                    </div>
-                </div>
+                <StatTile Variant="success" Icon="bi bi-people"
+                          Value="@_filteredPlayerCount.ToString()"
+                          Label="@(_selectedPeriod == "all" ? "Active Players" : "Players in Period")" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-primary text-white h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-controller fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_filteredMatchCount</h3>
-                        <small>@(_selectedPeriod == "all" ? "Total Matches" : "Matches in Period")</small>
-                    </div>
-                </div>
+                <StatTile Variant="primary" Icon="bi bi-controller"
+                          Value="@_filteredMatchCount.ToString()"
+                          Label="@(_selectedPeriod == "all" ? "Total Matches" : "Matches in Period")" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-info text-white h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-bullseye fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_filteredTotalGoals</h3>
-                        <small>@(_selectedPeriod == "all" ? "Total Goals" : "Goals in Period")</small>
-                    </div>
-                </div>
+                <StatTile Variant="info" Icon="bi bi-bullseye"
+                          Value="@_filteredTotalGoals.ToString()"
+                          Label="@(_selectedPeriod == "all" ? "Total Goals" : "Goals in Period")" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-warning text-dark h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-calculator fs-2 d-block mb-2"></i>
-                        <h3 class="mb-0">@_filteredAvgGoalsPerMatch.ToString("F1")</h3>
-                        <small>Avg Goals/Match</small>
-                    </div>
-                </div>
+                <StatTile Variant="warning" Icon="bi bi-calculator"
+                          Value="@_filteredAvgGoalsPerMatch.ToString("F1")"
+                          Label="Avg Goals/Match" />
             </div>
         </div>
 
-        <!-- ELO Trajectory (full-width, multi-line) -->
         <div class="row">
             <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-activity me-2"></i>ELO Trajectory</h6>
-                        <small class="text-muted">Each player's ELO after every match. Click legend entries to toggle players.</small>
-                    </div>
-                    <div class="card-body">
-                        @if (_eloTrajectoryDatasets.Count > 0)
-                        {
-                            <canvas id="eloTrajectoryChart" height="200"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center mb-0">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="eloTrajectoryChart"
+                           Title="ELO Trajectory" Icon="bi bi-activity"
+                           Subtitle="Each player's ELO after every match. Click legend entries to toggle players."
+                           Height="200"
+                           HasData="_eloTrajectoryDatasets.Count > 0" />
             </div>
         </div>
 
-        <!-- Charts Row 1: ELO and Win Rate -->
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>ELO Distribution</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_rankings.Count > 0)
-                        {
-                            <canvas id="eloDistributionChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="eloDistributionChart" Title="ELO Distribution" Icon="bi bi-graph-up-arrow"
+                           HasData="_rankings.Count > 0" />
             </div>
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Win Rate Distribution</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_filteredRankings.Count > 0)
-                        {
-                            <canvas id="winRateChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="winRateChart" Title="Win Rate Distribution" Icon="bi bi-pie-chart"
+                           HasData="_filteredRankings.Count > 0" />
             </div>
         </div>
 
-        <!-- Charts Row 2: Games per Player and Matches Over Time -->
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Games per Player</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_filteredRankings.Count > 0)
-                        {
-                            <canvas id="gamesPerPlayerChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="gamesPerPlayerChart" Title="Games per Player" Icon="bi bi-person-lines-fill"
+                           HasData="_filteredRankings.Count > 0" />
             </div>
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Matches Over Time</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_matchesOverTime.Count > 0)
-                        {
-                            <canvas id="matchesOverTimeChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="matchesOverTimeChart" Title="Matches Over Time" Icon="bi bi-calendar-week"
+                           HasData="_matchesOverTime.Count > 0" />
             </div>
         </div>
 
-        <!-- Charts Row 3: Day of Week and Most Common Pairs -->
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Activity by Day of Week</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_dayOfWeekStats.Any(d => d > 0))
-                        {
-                            <canvas id="dayOfWeekChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="dayOfWeekChart" Title="Activity by Day of Week" Icon="bi bi-calendar3"
+                           HasData="_dayOfWeekStats.Any(d => d > 0)" />
             </div>
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-people-fill me-2"></i>Most Common Pairs</h6>
-                    </div>
-                    <div class="card-body">
-                        @if (_filteredPairStats.Count > 0)
-                        {
-                            <canvas id="commonPairsChart" height="250"></canvas>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center">No data available</p>
-                        }
-                    </div>
-                </div>
+                <ChartCard CanvasId="commonPairsChart" Title="Most Common Pairs" Icon="bi bi-people-fill"
+                           HasData="_filteredPairStats.Count > 0" />
             </div>
         </div>
 
-        <!-- Head-to-Head Matrix -->
         <div class="row">
             <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Head-to-Head Matrix</h6>
-                        <small class="text-muted">Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size.</small>
-                    </div>
-                    <div class="card-body">
-                        @if (_h2hMatrix.Count >= 2)
-                        {
-                            <div class="table-responsive">
-                                <table class="h2h-matrix">
-                                    <thead>
-                                        <tr>
-                                            <th class="h2h-row-header"></th>
-                                            @foreach (var col in _h2hMatrix)
-                                            {
-                                                <th class="h2h-col-header" title="@col.PlayerName">
-                                                    <div class="d-flex flex-column align-items-center gap-1">
-                                                        <Avatar AvatarId="col.AvatarId" Size="sm" />
-                                                        <span class="h2h-col-name">@col.PlayerName</span>
-                                                    </div>
-                                                </th>
-                                            }
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var row in _h2hMatrix)
-                                        {
-                                            <tr>
-                                                <th class="h2h-row-header">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <Avatar AvatarId="row.AvatarId" Size="sm" />
-                                                        <span>@row.PlayerName</span>
-                                                    </div>
-                                                </th>
-                                                @foreach (var col in _h2hMatrix)
-                                                {
-                                                    @if (row.PlayerId == col.PlayerId)
-                                                    {
-                                                        <td class="h2h-cell h2h-diagonal"></td>
-                                                    }
-                                                    else
-                                                    {
-                                                        var cell = row.Cells[col.PlayerId];
-                                                        @if (cell.Games == 0)
-                                                        {
-                                                            <td class="h2h-cell h2h-empty">—</td>
-                                                        }
-                                                        else
-                                                        {
-                                                            <td class="h2h-cell"
-                                                                style="@GetH2HCellStyle(cell)"
-                                                                title="@row.PlayerName vs @col.PlayerName: @cell.Wins-@(cell.Games - cell.Wins) (@((int)Math.Round(cell.WinRate * 100))%)">
-                                                                <div class="h2h-pct">@((int)Math.Round(cell.WinRate * 100))%</div>
-                                                                <div class="h2h-record">@cell.Wins-@(cell.Games - cell.Wins)</div>
-                                                            </td>
-                                                        }
-                                                    }
-                                                }
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
-                        }
-                    </div>
-                </div>
+                <PlayerMatrix Rows="_h2hMatrix"
+                              Title="Head-to-Head Matrix" Icon="bi bi-grid-3x3"
+                              Subtitle="Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size."
+                              TooltipConnector="vs" />
             </div>
         </div>
 
-        <!-- Teammate Matrix -->
         <div class="row">
             <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-people me-2"></i>Teammate Matrix</h6>
-                        <small class="text-muted">Win rate when row player teams up with column player. Cell brightness reflects sample size.</small>
-                    </div>
-                    <div class="card-body">
-                        @if (_teammateMatrix.Count >= 2)
-                        {
-                            <div class="table-responsive">
-                                <table class="h2h-matrix">
-                                    <thead>
-                                        <tr>
-                                            <th class="h2h-row-header"></th>
-                                            @foreach (var col in _teammateMatrix)
-                                            {
-                                                <th class="h2h-col-header" title="@col.PlayerName">
-                                                    <div class="d-flex flex-column align-items-center gap-1">
-                                                        <Avatar AvatarId="col.AvatarId" Size="sm" />
-                                                        <span class="h2h-col-name">@col.PlayerName</span>
-                                                    </div>
-                                                </th>
-                                            }
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var row in _teammateMatrix)
-                                        {
-                                            <tr>
-                                                <th class="h2h-row-header">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <Avatar AvatarId="row.AvatarId" Size="sm" />
-                                                        <span>@row.PlayerName</span>
-                                                    </div>
-                                                </th>
-                                                @foreach (var col in _teammateMatrix)
-                                                {
-                                                    @if (row.PlayerId == col.PlayerId)
-                                                    {
-                                                        <td class="h2h-cell h2h-diagonal"></td>
-                                                    }
-                                                    else
-                                                    {
-                                                        var cell = row.Cells.GetValueOrDefault(col.PlayerId);
-                                                        @if (cell == null || cell.Games == 0)
-                                                        {
-                                                            <td class="h2h-cell h2h-empty">—</td>
-                                                        }
-                                                        else
-                                                        {
-                                                            <td class="h2h-cell"
-                                                                style="@GetH2HCellStyle(cell)"
-                                                                title="@row.PlayerName with @col.PlayerName: @cell.Wins-@(cell.Games - cell.Wins) (@((int)Math.Round(cell.WinRate * 100))%)">
-                                                                <div class="h2h-pct">@((int)Math.Round(cell.WinRate * 100))%</div>
-                                                                <div class="h2h-record">@cell.Wins-@(cell.Games - cell.Wins)</div>
-                                                            </td>
-                                                        }
-                                                    }
-                                                }
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
-                        }
-                    </div>
-                </div>
+                <PlayerMatrix Rows="_teammateMatrix"
+                              Title="Teammate Matrix" Icon="bi bi-people"
+                              Subtitle="Win rate when row player teams up with column player. Cell brightness reflects sample size."
+                              TooltipConnector="with" />
             </div>
         </div>
     </div>
@@ -420,19 +166,14 @@ else
     private Team? _team;
     private bool _loading = true;
 
-    // All-time data (used for the ELO Distribution chart and as ELO ordering reference)
     private List<PlayerRanking> _rankings = [];
     private IReadOnlyDictionary<int, Player> _playersById = new Dictionary<int, Player>();
-
-    // All matches loaded once
     private List<Match> _allMatches = [];
 
-    // Filtering state
     private string _selectedPeriod = "all";
     private DateOnly? _customStartDate;
     private DateOnly? _customEndDate;
 
-    // Filtered, derived data
     private List<Match> _filteredMatches = [];
     private List<FilteredPlayerRanking> _filteredRankings = [];
     private List<FilteredPairStats> _filteredPairStats = [];
@@ -443,34 +184,33 @@ else
     private double _filteredAvgGoalsPerMatch;
     private Dictionary<string, int> _matchesOverTime = [];
     private int[] _dayOfWeekStats = new int[7];
-    private List<H2HRow> _h2hMatrix = [];
-    private List<H2HRow> _teammateMatrix = [];
+    private List<PlayerMatrix.MatrixRow> _h2hMatrix = [];
+    private List<PlayerMatrix.MatrixRow> _teammateMatrix = [];
     private List<string> _eloTrajectoryLabels = [];
     private List<EloTrajectoryDataset> _eloTrajectoryDatasets = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender) return;
+
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
         {
-            _team = await TeamAccess.GetCurrentTeamAsync();
-            if (_team != null)
-            {
-                _rankings = await StatsService.GetRankingsAsync(_team.Id);
+            _rankings = await StatsService.GetRankingsAsync(_team.Id);
 
-                var (players, matches) = await StatsEngine.LoadAsync(_team.Id);
-                _playersById = players;
-                _allMatches = matches.ToList();
+            var (players, matches) = await StatsEngine.LoadAsync(_team.Id);
+            _playersById = players;
+            _allMatches = matches.ToList();
 
-                _customEndDate = DateOnly.FromDateTime(DateTime.Today);
-                _customStartDate = _customEndDate.Value.AddMonths(-1);
+            _customEndDate = DateOnly.FromDateTime(DateTime.Today);
+            _customStartDate = _customEndDate.Value.AddMonths(-1);
 
-                ApplyFilter();
-            }
-            _loading = false;
-            StateHasChanged();
-
-            await RenderCharts();
+            ApplyFilter();
         }
+        _loading = false;
+        StateHasChanged();
+
+        await RenderCharts();
     }
 
     private void ApplyFilter()
@@ -492,7 +232,6 @@ else
         _filteredTotalGoals = _filteredMatches.Sum(m => m.Team1Score + m.Team2Score);
         _filteredAvgGoalsPerMatch = _filteredMatchCount > 0 ? (double)_filteredTotalGoals / _filteredMatchCount : 0;
 
-        // Per-player aggregates from filtered matches (drives the Win Rate / Games per Player charts)
         var playerStats = new Dictionary<int, (string Name, int AvatarId, int Games, int Wins)>();
         foreach (var match in _filteredMatches)
         {
@@ -522,12 +261,11 @@ else
             .ThenByDescending(r => r.Matches)
             .ToList();
 
-        // Pair stats (drives Most Common Pairs chart)
         var pairStats = new Dictionary<string, FilteredPairStats>();
         foreach (var match in _filteredMatches)
         {
-            ProcessTeamPairFiltered(match, 1, pairStats);
-            ProcessTeamPairFiltered(match, 2, pairStats);
+            AccumulateTeamPair(match, 1, pairStats);
+            AccumulateTeamPair(match, 2, pairStats);
         }
         _filteredPairStats = pairStats.Values
             .OrderByDescending(p => p.Matches)
@@ -540,9 +278,72 @@ else
         // All themed stats — single call into the registry replaces ~250 lines of inline calculations.
         _stats = StatsEngine.Compute(_playersById, _filteredMatches, isAllTime: _selectedPeriod == "all");
 
-        CalculateH2HMatrix();
-        CalculateTeammateMatrix();
+        _h2hMatrix = BuildMatrix(includeAcrossTeams: true);
+        _teammateMatrix = BuildMatrix(includeAcrossTeams: false);
         CalculateEloTrajectory();
+    }
+
+    private List<PlayerMatrix.MatrixRow> BuildMatrix(bool includeAcrossTeams)
+    {
+        if (_filteredMatches.Count == 0 || _filteredRankings.Count < 2) return [];
+
+        var pairs = new Dictionary<(int Row, int Col), (int Wins, int Games)>();
+
+        foreach (var match in _filteredMatches)
+        {
+            var team1 = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
+            var team2 = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
+            if (team1.Count == 0 || team2.Count == 0) continue;
+
+            var team1Won = match.Team1Score > match.Team2Score;
+
+            if (includeAcrossTeams)
+            {
+                foreach (var p1 in team1)
+                foreach (var p2 in team2)
+                {
+                    AccumulatePair(pairs, p1.PlayerId, p2.PlayerId, team1Won);
+                    AccumulatePair(pairs, p2.PlayerId, p1.PlayerId, !team1Won);
+                }
+            }
+            else
+            {
+                foreach (var team in new[] { (Players: team1, Won: team1Won), (Players: team2, Won: !team1Won) })
+                {
+                    if (team.Players.Count != 2) continue;
+                    AccumulatePair(pairs, team.Players[0].PlayerId, team.Players[1].PlayerId, team.Won);
+                    AccumulatePair(pairs, team.Players[1].PlayerId, team.Players[0].PlayerId, team.Won);
+                }
+            }
+        }
+
+        var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
+        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
+
+        var orderedIds = _filteredRankings
+            .Select(r => r.PlayerId)
+            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .ToList();
+
+        return orderedIds
+            .Select(rowId =>
+            {
+                var ranking = rankingByPlayerId[rowId];
+                var row = new PlayerMatrix.MatrixRow
+                {
+                    PlayerId = rowId,
+                    PlayerName = ranking.PlayerName,
+                    AvatarId = ranking.AvatarId
+                };
+                foreach (var colId in orderedIds)
+                {
+                    if (rowId == colId) continue;
+                    pairs.TryGetValue((rowId, colId), out var p);
+                    row.Cells[colId] = new PlayerMatrix.MatrixCell { Wins = p.Wins, Games = p.Games };
+                }
+                return row;
+            })
+            .ToList();
     }
 
     private void CalculateEloTrajectory()
@@ -566,13 +367,6 @@ else
             .GroupBy(mp => mp.PlayerId)
             .ToDictionary(g => g.Key, g => g.First().Player.Name);
 
-        var palette = new[]
-        {
-            "#198754", "#0d6efd", "#dc3545", "#fd7e14", "#6f42c1",
-            "#20c997", "#e83e8c", "#ffc107", "#0dcaf0", "#6c757d",
-            "#795548", "#ff5722", "#9c27b0", "#3f51b5", "#009688"
-        };
-
         for (var i = 0; i < orderedPlayerIds.Count; i++)
         {
             var pid = orderedPlayerIds[i];
@@ -586,131 +380,25 @@ else
             {
                 Label = nameByPlayerId[pid],
                 Data = data,
-                Color = palette[i % palette.Length]
+                Color = TrajectoryPalette[i % TrajectoryPalette.Length]
             });
         }
     }
 
-    private void CalculateH2HMatrix()
+    private static readonly string[] TrajectoryPalette =
     {
-        _h2hMatrix = [];
-
-        if (_filteredMatches.Count == 0 || _filteredRankings.Count < 2) return;
-
-        var pairs = new Dictionary<(int Row, int Col), (int Wins, int Games)>();
-
-        foreach (var match in _filteredMatches)
-        {
-            var team1 = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).ToList();
-            var team2 = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).ToList();
-            if (team1.Count == 0 || team2.Count == 0) continue;
-
-            var team1Won = match.Team1Score > match.Team2Score;
-
-            foreach (var p1 in team1)
-            {
-                foreach (var p2 in team2)
-                {
-                    AccumulatePair(pairs, p1.PlayerId, p2.PlayerId, team1Won);
-                    AccumulatePair(pairs, p2.PlayerId, p1.PlayerId, !team1Won);
-                }
-            }
-        }
-
-        var participantIds = _filteredRankings.Select(r => r.PlayerId).ToHashSet();
-        var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
-        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
-
-        var orderedIds = participantIds
-            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
-            .ToList();
-
-        _h2hMatrix = orderedIds
-            .Select(rowId =>
-            {
-                var ranking = rankingByPlayerId[rowId];
-                var row = new H2HRow
-                {
-                    PlayerId = rowId,
-                    PlayerName = ranking.PlayerName,
-                    AvatarId = ranking.AvatarId
-                };
-                foreach (var colId in orderedIds)
-                {
-                    if (rowId == colId) continue;
-                    pairs.TryGetValue((rowId, colId), out var p);
-                    row.Cells[colId] = new H2HCell { Wins = p.Wins, Games = p.Games };
-                }
-                return row;
-            })
-            .ToList();
-    }
-
-    private void CalculateTeammateMatrix()
-    {
-        _teammateMatrix = [];
-
-        if (_filteredMatches.Count == 0 || _filteredRankings.Count < 2) return;
-
-        var pairs = new Dictionary<(int Row, int Col), (int Wins, int Games)>();
-
-        foreach (var match in _filteredMatches)
-        {
-            foreach (var team in new[] { 1, 2 })
-            {
-                var players = match.MatchPlayers.Where(mp => mp.TeamNumber == team).ToList();
-                if (players.Count != 2) continue;
-
-                var won = match.Team1Score > match.Team2Score ? team == 1 : team == 2;
-                AccumulatePair(pairs, players[0].PlayerId, players[1].PlayerId, won);
-                AccumulatePair(pairs, players[1].PlayerId, players[0].PlayerId, won);
-            }
-        }
-
-        var participantIds = _filteredRankings.Select(r => r.PlayerId).ToHashSet();
-        var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
-        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
-
-        var orderedIds = participantIds
-            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
-            .ToList();
-
-        _teammateMatrix = orderedIds
-            .Select(rowId =>
-            {
-                var ranking = rankingByPlayerId[rowId];
-                var row = new H2HRow
-                {
-                    PlayerId = rowId,
-                    PlayerName = ranking.PlayerName,
-                    AvatarId = ranking.AvatarId
-                };
-                foreach (var colId in orderedIds)
-                {
-                    if (rowId == colId) continue;
-                    pairs.TryGetValue((rowId, colId), out var p);
-                    row.Cells[colId] = new H2HCell { Wins = p.Wins, Games = p.Games };
-                }
-                return row;
-            })
-            .ToList();
-    }
+        "#198754", "#0d6efd", "#dc3545", "#fd7e14", "#6f42c1",
+        "#20c997", "#e83e8c", "#ffc107", "#0dcaf0", "#6c757d",
+        "#795548", "#ff5722", "#9c27b0", "#3f51b5", "#009688"
+    };
 
     private static void AccumulatePair(Dictionary<(int Row, int Col), (int Wins, int Games)> pairs, int rowId, int colId, bool rowWon)
     {
-        var key = (rowId, colId);
-        pairs.TryGetValue(key, out var current);
-        pairs[key] = (current.Wins + (rowWon ? 1 : 0), current.Games + 1);
+        pairs.TryGetValue((rowId, colId), out var current);
+        pairs[(rowId, colId)] = (current.Wins + (rowWon ? 1 : 0), current.Games + 1);
     }
 
-    private static string GetH2HCellStyle(H2HCell cell)
-    {
-        var hue = (int)Math.Round(120 * cell.WinRate);
-        var alpha = Math.Min(1.0, 0.35 + cell.Games * 0.1).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-        return $"background-color: hsla({hue}, 70%, 75%, {alpha});";
-    }
-
-    private static void ProcessTeamPairFiltered(Match match, int teamNumber, Dictionary<string, FilteredPairStats> pairStats)
+    private static void AccumulateTeamPair(Match match, int teamNumber, Dictionary<string, FilteredPairStats> pairStats)
     {
         var teamPlayers = match.MatchPlayers
             .Where(mp => mp.TeamNumber == teamNumber)
@@ -746,30 +434,26 @@ else
 
         if (totalDays < 14)
         {
-            for (int i = 0; i < totalDays; i++)
+            for (var i = 0; i < totalDays; i++)
             {
                 var day = startDate.AddDays(i);
-                var dayLabel = day.ToString("MMM dd");
-                var count = _filteredMatches.Count(m => DateOnly.FromDateTime(m.PlayedAt.Date) == day);
-                _matchesOverTime[dayLabel] = count;
+                _matchesOverTime[day.ToString("MMM dd")] =
+                    _filteredMatches.Count(m => DateOnly.FromDateTime(m.PlayedAt.Date) == day);
             }
         }
         else
         {
-            var weeksCount = Math.Max(1, (int)Math.Ceiling(totalDays / 7.0));
-            weeksCount = Math.Min(weeksCount, 13);
+            var weeksCount = Math.Min(13, Math.Max(1, (int)Math.Ceiling(totalDays / 7.0)));
 
-            for (int i = weeksCount - 1; i >= 0; i--)
+            for (var i = weeksCount - 1; i >= 0; i--)
             {
                 var weekEnd = endDate.AddDays(-7 * i);
                 var weekStart = weekEnd.AddDays(-6);
                 if (weekStart < startDate) weekStart = startDate;
 
-                var weekLabel = weekStart.ToString("MMM dd");
-                var count = _filteredMatches.Count(m =>
+                _matchesOverTime[weekStart.ToString("MMM dd")] = _filteredMatches.Count(m =>
                     DateOnly.FromDateTime(m.PlayedAt.Date) >= weekStart &&
                     DateOnly.FromDateTime(m.PlayedAt.Date) <= weekEnd);
-                _matchesOverTime[weekLabel] = count;
             }
         }
     }
@@ -779,8 +463,7 @@ else
         var today = DateOnly.FromDateTime(DateTime.Today);
         var range = DateFilterHelper.GetDateRange(_selectedPeriod, _customStartDate, _customEndDate);
 
-        if (range.HasValue)
-            return range.Value;
+        if (range.HasValue) return range.Value;
 
         return _allMatches.Count > 0
             ? (DateOnly.FromDateTime(_allMatches.Min(m => m.PlayedAt.Date)), today)
@@ -792,8 +475,7 @@ else
         _dayOfWeekStats = new int[7];
         foreach (var match in _filteredMatches)
         {
-            var dayIndex = (int)match.PlayedAt.DayOfWeek;
-            _dayOfWeekStats[dayIndex]++;
+            _dayOfWeekStats[(int)match.PlayedAt.DayOfWeek]++;
         }
     }
 
@@ -813,24 +495,22 @@ else
     private static string StatPillCss(StatResult stat)
     {
         // Tint badge-eligible stats with their badge color so the page mirrors how they appear elsewhere.
-        if (stat.Badge != null)
-        {
-            var css = stat.Badge.CssClass;
-            if (css.Contains("bg-warning")) return "bg-warning bg-opacity-10";
-            if (css.Contains("bg-danger")) return "bg-danger bg-opacity-10";
-            if (css.Contains("bg-info")) return "bg-info bg-opacity-10";
-            if (css.Contains("bg-success")) return "bg-success bg-opacity-10";
-            if (css.Contains("bg-primary")) return "bg-primary bg-opacity-10";
-            if (css.Contains("bg-dark")) return "bg-dark bg-opacity-10";
-            if (css.Contains("bg-secondary")) return "bg-secondary bg-opacity-10";
-            if (css.Contains("bg-purple")) return "bg-purple-subtle";
-        }
+        if (stat.Badge == null) return "bg-light";
+
+        var css = stat.Badge.CssClass;
+        if (css.Contains("bg-warning"))   return "bg-warning bg-opacity-10";
+        if (css.Contains("bg-danger"))    return "bg-danger bg-opacity-10";
+        if (css.Contains("bg-info"))      return "bg-info bg-opacity-10";
+        if (css.Contains("bg-success"))   return "bg-success bg-opacity-10";
+        if (css.Contains("bg-primary"))   return "bg-primary bg-opacity-10";
+        if (css.Contains("bg-dark"))      return "bg-dark bg-opacity-10";
+        if (css.Contains("bg-secondary")) return "bg-secondary bg-opacity-10";
+        if (css.Contains("bg-purple"))    return "bg-purple-subtle";
         return "bg-light";
     }
 
     private async Task RenderCharts()
     {
-        // ELO Distribution Bar Chart (always all-time)
         if (_rankings.Count > 0)
         {
             var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
@@ -838,36 +518,35 @@ else
             await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "ELO", "#198754");
         }
 
-        // Win Rate Bar Chart (filtered)
         if (_filteredRankings.Count > 0)
         {
-            var wrLabels = _filteredRankings.Where(r => r.Matches > 0).Select(r => r.PlayerName).ToArray();
-            var wrData = _filteredRankings.Where(r => r.Matches > 0).Select(r => r.WinRate).ToArray();
+            var withMatches = _filteredRankings.Where(r => r.Matches > 0).ToArray();
+            var wrLabels = withMatches.Select(r => r.PlayerName).ToArray();
+            var wrData = withMatches.Select(r => r.WinRate).ToArray();
             await JS.InvokeVoidAsync("renderBarChart", "winRateChart", wrLabels, wrData, "Win Rate %", "#0d6efd");
 
-            // Games per Player Pie Chart (filtered)
-            var gamesLabels = _filteredRankings.OrderByDescending(r => r.Matches).Select(r => r.PlayerName).ToArray();
-            var gamesData = _filteredRankings.OrderByDescending(r => r.Matches).Select(r => r.Matches).ToArray();
+            var byGames = _filteredRankings.OrderByDescending(r => r.Matches).ToArray();
             var pieColors = new[] { "#198754", "#0d6efd", "#6f42c1", "#fd7e14", "#20c997", "#e83e8c", "#ffc107", "#dc3545", "#6c757d", "#17a2b8" };
-            await JS.InvokeVoidAsync("renderPieChart", "gamesPerPlayerChart", gamesLabels, gamesData, pieColors);
+            await JS.InvokeVoidAsync("renderPieChart", "gamesPerPlayerChart",
+                byGames.Select(r => r.PlayerName).ToArray(),
+                byGames.Select(r => r.Matches).ToArray(),
+                pieColors);
         }
 
-        // Matches Over Time Line Chart
         if (_matchesOverTime.Count > 0)
         {
-            var timeLabels = _matchesOverTime.Keys.ToArray();
-            var timeData = _matchesOverTime.Values.ToArray();
-            await JS.InvokeVoidAsync("renderLineChart", "matchesOverTimeChart", timeLabels, timeData, "Matches", "#fd7e14");
+            await JS.InvokeVoidAsync("renderLineChart", "matchesOverTimeChart",
+                _matchesOverTime.Keys.ToArray(),
+                _matchesOverTime.Values.ToArray(),
+                "Matches", "#fd7e14");
         }
 
-        // Day of Week Bar Chart
         if (_dayOfWeekStats.Any(d => d > 0))
         {
             var dayLabels = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
             await JS.InvokeVoidAsync("renderBarChart", "dayOfWeekChart", dayLabels, _dayOfWeekStats, "Matches", "#20c997");
         }
 
-        // Most Common Pairs Horizontal Bar Chart
         if (_filteredPairStats.Count > 0)
         {
             var pairLabels = _filteredPairStats.Select(p => $"{p.Player1Name} & {p.Player2Name}").ToArray();
@@ -875,7 +554,6 @@ else
             await JS.InvokeVoidAsync("renderHorizontalBarChart", "commonPairsChart", pairLabels, pairData, "Matches", "#e83e8c");
         }
 
-        // ELO Trajectory Multi-Line Chart
         if (_eloTrajectoryDatasets.Count > 0)
         {
             var datasets = _eloTrajectoryDatasets
@@ -908,20 +586,5 @@ else
         public string Label { get; set; } = "";
         public int?[] Data { get; set; } = [];
         public string Color { get; set; } = "";
-    }
-
-    private class H2HRow
-    {
-        public int PlayerId { get; set; }
-        public string PlayerName { get; set; } = "";
-        public int AvatarId { get; set; }
-        public Dictionary<int, H2HCell> Cells { get; set; } = [];
-    }
-
-    private class H2HCell
-    {
-        public int Wins { get; set; }
-        public int Games { get; set; }
-        public double WinRate => Games > 0 ? (double)Wins / Games : 0;
     }
 }

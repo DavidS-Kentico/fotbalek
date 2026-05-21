@@ -1,0 +1,30 @@
+@if (!string.IsNullOrEmpty(Message) || ChildContent != null)
+{
+    <div class="alert alert-@Variant @(Dismissible ? "alert-dismissible fade show" : "")">
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon me-2"></i>
+        }
+        @if (ChildContent != null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @Message
+        }
+        @if (Dismissible)
+        {
+            <button type="button" class="btn-close" @onclick="OnDismiss"></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string Variant { get; set; } = "danger";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Dismissible { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

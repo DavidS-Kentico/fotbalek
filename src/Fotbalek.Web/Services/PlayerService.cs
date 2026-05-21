@@ -128,9 +128,12 @@ public class PlayerService(AppDbContext db)
         if (player == null || player.TeamId != teamId)
             return false;
 
-        // Authorize: only the team admin may deactivate players.
+        // Authorize: only the team admin may deactivate players, and never their own player.
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null || team.AdminUserId != actorUserId)
+            return false;
+
+        if (player.UserId == actorUserId)
             return false;
 
         player.IsActive = false;

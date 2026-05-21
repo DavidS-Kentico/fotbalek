@@ -18,7 +18,6 @@ else if (_team != null)
 {
     <div class="container py-4">
         <div class="row">
-            <!-- Rankings -->
             <div class="col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -70,17 +69,14 @@ else if (_team != null)
                         }
                         else
                         {
-                            <div class="text-center text-muted py-4">
-                                <i class="bi bi-people fs-1 d-block mb-2"></i>
-                                <p>No players yet. Add some players to get started!</p>
+                            <EmptyState Icon="bi bi-people" Message="No players yet. Add some players to get started!">
                                 <a href="/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
-                            </div>
+                            </EmptyState>
                         }
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Matches -->
             <div class="col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -97,9 +93,7 @@ else if (_team != null)
                         }
                         else
                         {
-                            <div class="text-center text-muted py-4">
-                                <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
-                                <p>No matches played yet.</p>
+                            <EmptyState Icon="bi bi-calendar-x" Message="No matches played yet.">
                                 @if (_playerCount >= 4)
                                 {
                                     <a href="/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
@@ -108,46 +102,25 @@ else if (_team != null)
                                 {
                                     <p class="small">You need at least 4 players to play a match.</p>
                                 }
-                            </div>
+                            </EmptyState>
                         }
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Quick Stats -->
         <div class="row">
             <div class="col-md-3 mb-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0">@_playerCount</h3>
-                        <small>Active Players</small>
-                    </div>
-                </div>
+                <StatTile Variant="success" Value="@_playerCount.ToString()" Label="Active Players" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0">@_matchCount</h3>
-                        <small>Total Matches</small>
-                    </div>
-                </div>
+                <StatTile Variant="primary" Value="@_matchCount.ToString()" Label="Total Matches" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0">@_matchesThisWeek</h3>
-                        <small>Matches This Week</small>
-                    </div>
-                </div>
+                <StatTile Variant="info" Value="@_matchesThisWeek.ToString()" Label="Matches This Week" />
             </div>
             <div class="col-md-3 mb-3">
-                <div class="card bg-warning text-dark">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0">@_avgMatchScore.ToString("F1")</h3>
-                        <small>Avg Goals/Match</small>
-                    </div>
-                </div>
+                <StatTile Variant="warning" Value="@_avgMatchScore.ToString("F1")" Label="Avg Goals/Match" />
             </div>
         </div>
     </div>

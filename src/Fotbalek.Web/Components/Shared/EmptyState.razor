@@ -1,0 +1,36 @@
+@* Centered empty state with optional icon, title, message, and action slot. *@
+
+<div class="text-center text-muted @PaddingClass">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <i class="@Icon @IconSizeClass d-block mb-2"></i>
+    }
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <h5>@Title</h5>
+    }
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <p class="@(ChildContent == null ? "mb-0" : "")">@Message</p>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string IconSize { get; set; } = "lg";
+    [Parameter] public string Padding { get; set; } = "py-4";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string IconSizeClass => IconSize switch
+    {
+        "sm" => "fs-3",
+        "lg" => "fs-1",
+        "xl" => "display-1",
+        _ => "fs-2"
+    };
+
+    private string PaddingClass => Padding;
+}

@@ -3,57 +3,41 @@
 
 <PageTitle>Register - Foosball Manager</PageTitle>
 
-<div class="container">
-    <div class="row min-vh-100 align-items-center justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="text-center mb-4">
-                <a href="/" class="text-decoration-none">
-                    <h1 class="display-5 fw-bold text-success">
-                        <i class="bi bi-trophy-fill me-2"></i>
-                        Fotbalek
-                    </h1>
-                </a>
-            </div>
+<AuthCardLayout>
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Create account</h5>
+        </div>
+        <div class="card-body p-4">
+            <AlertMessage Message="@Error" Variant="danger" />
 
-            <div class="card shadow">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Create account</h5>
+            <form method="post" action="/account/register">
+                <AntiforgeryToken />
+                @if (!string.IsNullOrEmpty(ReturnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                }
+
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input id="username" name="username" type="text" class="form-control" value="@Username" minlength="3" maxlength="30" pattern="[A-Za-z0-9._\-]+" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+                    <small class="text-muted">3–30 chars. Letters, digits, dot, dash, underscore. Case-insensitive.</small>
                 </div>
-                <div class="card-body p-4">
-                    @if (!string.IsNullOrEmpty(Error))
-                    {
-                        <div class="alert alert-danger">@Error</div>
-                    }
 
-                    <form method="post" action="/account/register">
-                        <AntiforgeryToken />
-                        @if (!string.IsNullOrEmpty(ReturnUrl))
-                        {
-                            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
-                        }
-
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input id="username" name="username" type="text" class="form-control" value="@Username" minlength="3" maxlength="30" pattern="[A-Za-z0-9._\-]+" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
-                            <small class="text-muted">3–30 chars. Letters, digits, dot, dash, underscore. Case-insensitive.</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input id="password" name="password" type="password" class="form-control" minlength="6" autocomplete="new-password" required />
-                            <small class="text-muted">Min 6 characters.</small>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-success">Create account</button>
-                            <a href="@LoginUrl" class="btn btn-outline-secondary">Back to login</a>
-                        </div>
-                    </form>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input id="password" name="password" type="password" class="form-control" minlength="6" autocomplete="new-password" required />
+                    <small class="text-muted">Min 6 characters.</small>
                 </div>
-            </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-success">Create account</button>
+                    <a href="@LoginUrl" class="btn btn-outline-secondary">Back to login</a>
+                </div>
+            </form>
         </div>
     </div>
-</div>
+</AuthCardLayout>
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]

@@ -1,0 +1,111 @@
+@* Square win-rate matrix used for head-to-head and teammate statistics. *@
+
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <i class="@Icon me-2"></i>
+            }
+            @Title
+        </h6>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <small class="text-muted">@Subtitle</small>
+        }
+    </div>
+    <div class="card-body">
+        @if (Rows.Count >= 2)
+        {
+            <div class="table-responsive">
+                <table class="h2h-matrix">
+                    <thead>
+                        <tr>
+                            <th class="h2h-row-header"></th>
+                            @foreach (var col in Rows)
+                            {
+                                <th class="h2h-col-header" title="@col.PlayerName">
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <Avatar AvatarId="col.AvatarId" Size="sm" />
+                                        <span class="h2h-col-name">@col.PlayerName</span>
+                                    </div>
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Rows)
+                        {
+                            <tr>
+                                <th class="h2h-row-header">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <Avatar AvatarId="row.AvatarId" Size="sm" />
+                                        <span>@row.PlayerName</span>
+                                    </div>
+                                </th>
+                                @foreach (var col in Rows)
+                                {
+                                    if (row.PlayerId == col.PlayerId)
+                                    {
+                                        <td class="h2h-cell h2h-diagonal"></td>
+                                    }
+                                    else
+                                    {
+                                        var cell = row.Cells.GetValueOrDefault(col.PlayerId);
+                                        if (cell == null || cell.Games == 0)
+                                        {
+                                            <td class="h2h-cell h2h-empty">—</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="h2h-cell"
+                                                style="@CellStyle(cell)"
+                                                title="@($"{row.PlayerName} {TooltipConnector} {col.PlayerName}: {cell.Wins}-{cell.Games - cell.Wins} ({(int)Math.Round(cell.WinRate * 100)}%)")">
+                                                <div class="h2h-pct">@((int)Math.Round(cell.WinRate * 100))%</div>
+                                                <div class="h2h-record">@cell.Wins-@(cell.Games - cell.Wins)</div>
+                                            </td>
+                                        }
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MatrixRow> Rows { get; set; } = [];
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string TooltipConnector { get; set; } = "vs";
+
+    private static string CellStyle(MatrixCell cell)
+    {
+        var hue = (int)Math.Round(120 * cell.WinRate);
+        var alpha = Math.Min(1.0, 0.35 + cell.Games * 0.1).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        return $"background-color: hsla({hue}, 70%, 75%, {alpha});";
+    }
+
+    public sealed class MatrixRow
+    {
+        public int PlayerId { get; init; }
+        public string PlayerName { get; init; } = string.Empty;
+        public int AvatarId { get; init; }
+        public Dictionary<int, MatrixCell> Cells { get; init; } = new();
+    }
+
+    public sealed class MatrixCell
+    {
+        public int Wins { get; init; }
+        public int Games { get; init; }
+        public double WinRate => Games > 0 ? (double)Wins / Games : 0;
+    }
+}

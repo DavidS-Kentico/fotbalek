@@ -1,0 +1,30 @@
+@* Wrapper layout shared by Home, Login, Register, Join, and Create pages. *@
+
+<div class="container">
+    <div class="row min-vh-100 align-items-center justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="text-center mb-4">
+                <a href="/" class="text-decoration-none">
+                    <h1 class="@TitleClass fw-bold text-success">
+                        <i class="bi bi-trophy-fill me-2"></i>
+                        Fotbalek
+                    </h1>
+                </a>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="lead text-muted">@Subtitle</p>
+                }
+            </div>
+
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public bool LargeTitle { get; set; }
+
+    private string TitleClass => LargeTitle ? "display-4" : "display-5";
+}

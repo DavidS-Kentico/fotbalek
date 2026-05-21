@@ -5,7 +5,6 @@
 @inject TeamAccessService TeamAccess
 @inject TeamService TeamService
 @inject CurrentUserService CurrentUser
-@inject NavigationManager Navigation
 
 <PageTitle>Team settings - Foosball Manager</PageTitle>
 
@@ -16,15 +15,13 @@
 else if (_team == null)
 {
     <div class="container py-4">
-        <div class="alert alert-warning">Team not found.</div>
+        <AlertMessage Message="Team not found." Variant="warning" />
     </div>
 }
 else if (!_isAdmin)
 {
     <div class="container py-4">
-        <div class="alert alert-danger">
-            <i class="bi bi-shield-lock me-2"></i>Only the team admin can change settings.
-        </div>
+        <AlertMessage Message="Only the team admin can change settings." Variant="danger" Icon="bi bi-shield-lock" />
         <a href="/@TeamCode" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to team
         </a>
@@ -37,49 +34,29 @@ else
             <div class="col-md-8 col-lg-6">
                 <h2 class="mb-4"><i class="bi bi-gear me-2"></i>Team settings</h2>
 
-                <!-- Team name -->
                 <div class="card shadow-sm mb-4">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Team name</h5>
                     </div>
                     <div class="card-body">
-                        @if (!string.IsNullOrEmpty(_nameSuccess))
-                        {
-                            <div class="alert alert-success">@_nameSuccess</div>
-                        }
-                        @if (!string.IsNullOrEmpty(_nameError))
-                        {
-                            <div class="alert alert-danger">@_nameError</div>
-                        }
+                        <AlertMessage Message="@_nameSuccess" Variant="success" />
+                        <AlertMessage Message="@_nameError" Variant="danger" />
                         <div class="mb-3">
                             <label for="teamName" class="form-label">Display name</label>
                             <input id="teamName" class="form-control" @bind="_name" maxlength="100" />
                             <small class="text-muted">The URL code <code>/@_team.CodeName</code> can't be changed.</small>
                         </div>
-                        <button class="btn btn-success" @onclick="SaveName" disabled="@_savingName">
-                            @if (_savingName)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            Save name
-                        </button>
+                        <SpinnerButton Busy="_savingName" OnClick="SaveName">Save name</SpinnerButton>
                     </div>
                 </div>
 
-                <!-- Team password -->
                 <div class="card shadow-sm">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-key me-2"></i>Team password</h5>
                     </div>
                     <div class="card-body">
-                        @if (!string.IsNullOrEmpty(_pwdSuccess))
-                        {
-                            <div class="alert alert-success">@_pwdSuccess</div>
-                        }
-                        @if (!string.IsNullOrEmpty(_pwdError))
-                        {
-                            <div class="alert alert-danger">@_pwdError</div>
-                        }
+                        <AlertMessage Message="@_pwdSuccess" Variant="success" />
+                        <AlertMessage Message="@_pwdError" Variant="danger" />
                         <p class="text-muted small">Anyone who already joined the team stays a member. Future joiners (via the secondary link) will need the new password.</p>
                         <div class="mb-3">
                             <label for="newPassword" class="form-label">New password</label>
@@ -90,13 +67,7 @@ else
                             <label for="confirmPassword" class="form-label">Confirm new password</label>
                             <input id="confirmPassword" type="password" class="form-control" @bind="_confirmPassword" />
                         </div>
-                        <button class="btn btn-success" @onclick="SavePassword" disabled="@_savingPassword">
-                            @if (_savingPassword)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            Change password
-                        </button>
+                        <SpinnerButton Busy="_savingPassword" OnClick="SavePassword">Change password</SpinnerButton>
                     </div>
                 </div>
             </div>
