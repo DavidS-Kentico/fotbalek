@@ -43,4 +43,6 @@ public class PresenceTracker
     }
 
     public bool IsOnline(int userId) => _circuitsByUser.TryGetValue(userId, out var count) && count > 0;
+
+    public int OnlineCount => _circuitsByUser.Count(kv => kv.Value > 0);
 }

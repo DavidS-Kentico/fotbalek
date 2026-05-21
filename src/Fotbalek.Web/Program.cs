@@ -61,6 +61,7 @@ builder.Services.AddScoped<ShareTokenService>();
 builder.Services.AddScoped<TeamMembershipService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<TeamAccessService>();
+builder.Services.AddScoped<LandingStatsService>();
 builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<CircuitHandler, PresenceCircuitHandler>();
 builder.Services.AddFoosballStats();
