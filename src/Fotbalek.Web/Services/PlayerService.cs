@@ -108,6 +108,9 @@ public class PlayerService(AppDbContext db)
         var isOwner = player.UserId == actorUserId;
         if (!isAdmin && !isOwner) return false;
 
+        if (await IsNameTakenAsync(teamId, name, excludePlayerId: playerId))
+            return false;
+
         player.Name = name;
         player.AvatarId = avatarId;
         await db.SaveChangesAsync();
