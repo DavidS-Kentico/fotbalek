@@ -124,7 +124,7 @@ else
                 <AlertMessage Message="@_modalError" Variant="danger" />
                 <div class="mb-3">
                     <label for="playerName" class="form-label">Name</label>
-                    <InputText id="playerName" @bind-Value="_formModel.Name" class="form-control" placeholder="Player name" />
+                    <InputText id="playerName" @bind-Value="_formModel.Name" class="form-control" placeholder="Player name" maxlength="50" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Avatar</label>
@@ -221,13 +221,15 @@ else
 
         try
         {
-            if (string.IsNullOrWhiteSpace(_formModel.Name))
+            var name = _formModel.Name?.Trim() ?? string.Empty;
+            if (name.Length < 1 || name.Length > 50)
             {
-                _modalError = "Name is required.";
+                _modalError = "Name must be 1-50 characters.";
                 return;
             }
+            _formModel.Name = name;
 
-            if (await PlayerService.IsNameTakenAsync(_team.Id, _formModel.Name))
+            if (await PlayerService.IsNameTakenAsync(_team.Id, name))
             {
                 _modalError = "A player with this name already exists.";
                 return;

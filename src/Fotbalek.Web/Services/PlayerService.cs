@@ -21,7 +21,7 @@ public class PlayerService(AppDbContext db)
 
     public async Task<Player?> GetByIdWithTeamAsync(int id)
     {
-        return await db.Players.Include(p => p.Team).FirstOrDefaultAsync(p => p.Id == id);
+        return await db.Players.Include(p => p.Team).Include(p => p.User).FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<Player?> GetUserPlayerInTeamAsync(int teamId, int userId)

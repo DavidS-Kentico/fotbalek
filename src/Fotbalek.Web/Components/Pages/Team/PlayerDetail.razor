@@ -38,6 +38,10 @@ else if (_player != null && _stats != null)
                                 <span class="badge badge-you ms-1">you</span>
                             }
                         </h3>
+                        @if (!string.IsNullOrEmpty(_player.User?.UserName))
+                        {
+                            <div class="text-muted small mb-2">@($"@{_player.User.UserName.ToLowerInvariant()}")</div>
+                        }
                         <h4 class="text-success">@_stats.CurrentElo ELO</h4>
                         @if (!_player.IsActive)
                         {
