@@ -4,9 +4,11 @@
 @attribute [Authorize]
 @inject TeamAccessService TeamAccess
 @inject PlayerService PlayerService
-@inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject CurrentUserService CurrentUser
+@inject ShareTokenService ShareTokenService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Players - Foosball Manager</PageTitle>
 
@@ -17,104 +19,88 @@
 else
 {
     <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-people me-2"></i>Players</h2>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h2 class="mb-0"><i class="bi bi-people me-2"></i>Players</h2>
+                <div class="text-muted small mt-1">
+                    @_activePlayers.Count active@(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")
+                </div>
+            </div>
             @if (_isAdmin)
             {
-                <button class="btn btn-success" @onclick="ShowAddModal">
-                    <i class="bi bi-plus-lg me-1"></i> Add Player
-                </button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-success" @onclick="ShowInviteModal" title="Invite players via shareable link">
+                        <i class="bi bi-person-plus me-1"></i> Invite
+                    </button>
+                    <button class="btn btn-success" @onclick="ShowAddModal">
+                        <i class="bi bi-plus-lg me-1"></i> Add Player
+                    </button>
+                </div>
             }
         </div>
 
         <AlertMessage Message="@_message" Variant="@(_messageIsError ? "danger" : "success")"
                       Dismissible="true" OnDismiss="() => _message = null" />
 
-        <h5 class="mb-3">Active Players (@_activePlayers.Count)</h5>
-        @if (_activePlayers.Count > 0)
-        {
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3 mb-4">
-                @foreach (var player in _activePlayers)
-                {
-                    var badges = StatRegistry.PlayerBadges(_stats, player.Id);
-                    var isMine = player.Id == MyPlayerId;
-                    <div class="col">
-                        <div class="card h-100 @(isMine ? "border-success" : "")">
-                            <div class="card-body text-center">
-                                <Avatar AvatarId="@player.AvatarId" Size="lg" />
-                                <h6 class="card-title mt-2 mb-1">
-                                    @player.Name
-                                    @if (isMine)
-                                    {
-                                        <span class="badge badge-you ms-1">you</span>
-                                    }
-                                </h6>
-                                <p class="text-muted small mb-1">ELO: @player.Elo</p>
-                                @if (badges.Count > 0)
-                                {
-                                    <div class="d-flex flex-wrap gap-1 justify-content-center">
-                                        @foreach (var badge in badges)
-                                        {
-                                            <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                            <div class="card-footer bg-transparent border-top-0">
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View stats">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    @if (_isAdmin && player.Id != MyPlayerId)
-                                    {
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeactivateConfirm(player)" title="Deactivate">
-                                            <i class="bi bi-person-dash"></i>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
+        <div class="d-flex toolbar mb-3 align-items-center">
+            <div class="search-wrap">
+                <i class="bi bi-search"></i>
+                <input type="search" class="form-control" placeholder="Search players…"
+                       value="@_search" @oninput="OnSearchChanged" />
             </div>
+            <select class="form-select w-auto" value="@_sortBy" @onchange="OnSortChanged" title="Sort by">
+                <option value="elo">ELO (high to low)</option>
+                <option value="name">Name (A–Z)</option>
+                <option value="matches">Most matches</option>
+                <option value="winrate">Highest win rate</option>
+                <option value="recent">Recently played</option>
+            </select>
+        </div>
+
+        @{
+            var visibleActive = FilterAndSort(_activePlayers);
         }
-        else
+
+        @if (_activePlayers.Count == 0)
         {
             <AlertMessage Message="No active players. Add at least 4 players to start playing matches!"
                           Variant="info" Icon="bi bi-info-circle" />
         }
-
-        @if (_inactivePlayers.Count > 0)
+        else if (visibleActive.Count == 0)
         {
-            <h5 class="mb-3 text-muted">Inactive Players (@_inactivePlayers.Count)</h5>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
-                @foreach (var player in _inactivePlayers)
+            <div class="empty-results">
+                <i class="bi bi-search me-1"></i> No players match "@_search".
+            </div>
+        }
+        else
+        {
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3 mb-4">
+                @foreach (var player in visibleActive)
                 {
-                    <div class="col">
-                        <div class="card h-100 bg-light">
-                            <div class="card-body text-center">
-                                <Avatar AvatarId="@player.AvatarId" Size="lg" CssClass="opacity-50" />
-                                <h6 class="card-title mt-2 mb-1 text-muted">@player.Name</h6>
-                                <p class="text-muted small mb-2">ELO: @player.Elo</p>
-                                <span class="badge bg-secondary">Inactive</span>
-                            </div>
-                            <div class="card-footer bg-transparent border-top-0">
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <a href="/@TeamCode/players/@player.Id" class="btn btn-sm btn-outline-primary" title="View stats">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    @if (_isAdmin)
-                                    {
-                                        <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivatePlayer(player)" title="Reactivate">
-                                            <i class="bi bi-person-check"></i>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @RenderPlayerCard(player, isInactive: false)
                 }
             </div>
+        }
+
+        @if (_isAdmin && _inactivePlayers.Count > 0)
+        {
+            <div class="mb-3">
+                <button class="inactive-toggle" @onclick="() => _showInactive = !_showInactive">
+                    <i class="bi @(_showInactive ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                    Inactive players (@_inactivePlayers.Count)
+                </button>
+            </div>
+
+            @if (_showInactive)
+            {
+                var visibleInactive = FilterAndSort(_inactivePlayers);
+                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+                    @foreach (var player in visibleInactive)
+                    {
+                        @RenderPlayerCard(player, isInactive: true)
+                    }
+                </div>
+            }
         }
     </div>
 
@@ -150,6 +136,45 @@ else
             <SpinnerButton Variant="danger" Busy="_saving" OnClick="ConfirmDeactivate">Deactivate</SpinnerButton>
         </Footer>
     </Modal>
+
+    <Modal Show="_showInviteModal" Title="Invite Players" Icon="bi bi-person-plus"
+           OnClose="() => _showInviteModal = false">
+        <Body>
+            <p class="text-muted">Share this link so teammates can join your team without a password:</p>
+            @if (_generatingToken)
+            {
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-success" role="status">
+                        <span class="visually-hidden">Generating link...</span>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_inviteToken))
+            {
+                <div class="input-group">
+                    <input type="text" class="form-control" readonly value="@GetInviteUrl()" />
+                    <button class="btn btn-success" @onclick="CopyInviteUrl">
+                        <i class="bi @(_inviteCopied ? "bi-check" : "bi-clipboard")"></i>
+                        @(_inviteCopied ? "Copied!" : "Copy")
+                    </button>
+                </div>
+                @if (_inviteCopied)
+                {
+                    <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
+                }
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-clock me-1"></i>This link expires in @Constants.TimeThresholds.ShareTokenExpirationHours hours.
+                </small>
+            }
+            else
+            {
+                <AlertMessage Message="Couldn't generate an invite link. Please try again." Variant="danger" />
+            }
+        </Body>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => _showInviteModal = false">Close</button>
+        </Footer>
+    </Modal>
 }
 
 @code {
@@ -160,6 +185,12 @@ else
     private List<Player> _activePlayers = [];
     private List<Player> _inactivePlayers = [];
     private List<StatResult> _stats = [];
+    private Dictionary<int, PlayerSummary> _summaries = [];
+    private Dictionary<int, int> _ranks = [];
+
+    private string _search = string.Empty;
+    private string _sortBy = "elo";
+    private bool _showInactive;
 
     private bool _showModal;
     private PlayerFormModel _formModel = new();
@@ -170,10 +201,155 @@ else
     private Player? _playerToDeactivate;
     private string? _deactivateError;
 
+    private bool _showInviteModal;
+    private string? _inviteToken;
+    private bool _generatingToken;
+    private bool _inviteCopied;
+
     private string? _message;
     private bool _messageIsError;
     private bool _isAdmin;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
+
+    private RenderFragment RenderPlayerCard(Player player, bool isInactive) => __builder =>
+    {
+        var summary = _summaries.GetValueOrDefault(player.Id) ?? new PlayerSummary();
+        var badges = StatRegistry.PlayerBadges(_stats, player.Id);
+        var isMine = player.Id == MyPlayerId;
+        var rank = !isInactive && _ranks.TryGetValue(player.Id, out var r) ? r : (int?)null;
+        var rankClass = rank switch
+        {
+            1 => "rank-badge gold",
+            2 => "rank-badge silver",
+            3 => "rank-badge bronze",
+            _ => "rank-badge"
+        };
+        var winRateClass = summary.Games == 0
+            ? ""
+            : summary.WinRate >= 50 ? "good" : "bad";
+        var trendDelta = summary.LastEloChange;
+        var trendClass = trendDelta > 0 ? "up" : trendDelta < 0 ? "down" : "flat";
+        var trendIcon = trendDelta > 0 ? "bi-arrow-up-short" : trendDelta < 0 ? "bi-arrow-down-short" : "bi-dash";
+        const int maxBadges = 5;
+        // Show all when total fits in maxBadges; otherwise reserve the last slot for the "+N" overflow pill.
+        var visibleBadgeCount = badges.Count <= maxBadges ? badges.Count : maxBadges - 1;
+        var hiddenBadgeCount = badges.Count - visibleBadgeCount;
+
+        <div class="col">
+            <div class="card player-card h-100 @(isMine ? "is-me" : "") @(isInactive ? "is-inactive" : "")">
+                @if (rank.HasValue)
+                {
+                    <span class="@rankClass" title="Rank by ELO">#@rank</span>
+                }
+                @if (_isAdmin && !isInactive && player.Id != MyPlayerId)
+                {
+                    <button class="btn btn-sm btn-outline-danger admin-action"
+                            @onclick="() => ShowDeactivateConfirm(player)"
+                            @onclick:stopPropagation="true"
+                            title="Deactivate">
+                        <i class="bi bi-person-dash"></i>
+                    </button>
+                }
+                @if (_isAdmin && isInactive)
+                {
+                    <button class="btn btn-sm btn-outline-success admin-action"
+                            @onclick="() => ReactivatePlayer(player)"
+                            @onclick:stopPropagation="true"
+                            title="Reactivate">
+                        <i class="bi bi-person-check"></i>
+                    </button>
+                }
+                <a href="/@TeamCode/players/@player.Id" class="card-link text-center">
+                    <Avatar AvatarId="@player.AvatarId" Size="lg" />
+                    <div class="player-name">
+                        @player.Name
+                        @if (isMine)
+                        {
+                            <span class="badge badge-you ms-1">you</span>
+                        }
+                    </div>
+                    <div class="elo-row">
+                        <span>ELO</span>
+                        <span class="elo-value">@player.Elo</span>
+                        @if (summary.Games > 0)
+                        {
+                            <span class="trend @trendClass" title="Last match ELO change">
+                                <i class="bi @trendIcon"></i>@(trendDelta > 0 ? "+" : "")@trendDelta
+                            </span>
+                        }
+                    </div>
+                    @if (summary.Games > 0)
+                    {
+                        <div class="stat-line">
+                            @summary.Games @(summary.Games == 1 ? "match" : "matches") ·
+                            @summary.Wins<span class="text-success">W</span>–@summary.Losses<span class="text-danger">L</span> ·
+                            <span class="winrate @winRateClass">@summary.WinRate.ToString("F0")%</span>
+                        </div>
+                        <div class="last-played">
+                            <i class="bi bi-clock-history me-1"></i>@FormatRelative(summary.LastPlayedAt)
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="stat-line">No matches yet</div>
+                    }
+                    <div class="badges-row">
+                        @foreach (var badge in badges.Take(visibleBadgeCount))
+                        {
+                            <span class="badge @badge.CssClass" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
+                        }
+                        @if (hiddenBadgeCount > 0)
+                        {
+                            <span class="badge-more" title="@string.Join(" · ", badges.Skip(visibleBadgeCount).Select(b => b.Tooltip))">
+                                +@hiddenBadgeCount
+                            </span>
+                        }
+                    </div>
+                </a>
+            </div>
+        </div>
+    };
+
+    private List<Player> FilterAndSort(IEnumerable<Player> source)
+    {
+        var query = source.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var term = _search.Trim();
+            query = query.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        query = _sortBy switch
+        {
+            "name" => query.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase),
+            "matches" => query.OrderByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Games ?? 0)
+                              .ThenBy(p => p.Name),
+            "winrate" => query.OrderByDescending(p => _summaries.GetValueOrDefault(p.Id)?.WinRate ?? -1)
+                              .ThenByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Games ?? 0)
+                              .ThenBy(p => p.Name),
+            "recent" => query.OrderByDescending(p => _summaries.GetValueOrDefault(p.Id)?.LastPlayedAt ?? DateTimeOffset.MinValue)
+                             .ThenBy(p => p.Name),
+            _ => query.OrderByDescending(p => p.Elo).ThenBy(p => p.Name)
+        };
+
+        return query.ToList();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e) => _search = e.Value?.ToString() ?? string.Empty;
+    private void OnSortChanged(ChangeEventArgs e) => _sortBy = e.Value?.ToString() ?? "elo";
+
+    private static string FormatRelative(DateTimeOffset? when)
+    {
+        if (when == null) return "—";
+        var diff = DateTimeOffset.UtcNow - when.Value;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        if (diff.TotalDays < 30) return $"{(int)(diff.TotalDays / 7)}w ago";
+        if (diff.TotalDays < 365) return $"{(int)(diff.TotalDays / 30)}mo ago";
+        return $"{(int)(diff.TotalDays / 365)}y ago";
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -183,20 +359,66 @@ else
             if (_team != null)
             {
                 _isAdmin = await TeamAccess.IsAdminAsync(_team);
-                await LoadPlayers();
-                _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                await LoadAllAsync();
             }
             _loading = false;
             StateHasChanged();
         }
     }
 
-    private async Task LoadPlayers()
+    private async Task LoadAllAsync()
     {
         if (_team == null) return;
-        var allPlayers = await PlayerService.GetByTeamAsync(_team.Id, includeInactive: true);
-        _activePlayers = allPlayers.Where(p => p.IsActive).ToList();
-        _inactivePlayers = allPlayers.Where(p => !p.IsActive).ToList();
+
+        var (playersById, matches) = await StatsEngine.LoadAsync(_team.Id);
+        _stats = StatsEngine.Compute(playersById, matches, isAllTime: true);
+
+        var all = playersById.Values.ToList();
+        _activePlayers = all.Where(p => p.IsActive).ToList();
+        _inactivePlayers = all.Where(p => !p.IsActive).ToList();
+
+        _summaries = BuildSummaries(matches);
+        _ranks = _activePlayers
+            .OrderByDescending(p => p.Elo)
+            .Select((p, idx) => (p.Id, Rank: idx + 1))
+            .ToDictionary(x => x.Id, x => x.Rank);
+    }
+
+    private static Dictionary<int, PlayerSummary> BuildSummaries(IReadOnlyList<Match> matches)
+    {
+        var result = new Dictionary<int, PlayerSummary>();
+        foreach (var match in matches)
+        {
+            foreach (var mp in match.MatchPlayers)
+            {
+                if (!result.TryGetValue(mp.PlayerId, out var s))
+                {
+                    s = new PlayerSummary();
+                    result[mp.PlayerId] = s;
+                }
+                s.Games++;
+                var won = (mp.TeamNumber == 1 && match.Team1Score > match.Team2Score)
+                       || (mp.TeamNumber == 2 && match.Team2Score > match.Team1Score);
+                if (won) s.Wins++;
+                else s.Losses++;
+                if (s.LastPlayedAt == null || match.PlayedAt > s.LastPlayedAt)
+                {
+                    s.LastPlayedAt = match.PlayedAt;
+                    s.LastEloChange = mp.EloChange;
+                }
+            }
+        }
+        return result;
+    }
+
+    private sealed class PlayerSummary
+    {
+        public int Games { get; set; }
+        public int Wins { get; set; }
+        public int Losses { get; set; }
+        public DateTimeOffset? LastPlayedAt { get; set; }
+        public int LastEloChange { get; set; }
+        public double WinRate => Games > 0 ? Wins * 100.0 / Games : 0;
     }
 
     private void ShowAddModal()
@@ -210,6 +432,51 @@ else
     {
         _showModal = false;
         _modalError = null;
+    }
+
+    private async Task ShowInviteModal()
+    {
+        _inviteCopied = false;
+        _inviteToken = null;
+        _showInviteModal = true;
+        _generatingToken = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_team == null) return;
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) return;
+            _inviteToken = await ShareTokenService.GenerateTokenAsync(_team.Id, userId.Value);
+        }
+        catch
+        {
+            // _inviteToken stays null → the modal shows the error message
+        }
+        finally
+        {
+            _generatingToken = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetInviteUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/join?team={_team?.CodeName}&token={_inviteToken}";
+    }
+
+    private async Task CopyInviteUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetInviteUrl());
+            _inviteCopied = true;
+            StateHasChanged();
+        }
+        catch
+        {
+        }
     }
 
     private async Task SavePlayer()
@@ -249,7 +516,7 @@ else
             }
             _message = $"Player '{_formModel.Name}' added successfully.";
             _messageIsError = false;
-            await LoadPlayers();
+            await LoadAllAsync();
             HideModal();
         }
         catch (Exception)
@@ -298,7 +565,7 @@ else
             }
             _message = $"Player '{_playerToDeactivate.Name}' deactivated.";
             _messageIsError = false;
-            await LoadPlayers();
+            await LoadAllAsync();
             _showDeactivateConfirm = false;
             _playerToDeactivate = null;
         }
@@ -334,7 +601,7 @@ else
             }
             _message = $"Player '{player.Name}' reactivated.";
             _messageIsError = false;
-            await LoadPlayers();
+            await LoadAllAsync();
             StateHasChanged();
         }
         catch (Exception)
