@@ -286,4 +286,38 @@ public class MatchService(AppDbContext db, EloService eloService)
         return await db.Matches
             .CountAsync(m => m.MatchPlayers.Any(mp => mp.PlayerId == playerId));
     }
+
+    /// <summary>
+    /// Returns the IDs of the matches immediately newer and older than the given match within the same team.
+    /// Ordering: newest first (by PlayedAt then Id).
+    /// </summary>
+    public async Task<(int? NewerId, int? OlderId)> GetAdjacentMatchIdsAsync(int matchId, int teamId)
+    {
+        var current = await db.Matches
+            .AsNoTracking()
+            .Where(m => m.Id == matchId && m.TeamId == teamId)
+            .Select(m => new { m.Id, m.PlayedAt })
+            .FirstOrDefaultAsync();
+        if (current == null) return (null, null);
+
+        var newerId = await db.Matches
+            .AsNoTracking()
+            .Where(m => m.TeamId == teamId &&
+                       (m.PlayedAt > current.PlayedAt ||
+                        (m.PlayedAt == current.PlayedAt && m.Id > current.Id)))
+            .OrderBy(m => m.PlayedAt).ThenBy(m => m.Id)
+            .Select(m => (int?)m.Id)
+            .FirstOrDefaultAsync();
+
+        var olderId = await db.Matches
+            .AsNoTracking()
+            .Where(m => m.TeamId == teamId &&
+                       (m.PlayedAt < current.PlayedAt ||
+                        (m.PlayedAt == current.PlayedAt && m.Id < current.Id)))
+            .OrderByDescending(m => m.PlayedAt).ThenByDescending(m => m.Id)
+            .Select(m => (int?)m.Id)
+            .FirstOrDefaultAsync();
+
+        return (newerId, olderId);
+    }
 }

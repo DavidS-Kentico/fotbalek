@@ -773,3 +773,51 @@ h1:focus {
         font-size: 1.3rem;
     }
 }
+
+/* Match history: narrower content column so rows don't look stretched on wide screens */
+.match-history-page {
+    max-width: 960px;
+}
+
+/* Match history: keep filter bar visible while scrolling long lists */
+.match-history-filters {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+/* Match history: prominent date group header with an accent stripe */
+.match-history-group-header {
+    font-size: .8rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    border-left: 3px solid var(--bs-success);
+    padding: .15rem .25rem .15rem .6rem !important;
+    border-bottom: none !important;
+}
+
+/* Match card: subtle hover lift so the row feels clickable */
+.match-card {
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.match-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 .35rem .9rem rgba(0, 0, 0, .08);
+}
+
+/* Match card: stack teams above/below the score on narrow screens */
+@media (max-width: 575.98px) {
+    .match-card .match-card-grid {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: .5rem;
+    }
+    .match-card .match-card-grid > .match-team {
+        justify-content: center !important;
+        text-align: center;
+    }
+    .match-card .match-card-score {
+        order: -1; /* score on top */
+    }
+}

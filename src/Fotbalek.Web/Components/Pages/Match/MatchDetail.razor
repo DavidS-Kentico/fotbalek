@@ -6,6 +6,7 @@
 @inject MatchService MatchService
 @inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Match Detail - Foosball Manager</PageTitle>
 
@@ -19,27 +20,84 @@ else if (_match != null)
     var team2Players = _match.MatchPlayers.Where(mp => mp.TeamNumber == 2).OrderBy(mp => mp.Position).ToList();
     var team1Won = _match.Team1Score > _match.Team2Score;
 
+    var margin = Math.Abs(_match.Team1Score - _match.Team2Score);
+    string? marginLabel = margin >= 8 ? "Blowout" : margin == 1 ? "Nail-biter" : null;
+    string? marginCss = margin >= 8 ? "bg-warning-subtle text-warning-emphasis"
+                       : margin == 1 ? "bg-info-subtle text-info-emphasis"
+                       : null;
+    string? marginIcon = margin >= 8 ? "bi-fire" : margin == 1 ? "bi-lightning-charge" : null;
+
+    var winners = (team1Won ? team1Players : team2Players);
+    var losers  = (team1Won ? team2Players : team1Players);
+
+    // Pre-match prediction based on EloBefore averages (team ELO = avg of the two players).
+    var team1AvgBefore = (int)Math.Round(team1Players.Average(p => (double)p.EloBefore));
+    var team2AvgBefore = (int)Math.Round(team2Players.Average(p => (double)p.EloBefore));
+    var team1WinProb = 1.0 / (1.0 + Math.Pow(10, (team2AvgBefore - team1AvgBefore) / 400.0));
+    var team2WinProb = 1.0 - team1WinProb;
+    var team1Pct = (int)Math.Round(team1WinProb * 100);
+    var team2Pct = 100 - team1Pct;
+    var winnerProb = team1Won ? team1WinProb : team2WinProb;
+    var isUpset = winnerProb < 0.5;
+    // Eloquent gap label
+    var eloGap = Math.Abs(team1AvgBefore - team2AvgBefore);
+    string gapLabel = eloGap < 25 ? "Evenly matched"
+        : eloGap < 75 ? "Slight favorite"
+        : eloGap < 150 ? "Clear favorite"
+        : "Heavy favorite";
+
     <div class="container py-4">
-        <nav aria-label="breadcrumb" class="mb-4">
-            <ol class="breadcrumb">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
                 <li class="breadcrumb-item"><a href="/@TeamCode/matches">Matches</a></li>
                 <li class="breadcrumb-item active">Match #@MatchId</li>
             </ol>
         </nav>
 
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-calendar3 me-2"></i>
-                    <span class="match-date" data-utc="@_match.PlayedAt.ToString("o")">@_match.PlayedAt.ToString("f")</span>
-                </h5>
-                @if (_canEditOrDelete)
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="btn-group">
+                <a class="btn btn-outline-secondary btn-sm @(_olderId == null ? "disabled" : "")"
+                   href="@(_olderId != null ? $"/{TeamCode}/matches/{_olderId}" : "#")"
+                   aria-disabled="@(_olderId == null)" title="Older match">
+                    <i class="bi bi-chevron-left"></i> Older
+                </a>
+                <a class="btn btn-outline-secondary btn-sm @(_newerId == null ? "disabled" : "")"
+                   href="@(_newerId != null ? $"/{TeamCode}/matches/{_newerId}" : "#")"
+                   aria-disabled="@(_newerId == null)" title="Newer match">
+                    Newer <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+
+            <div class="d-flex gap-2">
+                <a href="/@TeamCode/match/new?rematch=@MatchId" class="btn btn-success btn-sm">
+                    <i class="bi bi-arrow-repeat me-1"></i> Rematch
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CopyLink" title="Copy link">
+                    <i class="bi @(_copied ? "bi-check2" : "bi-link-45deg") me-1"></i>@(_copied ? "Copied" : "Copy link")
+                </button>
+                @if (_isAdmin && _canDelete)
                 {
                     <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">
                         <i class="bi bi-trash me-1"></i> Delete
                     </button>
                 }
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    <span class="match-date" data-utc="@_match.PlayedAt.ToString("o")">@_match.PlayedAt.ToString("f")</span>
+                </h5>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-secondary">Margin @margin</span>
+                    @if (marginLabel != null)
+                    {
+                        <span class="badge @marginCss"><i class="bi @marginIcon me-1"></i>@marginLabel</span>
+                    }
+                </div>
             </div>
             <div class="card-body">
                 <div class="row align-items-center text-center mb-4">
@@ -66,9 +124,57 @@ else if (_match != null)
                         <MatchTeamPanel Title="Team 2" Players="team2Players" TeamCode="@TeamCode" IsWinner="!team1Won" HeaderVariant="primary" />
                     </div>
                 </div>
+
+                <div class="row mt-4 g-3">
+                    <div class="col-12">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <div class="text-muted small">
+                                    <i class="bi bi-bullseye me-1"></i>Pre-match prediction
+                                    <span class="ms-2 badge bg-light text-muted">@gapLabel</span>
+                                </div>
+                                @if (isUpset)
+                                {
+                                    <span class="badge bg-warning-subtle text-warning-emphasis" title="@($"Winner had only {(int)Math.Round(winnerProb * 100)}% predicted win chance")">
+                                        <i class="bi bi-stars me-1"></i>Upset!
+                                    </span>
+                                }
+                            </div>
+                            <div class="row align-items-center g-2">
+                                <div class="col-md-3 text-md-end">
+                                    <div class="fw-semibold @(team1Won ? "text-success" : "text-muted")">
+                                        Team 1
+                                        @if (team1Won) { <i class="bi bi-trophy-fill ms-1"></i> }
+                                    </div>
+                                    <small class="text-muted">avg ELO @team1AvgBefore</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="progress" style="height: 18px;" role="progressbar"
+                                         aria-label="Win probability" aria-valuenow="@team1Pct" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar @(team1Won ? "bg-success" : "bg-secondary")" style="width: @(team1Pct)%">@team1Pct%</div>
+                                        <div class="progress-bar @(!team1Won ? "bg-success" : "bg-secondary") opacity-75" style="width: @(team2Pct)%">@team2Pct%</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="fw-semibold @(!team1Won ? "text-success" : "text-muted")">
+                                        Team 2
+                                        @if (!team1Won) { <i class="bi bi-trophy-fill ms-1"></i> }
+                                    </div>
+                                    <small class="text-muted">avg ELO @team2AvgBefore</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-footer text-muted small">
-                Recorded: @_match.CreatedAt.ToString("f")
+            <div class="card-footer text-muted small d-flex justify-content-between flex-wrap gap-2">
+                <span>Recorded: <span class="match-date" data-utc="@_match.CreatedAt.ToString("o")">@_match.CreatedAt.ToString("f")</span></span>
+                @if (!_canDelete && _isAdmin)
+                {
+                    <span title="@_deleteBlockedReason">
+                        <i class="bi bi-lock me-1"></i>Cannot be deleted (@(_deleteBlockedReason ?? "locked"))
+                    </span>
+                }
             </div>
         </div>
 
@@ -85,8 +191,8 @@ else if (_match != null)
             <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
             <div class="alert alert-secondary">
                 <strong>Match Summary:</strong><br />
-                Team 1 (@team1Players.First().Player.Name, @team1Players.Last().Player.Name) vs
-                Team 2 (@team2Players.First().Player.Name, @team2Players.Last().Player.Name)<br />
+                Team 1 (@string.Join(", ", team1Players.Select(p => p.Player.Name))) vs
+                Team 2 (@string.Join(", ", team2Players.Select(p => p.Player.Name)))<br />
                 Score: @_match.Team1Score : @_match.Team2Score<br />
                 Date: @_match.PlayedAt.ToString("f")
             </div>
@@ -112,31 +218,82 @@ else
     private Team? _team;
     private Match? _match;
     private bool _loading = true;
-    private bool _canEditOrDelete;
+    private bool _isAdmin;
+    private bool _canDelete;
+    private string? _deleteBlockedReason;
     private bool _showDeleteConfirm;
     private bool _deleting;
     private string? _deleteError;
+    private bool _copied;
+
+    private int? _newerId;
+    private int? _olderId;
+    private int _loadedMatchId = -1;
+    private bool _firstRenderDone;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reload whenever we navigate to a different match (component instance is reused).
+        if (_firstRenderDone && _loadedMatchId != MatchId)
+        {
+            await LoadAsync();
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _team = await TeamAccess.GetCurrentTeamAsync();
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (_team != null && userId != null)
+            _firstRenderDone = true;
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _match = null;
+        _showDeleteConfirm = false;
+        _deleteError = null;
+        StateHasChanged();
+
+        _team ??= await TeamAccess.GetCurrentTeamAsync();
+        _isAdmin = await TeamAccess.IsAdminAsync();
+
+        if (_team != null)
+        {
+            var match = await MatchService.GetByIdAsync(MatchId);
+            if (match != null && match.TeamId == _team.Id)
             {
-                _match = await MatchService.GetByIdAsync(MatchId);
-                if (_match != null && _match.TeamId == _team.Id)
-                {
-                    _canEditOrDelete = await MatchService.CanUserEditOrDeleteAsync(MatchId, _team.Id, userId.Value);
-                }
-                else
-                {
-                    _match = null;
-                }
+                _match = match;
+                var (canDelete, reason) = await MatchService.CanDeleteWithReasonAsync(MatchId);
+                _canDelete = canDelete;
+                _deleteBlockedReason = reason;
+
+                (_newerId, _olderId) = await MatchService.GetAdjacentMatchIdsAsync(MatchId, _team.Id);
             }
-            _loading = false;
+        }
+
+        _loadedMatchId = MatchId;
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task CopyLink()
+    {
+        try
+        {
+            var url = Navigation.Uri;
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            _copied = true;
             StateHasChanged();
+            await Task.Delay(1500);
+            _copied = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Ignore clipboard failures (older browsers / insecure contexts).
         }
     }
 

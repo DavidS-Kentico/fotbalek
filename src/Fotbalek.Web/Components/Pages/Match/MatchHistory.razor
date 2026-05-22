@@ -5,7 +5,10 @@
 @inject TeamAccessService TeamAccess
 @inject MatchService MatchService
 @inject PlayerService PlayerService
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
 @using Fotbalek.Web.Helpers
+@using System.Globalization
 
 <PageTitle>Match History - Foosball Manager</PageTitle>
 
@@ -15,7 +18,7 @@
 }
 else
 {
-    <div class="container py-4">
+    <div class="container py-4 match-history-page">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="bi bi-clock-history me-2"></i>Match History</h2>
             <a href="/@TeamCode/match/new" class="btn btn-success">
@@ -25,13 +28,47 @@ else
 
         <AlertMessage Message="@_message" Variant="success" Dismissible="true" OnDismiss="() => _message = null" />
 
-        <div class="card mb-4">
+        <div class="card mb-4 match-history-filters">
             <div class="card-body py-2">
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
                     <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
                                       @bind-CustomStartDate="_customStartDate"
                                       @bind-CustomEndDate="_customEndDate"
                                       OnFilterChanged="OnFilterChanged" />
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    @if (MyPlayerId.HasValue)
+                    {
+                        <button type="button"
+                                class="btn btn-sm @(_myMatchesOnly ? "btn-success" : "btn-outline-success")"
+                                @onclick="ToggleMyMatches">
+                            <i class="bi bi-person-check me-1"></i> My matches
+                            @if (_myMatchesOnly)
+                            {
+                                <span class="badge bg-light text-success ms-1">@_filteredMatches.Count</span>
+                            }
+                        </button>
+                    }
+
+                    @if (_canFilterByOutcome)
+                    {
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Outcome filter">
+                            <button type="button"
+                                    class="btn @(_outcome == null ? "btn-secondary" : "btn-outline-secondary")"
+                                    @onclick='() => SetOutcome(null)'>All</button>
+                            <button type="button"
+                                    class="btn @(_outcome == "wins" ? "btn-success" : "btn-outline-success")"
+                                    @onclick='() => SetOutcome("wins")'>
+                                <i class="bi bi-trophy me-1"></i>Wins
+                            </button>
+                            <button type="button"
+                                    class="btn @(_outcome == "losses" ? "btn-danger" : "btn-outline-danger")"
+                                    @onclick='() => SetOutcome("losses")'>
+                                <i class="bi bi-x-circle me-1"></i>Losses
+                            </button>
+                        </div>
+                    }
                 </div>
 
                 @if (_players.Count > 0)
@@ -51,7 +88,7 @@ else
                         @if (_selectedPlayerIds.Count > 0)
                         {
                             <button type="button" class="btn btn-sm btn-link text-muted" @onclick="ClearPlayerFilter">
-                                <i class="bi bi-x-circle"></i> Clear
+                                <i class="bi bi-x-circle"></i> Clear players
                             </button>
                         }
                     </div>
@@ -59,8 +96,11 @@ else
 
                 @if (HasActiveFilters)
                 {
-                    <div class="mt-2">
+                    <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
                         <span class="badge bg-secondary">@GetFilterDescription()</span>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" @onclick="ClearAllFilters">
+                            <i class="bi bi-x-circle me-1"></i>Clear all
+                        </button>
                     </div>
                 }
             </div>
@@ -68,13 +108,94 @@ else
 
         @if (_filteredMatches.Count > 0)
         {
-            <div class="text-muted small mb-3">
-                Showing @((_currentPage - 1) * PageSize + 1)-@Math.Min(_currentPage * PageSize, _filteredMatches.Count) of @_filteredMatches.Count matches
+            @if (_focusPlayerId.HasValue)
+            {
+                var focus = _focusPlayerId.Value;
+                var rows = _filteredMatches
+                    .Select(m => m.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == focus))
+                    .Where(mp => mp != null)
+                    .ToList();
+                var wins = rows.Count(mp => mp!.EloChange > 0);
+                var losses = rows.Count(mp => mp!.EloChange < 0);
+                var netElo = rows.Sum(mp => mp!.EloChange);
+                var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
+                var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
+                <div class="card border-success mb-3">
+                    <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3">
+                        <span class="fw-semibold text-success">
+                            <i class="bi bi-person-badge me-1"></i>@focusName
+                        </span>
+                        <span class="text-muted">|</span>
+                        <span><i class="bi bi-trophy-fill text-success me-1"></i><strong>@wins</strong> wins</span>
+                        <span><i class="bi bi-x-circle text-danger me-1"></i><strong>@losses</strong> losses</span>
+                        <span><i class="bi bi-percent me-1"></i><strong>@winRate%</strong> win rate</span>
+                        <span class="@(netElo >= 0 ? "text-success" : "text-danger")">
+                            <i class="bi @(netElo >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow") me-1"></i>
+                            <strong>@(netElo > 0 ? "+" : "")@netElo</strong> ELO
+                        </span>
+                    </div>
+                </div>
+            }
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="text-muted small">
+                    Showing @((_currentPage - 1) * _pageSize + 1)-@Math.Min(_currentPage * _pageSize, _filteredMatches.Count)
+                    of @_filteredMatches.Count matches
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="pageSizeSelect" class="text-muted small mb-0">Per page:</label>
+                    <select id="pageSizeSelect" class="form-select form-select-sm" style="width: auto;"
+                            value="@_pageSize" @onchange="OnPageSizeChanged">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
             </div>
 
             @foreach (var match in GetCurrentPageMatches())
             {
-                <MatchCard Match="@match" TeamCode="@TeamCode" />
+                var groupKey = DateOnly.FromDateTime(match.PlayedAt.LocalDateTime.Date);
+                if (_lastGroup != groupKey)
+                {
+                    _lastGroup = groupKey;
+                    <div class="match-history-group-header fw-semibold mt-4 mb-2">
+                        <i class="bi bi-calendar-event me-1"></i>@FormatGroup(groupKey)
+                    </div>
+                }
+
+                <MatchCard Match="@match" TeamCode="@TeamCode">
+                    <Actions>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0" type="button"
+                                    data-bs-toggle="dropdown" aria-label="Match actions">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="/@TeamCode/matches/@match.Id">
+                                        <i class="bi bi-eye me-2"></i>View details
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/@TeamCode/match/new?rematch=@match.Id">
+                                        <i class="bi bi-arrow-repeat me-2"></i>Rematch
+                                    </a>
+                                </li>
+                                @if (_isAdmin)
+                                {
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-danger"
+                                                @onclick="() => RequestDelete(match)">
+                                            <i class="bi bi-trash me-2"></i>Delete
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </Actions>
+                </MatchCard>
             }
 
             @if (_totalPages > 1)
@@ -82,7 +203,8 @@ else
                 <nav aria-label="Match history pagination">
                     <ul class="pagination justify-content-center">
                         <li class="page-item @(_currentPage == 1 ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => GoToPage(_currentPage - 1)" disabled="@(_currentPage == 1)">Previous</button>
+                            <button class="page-link" @onclick="() => GoToPage(_currentPage - 1)"
+                                    disabled="@(_currentPage == 1)" aria-label="Previous page">Previous</button>
                         </li>
                         @foreach (var pageNum in GetPageNumbers())
                         {
@@ -93,12 +215,15 @@ else
                             else
                             {
                                 <li class="page-item @(_currentPage == pageNum ? "active" : "")">
-                                    <button class="page-link" @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                                    <button class="page-link" @onclick="() => GoToPage(pageNum)"
+                                            aria-label="@($"Go to page {pageNum}")"
+                                            aria-current="@(_currentPage == pageNum ? "page" : null)">@pageNum</button>
                                 </li>
                             }
                         }
                         <li class="page-item @(_currentPage == _totalPages ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => GoToPage(_currentPage + 1)" disabled="@(_currentPage == _totalPages)">Next</button>
+                            <button class="page-link" @onclick="() => GoToPage(_currentPage + 1)"
+                                    disabled="@(_currentPage == _totalPages)" aria-label="Next page">Next</button>
                         </li>
                     </ul>
                 </nav>
@@ -120,39 +245,106 @@ else
             </EmptyState>
         }
     </div>
+
+    <Modal Show="_pendingDelete != null" Title="Delete Match" OnClose="() => _pendingDelete = null">
+        <Body>
+            @if (_pendingDelete != null)
+            {
+                <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
+                <div class="alert alert-secondary mb-0">
+                    <strong>Score:</strong> @_pendingDelete.Team1Score : @_pendingDelete.Team2Score<br />
+                    <strong>Date:</strong>
+                    <span class="match-date" data-utc="@_pendingDelete.PlayedAt.ToString("o")">
+                        @_pendingDelete.PlayedAt.ToString("g")
+                    </span>
+                </div>
+            }
+            <AlertMessage Message="@_deleteError" Variant="danger" Icon="bi bi-exclamation-triangle"
+                          Dismissible="true" OnDismiss="() => _deleteError = null" />
+        </Body>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => _pendingDelete = null">Cancel</button>
+            <SpinnerButton Variant="danger" Busy="_deleting" OnClick="ConfirmDelete">Delete Match</SpinnerButton>
+        </Footer>
+    </Modal>
 }
 
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    [SupplyParameterFromQuery(Name = "message")]
-    public string? MessageParam { get; set; }
+    [SupplyParameterFromQuery(Name = "message")] public string? MessageParam { get; set; }
+    [SupplyParameterFromQuery(Name = "player")]  public int? PlayerParam { get; set; }
+    [SupplyParameterFromQuery(Name = "period")]  public string? PeriodParam { get; set; }
+    [SupplyParameterFromQuery(Name = "players")] public string? PlayersParam { get; set; }
+    [SupplyParameterFromQuery(Name = "outcome")] public string? OutcomeParam { get; set; }
+    [SupplyParameterFromQuery(Name = "mine")]    public bool? MineParam { get; set; }
+    [SupplyParameterFromQuery(Name = "page")]    public int? PageParam { get; set; }
+    [SupplyParameterFromQuery(Name = "size")]    public int? SizeParam { get; set; }
+    [SupplyParameterFromQuery(Name = "start")]   public string? StartParam { get; set; }
+    [SupplyParameterFromQuery(Name = "end")]     public string? EndParam { get; set; }
 
-    [SupplyParameterFromQuery(Name = "player")]
-    public int? PlayerParam { get; set; }
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     private Team? _team;
     private bool _loading = true;
+    private bool _isAdmin;
     private List<Match> _allMatches = [];
     private List<Match> _filteredMatches = [];
     private List<Player> _players = [];
     private int _currentPage = 1;
     private int _totalPages = 1;
-    private const int PageSize = 10;
+    private int _pageSize = 10;
     private string? _message;
 
     private string _selectedPeriod = "all";
     private HashSet<int> _selectedPlayerIds = [];
     private DateOnly? _customStartDate;
     private DateOnly? _customEndDate;
+    private bool _myMatchesOnly;
+    private string? _outcome;
 
-    private bool HasActiveFilters => _selectedPeriod != "all" || _selectedPlayerIds.Count > 0;
+    private Match? _pendingDelete;
+    private bool _deleting;
+    private string? _deleteError;
+    private DateOnly? _lastGroup;
+
+    private bool HasActiveFilters =>
+        _selectedPeriod != "all"
+        || _selectedPlayerIds.Count > 0
+        || _myMatchesOnly
+        || _outcome != null;
+
+    private bool _canFilterByOutcome =>
+        (_myMatchesOnly && MyPlayerId.HasValue) || _selectedPlayerIds.Count == 1;
+
+    // The player whose perspective we display in the summary bar:
+    //  - "My matches" mode -> the logged-in user's player
+    //  - single player selected -> that player
+    private int? _focusPlayerId =>
+        _myMatchesOnly && MyPlayerId.HasValue ? MyPlayerId :
+        _selectedPlayerIds.Count == 1 ? _selectedPlayerIds.First() :
+        (int?)null;
+
+    private int? _lastMyPlayerId;
+    private bool _dataLoaded;
+
+    protected override void OnParametersSet()
+    {
+        // When the cascading MyPlayerId arrives (or changes) after the initial render,
+        // re-apply the filter so "My matches" reflects the current player.
+        if (_dataLoaded && _lastMyPlayerId != MyPlayerId)
+        {
+            _lastMyPlayerId = MyPlayerId;
+            ApplyFilter();
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _team = await TeamAccess.GetCurrentTeamAsync();
+            _isAdmin = await TeamAccess.IsAdminAsync();
             if (_team != null)
             {
                 _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);
@@ -161,13 +353,12 @@ else
                 _customEndDate = DateOnly.FromDateTime(DateTime.Today);
                 _customStartDate = _customEndDate.Value.AddMonths(-1);
 
-                if (PlayerParam.HasValue && _players.Any(p => p.Id == PlayerParam.Value))
-                {
-                    _selectedPlayerIds.Add(PlayerParam.Value);
-                }
+                ApplyFiltersFromUrl();
 
                 _message = MessageParam;
 
+                _dataLoaded = true;
+                _lastMyPlayerId = MyPlayerId;
                 ApplyFilter();
             }
             _loading = false;
@@ -175,72 +366,169 @@ else
         }
     }
 
+    private void ApplyFiltersFromUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(PeriodParam))
+        {
+            _selectedPeriod = PeriodParam;
+        }
+
+        if (!string.IsNullOrWhiteSpace(StartParam) && DateOnly.TryParse(StartParam, CultureInfo.InvariantCulture, out var s))
+            _customStartDate = s;
+        if (!string.IsNullOrWhiteSpace(EndParam) && DateOnly.TryParse(EndParam, CultureInfo.InvariantCulture, out var e))
+            _customEndDate = e;
+
+        // Player IDs: support legacy ?player=X and new ?players=1,2,3
+        if (PlayerParam.HasValue && _players.Any(p => p.Id == PlayerParam.Value))
+        {
+            _selectedPlayerIds.Add(PlayerParam.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(PlayersParam))
+        {
+            foreach (var part in PlayersParam.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (int.TryParse(part, out var id) && _players.Any(p => p.Id == id))
+                    _selectedPlayerIds.Add(id);
+                if (_selectedPlayerIds.Count >= 4) break;
+            }
+        }
+
+        if (MineParam == true && MyPlayerId.HasValue) _myMatchesOnly = true;
+
+        if (OutcomeParam is "wins" or "losses") _outcome = OutcomeParam;
+
+        if (SizeParam is 10 or 25 or 50) _pageSize = SizeParam.Value;
+        if (PageParam is > 0) _currentPage = PageParam.Value;
+    }
+
     private void OnFilterChanged()
     {
         _currentPage = 1;
         ApplyFilter();
+        SyncUrl();
     }
 
     private void TogglePlayer(int playerId)
     {
-        if (_selectedPlayerIds.Contains(playerId))
-        {
-            _selectedPlayerIds.Remove(playerId);
-        }
-        else if (_selectedPlayerIds.Count < 4)
-        {
-            _selectedPlayerIds.Add(playerId);
-        }
+        if (_selectedPlayerIds.Contains(playerId)) _selectedPlayerIds.Remove(playerId);
+        else if (_selectedPlayerIds.Count < 4) _selectedPlayerIds.Add(playerId);
+        if (!_canFilterByOutcome) _outcome = null;
         _currentPage = 1;
         ApplyFilter();
+        SyncUrl();
     }
 
     private void ClearPlayerFilter()
     {
         _selectedPlayerIds.Clear();
+        if (!_canFilterByOutcome) _outcome = null;
         _currentPage = 1;
         ApplyFilter();
+        SyncUrl();
+    }
+
+    private void ToggleMyMatches()
+    {
+        _myMatchesOnly = !_myMatchesOnly;
+        if (!_canFilterByOutcome) _outcome = null;
+        _currentPage = 1;
+        ApplyFilter();
+        SyncUrl();
+    }
+
+    private void SetOutcome(string? outcome)
+    {
+        _outcome = outcome;
+        _currentPage = 1;
+        ApplyFilter();
+        SyncUrl();
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size) && size is 10 or 25 or 50)
+        {
+            _pageSize = size;
+            _currentPage = 1;
+            ApplyFilter();
+            SyncUrl();
+        }
     }
 
     private void ClearAllFilters()
     {
         _selectedPeriod = "all";
         _selectedPlayerIds.Clear();
+        _myMatchesOnly = false;
+        _outcome = null;
         _currentPage = 1;
         ApplyFilter();
+        SyncUrl();
     }
 
     private void ApplyFilter()
     {
-        _filteredMatches = _allMatches
-            .Where(m => DateFilterHelper.IsDateInPeriod(
-                DateOnly.FromDateTime(m.PlayedAt.Date),
-                _selectedPeriod,
-                _customStartDate,
-                _customEndDate))
-            .ToList();
+        var query = _allMatches.AsEnumerable();
+
+        query = query.Where(m => DateFilterHelper.IsDateInPeriod(
+            DateOnly.FromDateTime(m.PlayedAt.Date),
+            _selectedPeriod,
+            _customStartDate,
+            _customEndDate));
 
         if (_selectedPlayerIds.Count > 0)
         {
-            _filteredMatches = _filteredMatches
-                .Where(m => _selectedPlayerIds.All(pid => m.MatchPlayers.Any(mp => mp.PlayerId == pid)))
-                .ToList();
+            query = query.Where(m =>
+                _selectedPlayerIds.All(pid => m.MatchPlayers.Any(mp => mp.PlayerId == pid)));
         }
 
-        _totalPages = Math.Max(1, (int)Math.Ceiling((double)_filteredMatches.Count / PageSize));
+        if (_myMatchesOnly && MyPlayerId.HasValue)
+        {
+            var mine = MyPlayerId.Value;
+            query = query.Where(m => m.MatchPlayers.Any(mp => mp.PlayerId == mine));
+        }
+
+        if (_canFilterByOutcome && _outcome != null)
+        {
+            // Outcome is judged from the perspective of the focused player:
+            // - "my matches" mode  -> MyPlayerId
+            // - one player selected -> that player
+            var focus = _myMatchesOnly ? MyPlayerId :
+                        _selectedPlayerIds.Count == 1 ? _selectedPlayerIds.First() :
+                        (int?)null;
+
+            if (focus.HasValue)
+            {
+                var want = _outcome == "wins";
+                query = query.Where(m =>
+                {
+                    var mp = m.MatchPlayers.FirstOrDefault(p => p.PlayerId == focus.Value);
+                    return mp != null && (want ? mp.EloChange > 0 : mp.EloChange < 0);
+                });
+            }
+        }
+
+        _filteredMatches = query.ToList();
+
+        _totalPages = Math.Max(1, (int)Math.Ceiling((double)_filteredMatches.Count / _pageSize));
         if (_currentPage > _totalPages) _currentPage = _totalPages;
+        if (_currentPage < 1) _currentPage = 1;
 
         StateHasChanged();
     }
 
-    private List<Match> GetCurrentPageMatches() =>
-        _filteredMatches.Skip((_currentPage - 1) * PageSize).Take(PageSize).ToList();
+    private List<Match> GetCurrentPageMatches()
+    {
+        _lastGroup = null;
+        return _filteredMatches.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
+    }
 
     private void GoToPage(int page)
     {
         if (page >= 1 && page <= _totalPages)
         {
             _currentPage = page;
+            SyncUrl();
             StateHasChanged();
         }
     }
@@ -272,6 +560,8 @@ else
         var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
         if (periodDesc != null) parts.Add(periodDesc);
 
+        if (_myMatchesOnly) parts.Add("My matches");
+
         if (_selectedPlayerIds.Count > 0)
         {
             var playerNames = _players
@@ -280,7 +570,81 @@ else
             parts.Add(string.Join(" + ", playerNames));
         }
 
+        if (_outcome != null) parts.Add(_outcome == "wins" ? "Wins only" : "Losses only");
+
         var desc = string.Join(" | ", parts);
         return $"{_filteredMatches.Count} matches" + (parts.Count > 0 ? $" ({desc})" : "");
+    }
+
+    private string FormatGroup(DateOnly date)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (date == today) return "Today";
+        if (date == today.AddDays(-1)) return "Yesterday";
+
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        if (date >= startOfWeek) return date.ToString("dddd"); // Monday, Tuesday...
+
+        if (date.Year == today.Year) return date.ToString("dddd, MMM d");
+        return date.ToString("dddd, MMM d, yyyy");
+    }
+
+    private void SyncUrl()
+    {
+        var qs = new Dictionary<string, object?>
+        {
+            ["period"]  = _selectedPeriod == "all" ? null : _selectedPeriod,
+            ["start"]   = _selectedPeriod == "custom" ? _customStartDate?.ToString("yyyy-MM-dd") : null,
+            ["end"]     = _selectedPeriod == "custom" ? _customEndDate?.ToString("yyyy-MM-dd") : null,
+            ["players"] = _selectedPlayerIds.Count > 0 ? string.Join(",", _selectedPlayerIds) : null,
+            ["mine"]    = _myMatchesOnly ? "true" : null,
+            ["outcome"] = _outcome,
+            ["page"]    = _currentPage > 1 ? _currentPage.ToString() : null,
+            ["size"]    = _pageSize != 10 ? _pageSize.ToString() : null,
+            ["player"]  = null,   // clear legacy param
+            ["message"] = null,   // one-shot
+        };
+
+        var newUri = Navigation.GetUriWithQueryParameters(qs);
+        Navigation.NavigateTo(newUri, forceLoad: false, replace: true);
+    }
+
+    private void RequestDelete(Match match)
+    {
+        _deleteError = null;
+        _pendingDelete = match;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_pendingDelete == null || _team == null) return;
+
+        _deleting = true;
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) { _deleteError = "Not signed in."; return; }
+
+            var deleted = await MatchService.DeleteAsync(_pendingDelete.Id, _team.Id, userId.Value);
+            if (deleted)
+            {
+                _allMatches.Remove(_pendingDelete);
+                _message = "Match deleted successfully.";
+                _pendingDelete = null;
+                ApplyFilter();
+            }
+            else
+            {
+                _deleteError = "Cannot delete this match. The deletion window may have passed or a later match exists.";
+            }
+        }
+        catch
+        {
+            _deleteError = "An error occurred while deleting the match.";
+        }
+        finally
+        {
+            _deleting = false;
+        }
     }
 }

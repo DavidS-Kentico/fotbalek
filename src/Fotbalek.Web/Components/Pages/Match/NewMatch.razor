@@ -219,6 +219,9 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
+    [SupplyParameterFromQuery(Name = "rematch")]
+    public int? RematchId { get; set; }
+
     private Team? _team;
     private bool _loading = true;
     private List<Player> _players = [];
@@ -251,9 +254,31 @@ else
         if (_team != null)
         {
             _players = await PlayerService.GetByTeamAsync(_team.Id);
+            await TryPrefillFromRematchAsync();
         }
         _loading = false;
         StateHasChanged();
+    }
+
+    private async Task TryPrefillFromRematchAsync()
+    {
+        if (RematchId is not int id || _team == null) return;
+
+        var source = await MatchService.GetByIdAsync(id);
+        if (source == null || source.TeamId != _team.Id) return;
+
+        int Pick(int team, string position)
+        {
+            var mp = source.MatchPlayers.FirstOrDefault(p => p.TeamNumber == team && p.Position == position);
+            if (mp == null) return 0;
+            // Only prefill players who still exist on the roster and are active.
+            return _players.Any(p => p.Id == mp.PlayerId && p.IsActive) ? mp.PlayerId : 0;
+        }
+
+        Team1GkId  = Pick(1, Constants.Positions.Goalkeeper);
+        Team1AtkId = Pick(1, Constants.Positions.Attacker);
+        Team2GkId  = Pick(2, Constants.Positions.Goalkeeper);
+        Team2AtkId = Pick(2, Constants.Positions.Attacker);
     }
 
     private Player? GetPlayer(int id) => id > 0 ? _players.FirstOrDefault(p => p.Id == id) : null;

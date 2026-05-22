@@ -6,13 +6,35 @@
     var meInTeam2 = MyPlayerId.HasValue && team2Players.Any(mp => mp.PlayerId == MyPlayerId);
     var meWon = (team1Won && meInTeam1) || (!team1Won && meInTeam2);
     var meLost = (meInTeam1 || meInTeam2) && !meWon;
+
+    // Both teammates always receive the same ELO change (zero-sum), so show one chip per team.
+    var team1Change = team1Players.FirstOrDefault()?.EloChange ?? 0;
+    var team2Change = team2Players.FirstOrDefault()?.EloChange ?? 0;
+
+    var margin = Math.Abs(Match.Team1Score - Match.Team2Score);
+    string? marginLabel = null;
+    string? marginCss = null;
+    string? marginIcon = null;
+    if (margin >= 8) { marginLabel = "Blowout"; marginCss = "bg-warning-subtle text-warning-emphasis"; marginIcon = "bi-fire"; }
+    else if (margin == 1) { marginLabel = "Nail-biter"; marginCss = "bg-info-subtle text-info-emphasis"; marginIcon = "bi-lightning-charge"; }
+
+    string DeltaClass(int delta) => delta > 0 ? "bg-success-subtle text-success"
+        : delta < 0 ? "bg-danger-subtle text-danger"
+        : "bg-secondary-subtle text-secondary";
+    string DeltaText(int delta) => (delta > 0 ? "+" : "") + delta.ToString();
 }
 
-<div class="card mb-3 @(Compact ? "" : "shadow-sm") @(meWon ? "border-success" : meLost ? "border-danger" : "")">
+<div class="card match-card mb-3 position-relative @(Compact ? "" : "shadow-sm") @(meWon ? "border-success" : meLost ? "border-danger" : "")">
+    @if (Actions != null)
+    {
+        <div class="position-absolute top-0 end-0 mt-1 me-1" style="z-index: 2;">
+            @Actions
+        </div>
+    }
     <div class="card-body @(Compact ? "p-2" : "")">
-        <div class="row align-items-center">
-            <div class="col">
-                <div class="d-flex align-items-center justify-content-end gap-2 @(team1Won ? "fw-bold text-success" : "text-muted")">
+        <div class="d-flex align-items-center match-card-grid">
+            <div class="flex-fill match-team match-team-1">
+                <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap @(team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team1Players.OrderBy(p => p.Position))
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
@@ -24,18 +46,32 @@
                 </div>
             </div>
 
-            <div class="col-auto text-center px-3">
-                <a href="/@TeamCode/matches/@Match.Id" class="text-decoration-none">
-                    <div class="d-flex align-items-center gap-2">
+            <div class="text-center px-3 match-card-score">
+                <a href="/@TeamCode/matches/@Match.Id" class="text-decoration-none d-block">
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                        <span class="badge @DeltaClass(team1Change) @(Compact ? "small" : "")" title="Team 1 ELO change">
+                            @DeltaText(team1Change)
+                        </span>
+                        @if (team1Won)
+                        {
+                            <i class="bi bi-trophy-fill text-warning" title="Team 1 won"></i>
+                        }
                         <span class="fs-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@Match.Team1Score</span>
-                        <span class="text-muted">:</span>
+                        <span class="fs-4 text-muted">:</span>
                         <span class="fs-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@Match.Team2Score</span>
+                        @if (!team1Won)
+                        {
+                            <i class="bi bi-trophy-fill text-warning" title="Team 2 won"></i>
+                        }
+                        <span class="badge @DeltaClass(team2Change) @(Compact ? "small" : "")" title="Team 2 ELO change">
+                            @DeltaText(team2Change)
+                        </span>
                     </div>
                 </a>
             </div>
 
-            <div class="col">
-                <div class="d-flex align-items-center gap-2 @(!team1Won ? "fw-bold text-success" : "text-muted")">
+            <div class="flex-fill match-team match-team-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap @(!team1Won ? "fw-bold text-success" : "text-muted")">
                     @foreach (var mp in team2Players.OrderBy(p => p.Position))
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
@@ -51,11 +87,17 @@
         @if (!Compact)
         {
             <div class="row mt-2">
-                <div class="col text-center">
+                <div class="col text-center d-flex align-items-center justify-content-center gap-2 flex-wrap">
                     <small class="text-muted">
                         <i class="bi bi-calendar3 me-1"></i>
                         <span class="match-date" data-utc="@Match.PlayedAt.ToString("o")">@Match.PlayedAt.ToString("g")</span>
                     </small>
+                    @if (marginLabel != null)
+                    {
+                        <span class="badge @marginCss" title="@($"Score margin: {margin}")">
+                            <i class="bi @marginIcon me-1"></i>@marginLabel
+                        </span>
+                    }
                 </div>
             </div>
         }
@@ -66,5 +108,6 @@
     [Parameter, EditorRequired] public Match Match { get; set; } = null!;
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 }
