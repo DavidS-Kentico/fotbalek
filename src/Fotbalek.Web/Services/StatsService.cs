@@ -101,69 +101,82 @@ public class StatsService(AppDbContext db)
             stats.BetterPosition = Constants.Positions.Attacker;
         }
 
-        // Partner stats (min 3 games together)
+        // Partner stats (full list; min-games filtering happens at display time)
         var partnerStats = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
-                .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId))
-            .GroupBy(p => p.PlayerId)
-            .Select(g => new
+                .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId)
+                .Select(p => new { Partner = p, OwnEloChange = mp.EloChange }))
+            .GroupBy(x => x.Partner.PlayerId)
+            .Select(g => new RelationshipStat
             {
-                PartnerId = g.Key,
-                PartnerName = g.First().Player.Name,
+                PlayerId = g.Key,
+                Name = g.First().Partner.Player.Name,
+                AvatarId = g.First().Partner.Player.AvatarId,
                 Games = g.Count(),
-                Wins = g.Count(p => p.EloChange > 0)
+                Wins = g.Count(x => x.OwnEloChange > 0),
+                AvgEloChange = g.Average(x => (double)x.OwnEloChange)
             })
-            .Where(p => p.Games >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .OrderByDescending(p => p.Games)
             .ToList();
 
-        if (partnerStats.Count != 0)
+        foreach (var p in partnerStats) p.WinRate = p.Games > 0 ? (double)p.Wins / p.Games * 100 : 0;
+        stats.Partners = partnerStats;
+
+        var qualifyingPartners = partnerStats
+            .Where(p => p.Games >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .ToList();
+        if (qualifyingPartners.Count != 0)
         {
-            var best = partnerStats.OrderByDescending(p => (double)p.Wins / p.Games).First();
-            stats.BestPartner = best.PartnerName;
-            stats.BestPartnerWinRate = (double)best.Wins / best.Games * 100;
+            var best = qualifyingPartners.OrderByDescending(p => p.WinRate).First();
+            stats.BestPartner = best.Name;
+            stats.BestPartnerWinRate = best.WinRate;
             stats.BestPartnerGames = best.Games;
 
-            // Only show worst partner if there's more than one partner (to avoid same as best)
-            if (partnerStats.Count > 1)
+            if (qualifyingPartners.Count > 1)
             {
-                var worst = partnerStats.OrderBy(p => (double)p.Wins / p.Games).First();
-                stats.WorstPartner = worst.PartnerName;
-                stats.WorstPartnerWinRate = (double)worst.Wins / worst.Games * 100;
+                var worst = qualifyingPartners.OrderBy(p => p.WinRate).First();
+                stats.WorstPartner = worst.Name;
+                stats.WorstPartnerWinRate = worst.WinRate;
                 stats.WorstPartnerGames = worst.Games;
             }
         }
 
-        // Enemy stats (min 3 games against)
+        // Enemy stats (full list; win counted from player's perspective when enemy lost ELO)
         var enemyStats = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
-                .Where(p => p.TeamNumber != mp.TeamNumber)) // Opponents are on different team
-            .GroupBy(p => p.PlayerId)
-            .Select(g => new
+                .Where(p => p.TeamNumber != mp.TeamNumber)
+                .Select(p => new { Enemy = p, OwnEloChange = mp.EloChange }))
+            .GroupBy(x => x.Enemy.PlayerId)
+            .Select(g => new RelationshipStat
             {
-                EnemyId = g.Key,
-                EnemyName = g.First().Player.Name,
+                PlayerId = g.Key,
+                Name = g.First().Enemy.Player.Name,
+                AvatarId = g.First().Enemy.Player.AvatarId,
                 Games = g.Count(),
-                // Count wins from player's perspective: enemy lost means player won
-                Wins = g.Count(p => p.EloChange < 0)
+                Wins = g.Count(x => x.OwnEloChange > 0),
+                AvgEloChange = g.Average(x => (double)x.OwnEloChange)
             })
-            .Where(e => e.Games >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .OrderByDescending(e => e.Games)
             .ToList();
 
-        if (enemyStats.Count != 0)
+        foreach (var e in enemyStats) e.WinRate = e.Games > 0 ? (double)e.Wins / e.Games * 100 : 0;
+        stats.Enemies = enemyStats;
+
+        var qualifyingEnemies = enemyStats
+            .Where(e => e.Games >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .ToList();
+        if (qualifyingEnemies.Count != 0)
         {
-            // Easiest enemy = highest win rate against them
-            var easiest = enemyStats.OrderByDescending(e => (double)e.Wins / e.Games).First();
-            stats.EasiestEnemy = easiest.EnemyName;
-            stats.EasiestEnemyWinRate = (double)easiest.Wins / easiest.Games * 100;
+            var easiest = qualifyingEnemies.OrderByDescending(e => e.WinRate).First();
+            stats.EasiestEnemy = easiest.Name;
+            stats.EasiestEnemyWinRate = easiest.WinRate;
             stats.EasiestEnemyGames = easiest.Games;
 
-            // Only show hardest enemy if there's more than one enemy (to avoid same as easiest)
-            if (enemyStats.Count > 1)
+            if (qualifyingEnemies.Count > 1)
             {
-                // Hardest enemy = lowest win rate against them
-                var hardest = enemyStats.OrderBy(e => (double)e.Wins / e.Games).First();
-                stats.HardestEnemy = hardest.EnemyName;
-                stats.HardestEnemyWinRate = (double)hardest.Wins / hardest.Games * 100;
+                var hardest = qualifyingEnemies.OrderBy(e => e.WinRate).First();
+                stats.HardestEnemy = hardest.Name;
+                stats.HardestEnemyWinRate = hardest.WinRate;
                 stats.HardestEnemyGames = hardest.Games;
             }
         }
@@ -237,6 +250,98 @@ public class StatsService(AppDbContext db)
                 Elo = mp.EloAfter
             })
             .ToList();
+
+        // Per-match derived: expected wins, opponent-strength buckets, goal margins, clean sheets,
+        // day-of-week activity.
+        const int StrongerThreshold = 50; // ELO points
+        double expectedWins = 0;
+        int gamesVsStronger = 0, winsVsStronger = 0;
+        int gamesVsWeaker = 0, winsVsWeaker = 0;
+        double winMarginSum = 0; int winMarginCount = 0;
+        double lossMarginSum = 0; int lossMarginCount = 0;
+        int cleanSheetsAsGk = 0;
+        var dowGames = new int[7];
+        var dowWins = new int[7];
+
+        foreach (var mp in matchPlayers)
+        {
+            var opp = mp.Match.MatchPlayers.Where(p => p.TeamNumber != mp.TeamNumber).ToList();
+            if (opp.Count == 0) continue;
+
+            var teammate = mp.Match.MatchPlayers
+                .FirstOrDefault(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId);
+            var teamAvg = teammate != null ? (mp.EloBefore + teammate.EloBefore) / 2.0 : mp.EloBefore;
+            var oppAvg = opp.Average(p => (double)p.EloBefore);
+            var expected = 1.0 / (1.0 + Math.Pow(10, (oppAvg - teamAvg) / 400.0));
+            expectedWins += expected;
+
+            var won = mp.EloChange > 0;
+            if (oppAvg - mp.EloBefore >= StrongerThreshold)
+            {
+                gamesVsStronger++;
+                if (won) winsVsStronger++;
+            }
+            else if (mp.EloBefore - oppAvg >= StrongerThreshold)
+            {
+                gamesVsWeaker++;
+                if (won) winsVsWeaker++;
+            }
+
+            var ownScore = mp.TeamNumber == 1 ? mp.Match.Team1Score : mp.Match.Team2Score;
+            var oppScore = mp.TeamNumber == 1 ? mp.Match.Team2Score : mp.Match.Team1Score;
+            var margin = ownScore - oppScore;
+            if (won) { winMarginSum += margin; winMarginCount++; }
+            else if (mp.EloChange < 0) { lossMarginSum += -margin; lossMarginCount++; }
+
+            if (mp.Position == Constants.Positions.Goalkeeper && oppScore == 0)
+                cleanSheetsAsGk++;
+
+            var dow = (int)mp.Match.PlayedAt.DayOfWeek;
+            dowGames[dow]++;
+            if (won) dowWins[dow]++;
+        }
+
+        stats.ExpectedWins = expectedWins;
+        stats.GamesVsStronger = gamesVsStronger;
+        stats.WinsVsStronger = winsVsStronger;
+        stats.WinRateVsStronger = gamesVsStronger > 0 ? (double)winsVsStronger / gamesVsStronger * 100 : 0;
+        stats.GamesVsWeaker = gamesVsWeaker;
+        stats.WinsVsWeaker = winsVsWeaker;
+        stats.WinRateVsWeaker = gamesVsWeaker > 0 ? (double)winsVsWeaker / gamesVsWeaker * 100 : 0;
+        stats.AvgWinMargin = winMarginCount > 0 ? winMarginSum / winMarginCount : 0;
+        stats.AvgLossMargin = lossMarginCount > 0 ? lossMarginSum / lossMarginCount : 0;
+        stats.CleanSheetsAsGk = cleanSheetsAsGk;
+        stats.MatchesByDayOfWeek = Enumerable.Range(0, 7)
+            .Select(d => new DayOfWeekStat((DayOfWeek)d, dowGames[d], dowWins[d]))
+            .ToList();
+
+        // Matches per month (last 12 months, oldest first)
+        var nowUtc = DateTimeOffset.UtcNow;
+        var months = new List<ActivityMonth>(12);
+        for (int i = 11; i >= 0; i--)
+        {
+            var d = nowUtc.AddMonths(-i);
+            var games = matchPlayers.Count(mp =>
+                mp.Match.PlayedAt.Year == d.Year && mp.Match.PlayedAt.Month == d.Month);
+            months.Add(new ActivityMonth(d.Year, d.Month, games));
+        }
+        stats.MatchesByMonth = months;
+
+        // Milestones
+        stats.FirstMatchDate = matchPlayers.FirstOrDefault()?.Match.PlayedAt;
+        if (matchPlayers.Count > 0)
+        {
+            var biggestGain = matchPlayers.OrderByDescending(mp => mp.EloChange).First();
+            stats.BiggestEloGain = biggestGain.EloChange;
+            stats.BiggestEloGainDate = biggestGain.Match.PlayedAt;
+
+            var biggestLoss = matchPlayers.OrderBy(mp => mp.EloChange).First();
+            stats.BiggestEloLoss = biggestLoss.EloChange;
+            stats.BiggestEloLossDate = biggestLoss.Match.PlayedAt;
+
+            var peak = matchPlayers.OrderByDescending(mp => mp.EloAfter).First();
+            stats.PeakEloDate = peak.Match.PlayedAt;
+        }
 
         return stats;
     }
@@ -572,6 +677,61 @@ public class PlayerStats
     public int UnderTableCount { get; set; }
     public int TableSenderCount { get; set; }
     public List<EloHistoryPoint> EloHistory { get; set; } = [];
+
+    // ELO expectation vs. reality
+    public double ExpectedWins { get; set; }
+    public double WinsVsExpected => Wins - ExpectedWins;
+
+    // Goal margins
+    public double AvgWinMargin { get; set; }
+    public double AvgLossMargin { get; set; }
+
+    // Performance bucketed by opponent strength (avg opp ELO vs own pre-match ELO)
+    public int GamesVsStronger { get; set; }
+    public int WinsVsStronger { get; set; }
+    public double WinRateVsStronger { get; set; }
+    public int GamesVsWeaker { get; set; }
+    public int WinsVsWeaker { get; set; }
+    public double WinRateVsWeaker { get; set; }
+
+    // Clean sheets (matches as GK with 0 conceded)
+    public int CleanSheetsAsGk { get; set; }
+
+    // Full relationship lists
+    public List<RelationshipStat> Partners { get; set; } = [];
+    public List<RelationshipStat> Enemies { get; set; } = [];
+
+    // Milestones
+    public DateTimeOffset? FirstMatchDate { get; set; }
+    public DateTimeOffset? PeakEloDate { get; set; }
+    public int BiggestEloGain { get; set; }
+    public DateTimeOffset? BiggestEloGainDate { get; set; }
+    public int BiggestEloLoss { get; set; }
+    public DateTimeOffset? BiggestEloLossDate { get; set; }
+
+    // Activity
+    public List<ActivityMonth> MatchesByMonth { get; set; } = [];
+    public List<DayOfWeekStat> MatchesByDayOfWeek { get; set; } = [];
+}
+
+public sealed record ActivityMonth(int Year, int Month, int Games);
+
+public sealed record DayOfWeekStat(DayOfWeek Day, int Games, int Wins)
+{
+    public double WinRate => Games > 0 ? (double)Wins / Games * 100 : 0;
+    public int Losses => Games - Wins;
+}
+
+public class RelationshipStat
+{
+    public int PlayerId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int AvatarId { get; set; }
+    public int Games { get; set; }
+    public int Wins { get; set; }
+    public double WinRate { get; set; }
+    public double AvgEloChange { get; set; }
+    public int Losses => Games - Wins;
 }
 
 public class EloHistoryPoint

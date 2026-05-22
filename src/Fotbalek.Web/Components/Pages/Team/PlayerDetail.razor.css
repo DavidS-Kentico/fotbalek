@@ -1,0 +1,254 @@
+/* ---------- Hero ---------- */
+.player-hero h2 {
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+
+.kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem 1.25rem;
+    padding-top: 0.9rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.kpi {
+    min-width: 0;
+}
+
+.kpi-value {
+    font-size: 1.65rem;
+    font-weight: 600;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpi-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin-top: 0.15rem;
+}
+
+.kpi-form .form-pills {
+    display: flex;
+    gap: 0.2rem;
+    flex-wrap: wrap;
+}
+
+.form-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.35rem;
+    border-radius: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.form-pill-w { background-color: #198754; }
+.form-pill-l { background-color: #dc3545; }
+
+/* ---------- Tabs ---------- */
+.player-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.player-tabs::-webkit-scrollbar {
+    height: 0;
+}
+
+.player-tabs .nav-item {
+    flex-shrink: 0;
+}
+
+.player-tabs .nav-link {
+    color: #495057;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 0.6rem 1rem;
+    background: none;
+    white-space: nowrap;
+}
+
+.player-tabs .nav-link:hover {
+    color: #198754;
+    border-bottom-color: rgba(25, 135, 84, 0.3);
+}
+
+.player-tabs .nav-link.active {
+    color: #198754;
+    border-bottom-color: #198754;
+    background: none;
+    font-weight: 600;
+}
+
+/* ---------- Stat cards (Overview / Quirks) ---------- */
+.stat-card .stat-card-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    margin-bottom: 0.35rem;
+}
+
+.stat-card .stat-card-value {
+    font-size: 1.55rem;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.stat-card .stat-card-sub {
+    font-size: 0.78rem;
+    color: #6c757d;
+    margin-top: 0.35rem;
+}
+
+/* ---------- Relationships table ---------- */
+.relationship-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.wr-bar {
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 60px;
+}
+
+.wr-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.wr-bar-fill-win { background-color: #198754; }
+.wr-bar-fill-loss { background-color: #dc3545; }
+
+/* ---------- Activity tab ---------- */
+.activity-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 160px;
+}
+
+.activity-bars .bar {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.activity-bars .bar-count {
+    font-size: 0.7rem;
+    color: #6c757d;
+    min-height: 1em;
+    line-height: 1;
+}
+
+.activity-bars .bar-track {
+    width: 100%;
+    flex: 1;
+    background: #f1f3f5;
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.activity-bars .bar-fill {
+    width: 100%;
+    background: #198754;
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    transition: height 0.2s ease;
+}
+
+.activity-bars .bar-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-align: center;
+    line-height: 1;
+}
+
+.dow-table th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.dow-table td {
+    font-size: 0.88rem;
+}
+
+/* ---------- Badges ---------- */
+.badge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.badge-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+}
+
+.badge-card .badge-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 2.25rem;
+    text-align: center;
+}
+
+.badge-card .badge-icon-pill {
+    flex-shrink: 0;
+    font-size: 1rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.badge-card .badge-name {
+    font-weight: 600;
+    font-size: 0.92rem;
+    line-height: 1.2;
+}
+
+.badge-card .badge-desc {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 2px;
+    line-height: 1.25;
+}
+
+.text-purple { color: #8b5cf6; }
