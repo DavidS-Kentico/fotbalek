@@ -66,7 +66,7 @@ public static class Constants
     public static class Pagination
     {
         public const int DefaultPageSize = 20;
-        public const int DashboardRecentMatches = 7;
+        public const int DashboardRecentMatches = 8;
         public const int DashboardTopPlayers = 10;
         public const int PlayerDetailRecentMatches = 6;
     }
