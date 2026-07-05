@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class LandingStatsService(AppDbContext db)
+public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
 {
     private const int TopTeamsLimit = 5;
     private const int RecentMatchesLimit = 10;
@@ -11,6 +11,7 @@ public class LandingStatsService(AppDbContext db)
 
     public async Task<LandingStats> GetAsync()
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var now = DateTimeOffset.UtcNow;
         var weekAgo = now.AddDays(-Constants.TimeThresholds.RecentActivityDays);
         var windowStart = now.Date.AddDays(-(ActivityWindowDays - 1));

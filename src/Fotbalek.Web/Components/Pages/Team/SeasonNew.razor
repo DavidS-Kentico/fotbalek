@@ -1,0 +1,237 @@
+@page "/{TeamCode}/seasons/new"
+@layout TeamLayout
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
+@inject SeasonService SeasonService
+@inject CurrentUserService CurrentUser
+@inject TimeZoneService Tz
+@inject NavigationManager Navigation
+@using System.Globalization
+
+<PageTitle>New Season - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (!_isAdmin)
+{
+    <div class="container py-4">
+        <AlertMessage Message="Only the team admin can create seasons." Variant="warning" Icon="bi bi-exclamation-triangle" />
+        <a href="/@TeamCode/seasons" class="btn btn-outline-secondary">Back to Seasons</a>
+    </div>
+}
+else
+{
+    <div class="container py-4" style="max-width: 860px;">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="/@TeamCode/seasons">Seasons</a></li>
+                <li class="breadcrumb-item active">New season</li>
+            </ol>
+        </nav>
+
+        <h2 class="mb-4"><i class="bi bi-plus-circle me-2"></i>Start a New Season</h2>
+
+        <AlertMessage Message="@_error" Variant="danger" Dismissible="true" OnDismiss="() => _error = null" />
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" for="seasonName">Name</label>
+                    <input id="seasonName" class="form-control" maxlength="100" placeholder="e.g. Season 1, Spring 2026" @bind="_name" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="seasonDescription">Description <span class="text-muted">(optional)</span></label>
+                    <textarea id="seasonDescription" class="form-control" rows="2" maxlength="500"
+                              placeholder="Shown on the dashboard header and season detail" @bind="_description"></textarea>
+                </div>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="seasonStart">Starts at</label>
+                        <input id="seasonStart" type="datetime-local" class="form-control"
+                               value="@_start.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnStartChanged" />
+                        <small class="text-muted">
+                            Local time; defaults to midnight — set a time for a mid-day start. May lie in the past
+                            (to backfill old matches) or in the future (scheduled season).
+                        </small>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="seasonEnd">Ends at <span class="text-muted">(optional — empty = open-ended)</span></label>
+                        <input id="seasonEnd" type="datetime-local" class="form-control"
+                               value="@(_end?.ToString("yyyy-MM-ddTHH:mm"))" @onchange="OnEndChanged" />
+                        <small class="text-muted">
+                            Local time, exclusive — matches played at or after this moment are no longer
+                            part of the season.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h6 class="mb-0"><i class="bi bi-box-arrow-in-down me-2"></i>Import existing off-season matches</h6>
+                @if (_importCandidates.Count > 0)
+                {
+                    <div class="d-flex gap-2 align-items-center small">
+                        <span class="text-muted">@_selectedImportIds.Count / @_importCandidates.Count selected</span>
+                        <button type="button" class="btn btn-sm btn-outline-success" @onclick="SelectAllImports">Select all</button>
+                        @if (_selectedImportIds.Count > 0)
+                        {
+                            <button type="button" class="btn btn-sm btn-link text-muted p-0" @onclick="() => _selectedImportIds.Clear()">Clear</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">
+                    Unassigned matches played within the season period can be pulled into the season. They are replayed in
+                    chronological order to build the seasonal ladder — all-time ELO is untouched. Import is only available
+                    here, during creation: a match recorded off-season while a season is active can never join it later.
+                </p>
+                @if (_importCandidates.Count == 0)
+                {
+                    <div class="text-muted small fst-italic">No unassigned matches fall within the selected period.</div>
+                }
+                else
+                {
+                    <div class="list-group" style="max-height: 320px; overflow-y: auto;">
+                        @foreach (var match in _importCandidates)
+                        {
+                            var team1 = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).OrderBy(mp => mp.Position).ToList();
+                            var team2 = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).OrderBy(mp => mp.Position).ToList();
+                            var isSelected = _selectedImportIds.Contains(match.Id);
+                            <label class="list-group-item d-flex align-items-center gap-3 small">
+                                <input class="form-check-input flex-shrink-0 m-0" type="checkbox"
+                                       checked="@isSelected" @onchange="() => ToggleImport(match.Id)" />
+                                <span class="text-muted" style="min-width: 7.5rem;">@Tz.ToLocalTime(match.PlayedAt).ToString("MMM d, HH:mm")</span>
+                                <span class="text-truncate">
+                                    @string.Join(" & ", team1.Select(mp => mp.Player.Name))
+                                    <strong class="mx-1">@match.Team1Score : @match.Team2Score</strong>
+                                    @string.Join(" & ", team2.Select(mp => mp.Player.Name))
+                                </span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <SpinnerButton Variant="success" CssClass="px-4" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
+                Create season
+            </SpinnerButton>
+            <a href="/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private bool _isAdmin;
+    private bool _saving;
+    private string? _error;
+
+    private string _name = string.Empty;
+    private string? _description;
+    private DateTime _start;
+    private DateTime? _end;
+
+    private List<Match> _importCandidates = [];
+    private readonly HashSet<int> _selectedImportIds = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Tz.EnsureResolvedAsync();
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
+        {
+            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _start = Tz.Today.ToDateTime(TimeOnly.MinValue);
+            await RefreshImportCandidatesAsync();
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task OnStartChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) _start = d;
+        await RefreshImportCandidatesAsync();
+    }
+
+    private async Task OnEndChanged(ChangeEventArgs e)
+    {
+        _end = DateTime.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+        await RefreshImportCandidatesAsync();
+    }
+
+    private async Task RefreshImportCandidatesAsync()
+    {
+        if (_team == null || !_isAdmin) return;
+        var startsAt = Tz.LocalDateTimeToInstant(_start);
+        var endsAt = _end is { } end ? Tz.LocalDateTimeToInstant(end) : (DateTimeOffset?)null;
+        _importCandidates = await SeasonService.GetImportCandidatesAsync(_team.Id, startsAt, endsAt);
+
+        // Drop selections that fell out of the period.
+        var candidateIds = _importCandidates.Select(m => m.Id).ToHashSet();
+        _selectedImportIds.RemoveWhere(id => !candidateIds.Contains(id));
+        StateHasChanged();
+    }
+
+    private void ToggleImport(int matchId)
+    {
+        if (!_selectedImportIds.Remove(matchId)) _selectedImportIds.Add(matchId);
+    }
+
+    private void SelectAllImports()
+    {
+        foreach (var match in _importCandidates) _selectedImportIds.Add(match.Id);
+    }
+
+    private async Task CreateSeason()
+    {
+        if (_team == null) return;
+        _saving = true;
+        _error = null;
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) { _error = "Not signed in."; return; }
+
+            var startsAt = Tz.LocalDateTimeToInstant(_start);
+            var endsAt = _end is { } end ? Tz.LocalDateTimeToInstant(end) : (DateTimeOffset?)null;
+
+            var season = await SeasonService.CreateAsync(
+                _team.Id, userId.Value, _name, _description, startsAt, endsAt,
+                _selectedImportIds.Count > 0 ? _selectedImportIds.ToList() : null);
+
+            Navigation.NavigateTo($"/{TeamCode}/seasons/{season.Id}");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            _error = ex.Message;
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            // A selected match changed concurrently (e.g. deleted) — the transaction rolled back harmlessly.
+            _error = "A selected match changed while creating the season. Please review the import list and retry.";
+            await RefreshImportCandidatesAsync();
+        }
+        catch
+        {
+            _error = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

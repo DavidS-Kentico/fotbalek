@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject TeamAccessService TeamAccess
 @inject MatchService MatchService
+@inject SeasonService SeasonService
 @inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -30,9 +31,11 @@ else if (_match != null)
     var winners = (team1Won ? team1Players : team2Players);
     var losers  = (team1Won ? team2Players : team1Players);
 
-    // Pre-match prediction based on EloBefore averages (team ELO = avg of the two players).
-    var team1AvgBefore = (int)Math.Round(team1Players.Average(p => (double)p.EloBefore));
-    var team2AvgBefore = (int)Math.Round(team2Players.Average(p => (double)p.EloBefore));
+    // Pre-match prediction based on the match's own ladder (team ELO = avg of the two players):
+    // seasonal EloBefore for seasonal matches, all-time otherwise.
+    var isSeasonal = _match.SeasonId != null;
+    var team1AvgBefore = (int)Math.Round(team1Players.Average(p => (double)(isSeasonal ? p.SeasonEloBefore ?? 0 : p.EloBefore)));
+    var team2AvgBefore = (int)Math.Round(team2Players.Average(p => (double)(isSeasonal ? p.SeasonEloBefore ?? 0 : p.EloBefore)));
     var team1WinProb = 1.0 / (1.0 + Math.Pow(10, (team2AvgBefore - team1AvgBefore) / 400.0));
     var team2WinProb = 1.0 - team1WinProb;
     var team1Pct = (int)Math.Round(team1WinProb * 100);
@@ -92,6 +95,16 @@ else if (_match != null)
                     <span class="match-date" data-utc="@_match.PlayedAt.ToString("o")">@_match.PlayedAt.ToString("f")</span>
                 </h5>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                    @if (isSeasonal)
+                    {
+                        <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match — numbers below show the seasonal ladder">
+                            <i class="bi bi-award me-1"></i>@(_match.Season?.Name ?? "Season")
+                        </span>
+                    }
+                    else if (_hasAnySeason)
+                    {
+                        <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
+                    }
                     <span class="badge bg-secondary">Margin @margin</span>
                     @if (marginLabel != null)
                     {
@@ -118,10 +131,10 @@ else if (_match != null)
 
                 <div class="row">
                     <div class="col-md-6">
-                        <MatchTeamPanel Title="Team 1" Players="team1Players" TeamCode="@TeamCode" IsWinner="team1Won" HeaderVariant="warning" />
+                        <MatchTeamPanel Title="Team 1" Players="team1Players" TeamCode="@TeamCode" IsWinner="team1Won" HeaderVariant="warning" IsSeasonal="isSeasonal" />
                     </div>
                     <div class="col-md-6">
-                        <MatchTeamPanel Title="Team 2" Players="team2Players" TeamCode="@TeamCode" IsWinner="!team1Won" HeaderVariant="primary" />
+                        <MatchTeamPanel Title="Team 2" Players="team2Players" TeamCode="@TeamCode" IsWinner="!team1Won" HeaderVariant="primary" IsSeasonal="isSeasonal" />
                     </div>
                 </div>
 
@@ -230,6 +243,7 @@ else
     private int? _olderId;
     private int _loadedMatchId = -1;
     private bool _firstRenderDone;
+    private bool _hasAnySeason;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -262,6 +276,7 @@ else
 
         if (_team != null)
         {
+            _hasAnySeason = await SeasonService.HasAnySeasonAsync(_team.Id);
             var match = await MatchService.GetByIdAsync(MatchId);
             if (match != null && match.TeamId == _team.Id)
             {

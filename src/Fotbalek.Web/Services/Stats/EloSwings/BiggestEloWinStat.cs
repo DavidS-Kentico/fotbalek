@@ -15,7 +15,7 @@ public class BiggestEloWinStat : StatBase
         var teams = context.Matches
             .SelectMany(m => m.MatchPlayers)
             .GroupBy(mp => new { mp.MatchId, mp.TeamNumber })
-            .Select(g => new { Change = g.First().EloChange, Players = g.Select(mp => mp.PlayerId).ToList() })
+            .Select(g => new { Change = context.EloChangeOf(g.First()), Players = g.Select(mp => mp.PlayerId).ToList() })
             .ToList();
 
         if (teams.Count == 0) return [];

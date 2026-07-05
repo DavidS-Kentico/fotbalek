@@ -11,7 +11,8 @@ namespace Fotbalek.Web.Services;
 public class TeamAccessService(
     NavigationManager navigation,
     CurrentUserService currentUser,
-    AppDbContext db)
+    SeasonService seasonService,
+    IDbContextFactory<AppDbContext> dbFactory)
 {
     private Team? _cachedTeam;
     private string? _cachedCode;
@@ -32,17 +33,26 @@ public class TeamAccessService(
             string.Equals(_cachedCode, code, StringComparison.OrdinalIgnoreCase) &&
             _cachedUserId == userId)
         {
+            // The lazy-close check must run before the cache fast-path — a check placed after it
+            // would fire at most once per (potentially hours-long) Blazor circuit.
+            await seasonService.CloseDueSeasonsAsync(_cachedTeam.Id);
             return _cachedTeam;
         }
 
         var lower = code.ToLowerInvariant();
+        await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.CodeName == lower);
         if (team == null) return null;
 
         var isMember = await db.TeamMemberships
             .AnyAsync(m => m.TeamId == team.Id && m.UserId == userId);
         if (!isMember) return null;
+
+        // Lazy close: seasons past their end date are closed by the first page load — a system
+        // action triggered by any member, not an admin action.
+        await seasonService.CloseDueSeasonsAsync(team.Id);
 
         _cachedTeam = team;
         _cachedCode = code;

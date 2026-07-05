@@ -7,6 +7,7 @@
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject MatchService MatchService
+@inject SeasonService SeasonService
 @inject CurrentUserService CurrentUser
 @inject IJSRuntime JS
 @inject NavigationManager Nav
@@ -20,13 +21,19 @@
 else if (_player != null && _stats != null)
 {
     <div class="container py-4">
-        <nav aria-label="breadcrumb" class="mb-3">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="/@TeamCode/players">Players</a></li>
-                <li class="breadcrumb-item active" aria-current="page">@_player.Name</li>
-            </ol>
-        </nav>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/@TeamCode/players">Players</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@_player.Name</li>
+                </ol>
+            </nav>
+            @if (_seasons.Count > 0)
+            {
+                <SeasonSelector Seasons="_seasons" @bind-Value="_selectedSeasonId" OnChangedCallback="OnScopeChanged" />
+            }
+        </div>
 
         @* ---------------- HERO ---------------- *@
         <div class="card player-hero mb-4 @(_isMyPlayer ? "border-success" : "")">
@@ -62,7 +69,7 @@ else if (_player != null && _stats != null)
                     <div class="kpi">
                         <div class="kpi-value text-success">@_stats.CurrentElo</div>
                         <div class="kpi-label">
-                            ELO
+                            @(_selectedSeason != null ? "Season ELO" : "ELO")
                             @if (_rank > 0)
                             {
                                 <span class="text-muted">· #@_rank of @_totalRanked</span>
@@ -111,6 +118,29 @@ else if (_player != null && _stats != null)
                 </div>
             </div>
         </div>
+
+        @* ---------------- TROPHY CASE ---------------- *@
+        @if (_trophies.Count > 0)
+        {
+            @* Permanent achievements from closed seasons — deliberately separate from computed
+               badges and not scoped by the season selector. *@
+            <div class="card mb-4">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>Trophy case <span class="text-muted small fw-normal">permanent season awards</span></h6>
+                </div>
+                <div class="card-body py-2 d-flex flex-wrap gap-2">
+                    @foreach (var award in _trophies)
+                    {
+                        <span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-2 px-2" title="@AwardTooltip(award)">
+                            <span>@(award.Rank switch { 1 => "🥇", 2 => "🥈", _ => "🥉" })</span>
+                            <i class="@CategoryIcon(award.Category)"></i>
+                            <span>@AwardLabel(award)</span>
+                            <span class="text-muted">· @award.Season.Name</span>
+                        </span>
+                    }
+                </div>
+            </div>
+        }
 
         @* ---------------- TABS ---------------- *@
         <ul class="nav nav-tabs player-tabs mb-4" role="tablist">
@@ -581,7 +611,8 @@ else if (_player != null && _stats != null)
                     <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent matches</h6>
                     @if (_totalMatchCount > Constants.Pagination.PlayerDetailRecentMatches)
                     {
-                        <a href="/@TeamCode/matches?player=@PlayerId" class="small">View all (@_totalMatchCount)</a>
+                        @* Carry the selected scope into Match History ("all" = explicit all-matches view). *@
+                        <a href="/@TeamCode/matches?player=@PlayerId&season=@(_selectedSeason?.Id.ToString() ?? "all")" class="small">View all (@_totalMatchCount)</a>
                     }
                 </div>
                 <div class="card-body">
@@ -594,6 +625,7 @@ else if (_player != null && _stats != null)
                             {
                                 var playerTeamWon = (playerMatch.TeamNumber == 1 && match.Team1Score > match.Team2Score) ||
                                                    (playerMatch.TeamNumber == 2 && match.Team2Score > match.Team1Score);
+                                var eloDelta = _selectedSeason != null ? playerMatch.SeasonEloChange ?? 0 : playerMatch.EloChange;
                                 <div class="match-history-item mb-2 p-2 rounded @(playerTeamWon ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
                                     <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
                                     <div class="d-flex justify-content-between align-items-center small px-2">
@@ -602,7 +634,7 @@ else if (_player != null && _stats != null)
                                             <span class="match-date" data-utc="@match.PlayedAt.ToString("o")">@match.PlayedAt.ToString("MMM dd, yyyy")</span>
                                         </span>
                                         <span class="@(playerTeamWon ? "text-success" : "text-danger") fw-bold">
-                                            @(playerMatch.EloChange > 0 ? $"+{playerMatch.EloChange}" : playerMatch.EloChange.ToString()) ELO
+                                            @(eloDelta > 0 ? $"+{eloDelta}" : eloDelta.ToString()) ELO
                                         </span>
                                     </div>
                                 </div>
@@ -796,6 +828,11 @@ else
     private List<Match> _recentMatches = [];
     private int _totalMatchCount;
     private bool _loading = true;
+    private List<Season> _seasons = [];
+    private int? _selectedSeasonId;
+    private Season? _selectedSeason;
+    private bool _scopeInitialized;
+    private List<SeasonAward> _trophies = [];
     private int _lastLoadedPlayerId;
     private bool _isMyPlayer;
     private bool _canEdit;
@@ -879,18 +916,52 @@ else
             _player = await PlayerService.GetByIdWithTeamAsync(PlayerId);
             if (_player != null && _player.TeamId == _team.Id)
             {
-                _stats = await StatsService.GetPlayerStatsAsync(PlayerId);
-                _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches);
-                _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId);
+                _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                if (!_scopeInitialized)
+                {
+                    // Default = the current season; all-time when none is active (idle default).
+                    _selectedSeasonId = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow))?.Id;
+                    _scopeInitialized = true;
+                }
+                _selectedSeason = _selectedSeasonId is int sid ? _seasons.FirstOrDefault(s => s.Id == sid) : null;
 
-                var rankings = await StatsService.GetRankingsAsync(_team.Id);
-                var mine = rankings.FirstOrDefault(r => r.PlayerId == PlayerId);
-                _rank = mine?.Rank ?? 0;
-                _totalRanked = rankings.Count;
+                // Everything below follows the selector: (match subset, ladder).
+                _stats = await StatsService.GetPlayerStatsAsync(PlayerId, _selectedSeason?.Id);
+                _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches, _selectedSeason?.Id);
+                _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId, _selectedSeason?.Id);
 
-                // Badges: pull from the team-wide stats engine so they mirror what shows on
-                // Players, Rankings and Dashboard pages.
-                var teamStats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                // Trophies are permanent — never scoped by the selector.
+                _trophies = await SeasonService.GetAwardsForPlayerAsync(PlayerId);
+
+                // Rank chip follows the selector: live seasonal rank for the active season,
+                // frozen FinalRank for closed seasons, all-time rank otherwise.
+                if (_selectedSeason != null)
+                {
+                    var standings = await StatsService.GetSeasonStandingsAsync(_selectedSeason);
+                    var mine = standings.FirstOrDefault(r => r.PlayerId == PlayerId);
+                    _rank = mine?.Rank ?? 0;
+                    _totalRanked = standings.Count;
+                }
+                else
+                {
+                    var rankings = await StatsService.GetRankingsAsync(_team.Id);
+                    var mine = rankings.FirstOrDefault(r => r.PlayerId == PlayerId);
+                    _rank = mine?.Rank ?? 0;
+                    _totalRanked = rankings.Count;
+                }
+
+                // Badges: pull from the stats engine in the selected scope so they mirror what
+                // shows on Players, Rankings and Dashboard pages.
+                List<StatResult> teamStats;
+                if (_selectedSeason != null)
+                {
+                    var (players, matches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _selectedSeason.Id);
+                    teamStats = StatsEngine.ComputeSeason(players, seasonPlayers, matches, isFullScope: true);
+                }
+                else
+                {
+                    teamStats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                }
                 _playerBadges = teamStats
                     .Where(r => r.Badge != null)
                     .Select(r => new
@@ -928,6 +999,33 @@ else
         _loading = false;
         _needsChartRender = _tab == "overview" && _stats?.EloHistory.Count > 1;
         StateHasChanged();
+    }
+
+    private async Task OnScopeChanged()
+    {
+        await LoadPlayerDataAsync();
+    }
+
+    private static string CategoryIcon(string category) => category switch
+    {
+        Constants.Seasons.AwardCategories.Player => "bi bi-star-fill text-warning",
+        Constants.Seasons.AwardCategories.Goalkeeper => "bi bi-shield-fill text-secondary",
+        Constants.Seasons.AwardCategories.Attacker => "bi bi-bullseye text-danger",
+        _ => "bi bi-people-fill text-primary"
+    };
+
+    private static string AwardLabel(SeasonAward award) => award.Category switch
+    {
+        Constants.Seasons.AwardCategories.Player => "Player",
+        Constants.Seasons.AwardCategories.Goalkeeper => "Goalkeeper",
+        Constants.Seasons.AwardCategories.Attacker => "Attacker",
+        _ => $"Pair with {award.PartnerPlayer?.Name ?? "?"}"
+    };
+
+    private static string AwardTooltip(SeasonAward award)
+    {
+        var place = award.Rank switch { 1 => "Gold", 2 => "Silver", _ => "Bronze" };
+        return $"{place} — {AwardLabel(award)} ({award.Season.Name})";
     }
 
     private void SwitchTab(string tab)

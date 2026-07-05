@@ -21,8 +21,8 @@ public class ChokeArtistStat : StatBase
         foreach (var match in context.Matches)
         {
             if (!match.TryGetTeams(out var winners, out var losers)) continue;
-            var winnersElo = winners.Sum(mp => mp.EloBefore);
-            var losersElo = losers.Sum(mp => mp.EloBefore);
+            var winnersElo = winners.Sum(context.EloBeforeOf);
+            var losersElo = losers.Sum(context.EloBeforeOf);
             if (losersElo - winnersElo < EloGap) continue;
             foreach (var l in losers)
             {

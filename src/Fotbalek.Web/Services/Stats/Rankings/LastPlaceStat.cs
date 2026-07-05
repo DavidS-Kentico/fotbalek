@@ -11,11 +11,12 @@ public class LastPlaceStat : StatBase
     public override string Description => "Player with the lowest current ELO";
     public override StatBadge? Badge => new("bi bi-arrow-down", "bg-dark");
 
-    public override bool Applies(StatContext context) => context.IsAllTime;
+    // "Current ELO of the selected ladder" is well-defined for a full season too.
+    public override bool Applies(StatContext context) => context.IsFullScope;
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
-        var bottom = context.ActivePlayers.MinBy(p => p.Elo);
-        return bottom is null ? [] : [bottom.ToHolder(bottom.Elo, $"{bottom.Elo} ELO")];
+        var bottom = context.ActivePlayers.MinBy(context.CurrentEloOf);
+        return bottom is null ? [] : [bottom.ToHolder(context.CurrentEloOf(bottom), $"{context.CurrentEloOf(bottom)} ELO")];
     }
 }

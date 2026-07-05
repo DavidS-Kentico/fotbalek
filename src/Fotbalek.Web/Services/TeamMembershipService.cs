@@ -4,15 +4,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class TeamMembershipService(AppDbContext db)
+public class TeamMembershipService(IDbContextFactory<AppDbContext> dbFactory)
 {
     public async Task<bool> IsMemberAsync(int userId, int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.TeamMemberships.AnyAsync(m => m.UserId == userId && m.TeamId == teamId);
     }
 
     public async Task<TeamMembership> JoinAsync(int userId, int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var existing = await db.TeamMemberships
             .FirstOrDefaultAsync(m => m.UserId == userId && m.TeamId == teamId);
         if (existing != null)
@@ -43,6 +45,7 @@ public class TeamMembershipService(AppDbContext db)
 
     public async Task<List<Team>> GetTeamsForUserAsync(int userId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.TeamMemberships
             .Where(m => m.UserId == userId)
             .Include(m => m.Team)

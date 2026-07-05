@@ -5,8 +5,10 @@
 @inject TeamAccessService TeamAccess
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
+@inject SeasonService SeasonService
 @inject PlayerService PlayerService
 @inject MatchService MatchService
+@inject TimeZoneService Tz
 @inject IJSRuntime JS
 @using Fotbalek.Web.Helpers
 
@@ -19,7 +21,13 @@
 else
 {
     <div class="container py-4">
-        <h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Statistics</h2>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+            <h2 class="mb-0"><i class="bi bi-graph-up me-2"></i>Statistics</h2>
+            @if (_seasons.Count > 0)
+            {
+                <SeasonSelector Seasons="_seasons" @bind-Value="_selectedSeasonId" OnChangedCallback="OnScopeChanged" />
+            }
+        </div>
 
         <div class="card mb-4">
             <div class="card-body py-2">
@@ -28,6 +36,7 @@ else
                                       @bind-CustomStartDate="_customStartDate"
                                       @bind-CustomEndDate="_customEndDate"
                                       LimitCustomRangeToThreeMonths="true"
+                                      Today="Tz.Today"
                                       OnFilterChanged="OnFilterChanged" />
 
                     @if (_selectedPeriod != "all")
@@ -109,8 +118,8 @@ else
 
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <ChartCard CanvasId="eloDistributionChart" Title="ELO Distribution" Icon="bi bi-graph-up-arrow"
-                           HasData="_rankings.Count > 0" />
+                <ChartCard CanvasId="eloDistributionChart" Title="@(IsSeasonScope ? "Seasonal ELO Distribution" : "ELO Distribution")" Icon="bi bi-graph-up-arrow"
+                           HasData="@(IsSeasonScope ? _seasonPlayersById.Count > 0 : _rankings.Count > 0)" />
             </div>
             <div class="col-lg-6 mb-4">
                 <ChartCard CanvasId="winRateChart" Title="Win Rate Distribution" Icon="bi bi-pie-chart"
@@ -170,6 +179,11 @@ else
     private IReadOnlyDictionary<int, Player> _playersById = new Dictionary<int, Player>();
     private List<Match> _allMatches = [];
 
+    private List<Season> _seasons = [];
+    private int? _selectedSeasonId;
+    private Season? _selectedSeason;
+    private IReadOnlyDictionary<int, SeasonPlayer> _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
+
     private string _selectedPeriod = "all";
     private DateOnly? _customStartDate;
     private DateOnly? _customEndDate;
@@ -193,6 +207,7 @@ else
     {
         if (!firstRender) return;
 
+        await Tz.EnsureResolvedAsync();
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
@@ -202,7 +217,12 @@ else
             _playersById = players;
             _allMatches = matches.ToList();
 
-            _customEndDate = DateOnly.FromDateTime(DateTime.Today);
+            _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+            // Default scope = the current season; all-time when none is active (idle default).
+            _selectedSeasonId = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow))?.Id;
+            await ResolveScopeAsync();
+
+            _customEndDate = Tz.Today;
             _customStartDate = _customEndDate.Value.AddMonths(-1);
 
             ApplyFilter();
@@ -213,12 +233,43 @@ else
         await RenderCharts();
     }
 
+    private async Task ResolveScopeAsync()
+    {
+        _selectedSeason = _selectedSeasonId is int id ? _seasons.FirstOrDefault(s => s.Id == id) : null;
+        if (_selectedSeason != null && _team != null)
+        {
+            var (_, _, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _selectedSeason.Id);
+            _seasonPlayersById = seasonPlayers;
+        }
+        else
+        {
+            _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
+        }
+    }
+
+    private async Task OnScopeChanged()
+    {
+        await ResolveScopeAsync();
+        ApplyFilter();
+        StateHasChanged();
+        await RenderCharts();
+    }
+
+    /// <summary>The selected scope's matches — the season's subset, or every match for all-time.</summary>
+    private IEnumerable<Match> ScopeMatches => _selectedSeason is { } season
+        ? _allMatches.Where(m => m.SeasonId == season.Id)
+        : _allMatches;
+
+    private bool IsSeasonScope => _selectedSeason != null;
+
     private void ApplyFilter()
     {
-        _filteredMatches = _allMatches
+        // The time period filter narrows the selected scope (season or all-time) further.
+        _filteredMatches = ScopeMatches
             .Where(m => DateFilterHelper.IsDateInPeriod(
-                DateOnly.FromDateTime(m.PlayedAt.Date),
+                Tz.ToLocalDate(m.PlayedAt),
                 _selectedPeriod,
+                Tz.Today,
                 _customStartDate,
                 _customEndDate))
             .ToList();
@@ -241,7 +292,7 @@ else
                     playerStats[mp.PlayerId] = (mp.Player.Name, mp.Player.AvatarId, 0, 0);
 
                 var current = playerStats[mp.PlayerId];
-                var won = mp.EloChange > 0;
+                var won = IsWinByScore(match, mp.TeamNumber);
                 playerStats[mp.PlayerId] = (current.Name, current.AvatarId, current.Games + 1, current.Wins + (won ? 1 : 0));
             }
         }
@@ -276,12 +327,23 @@ else
         CalculateDayOfWeekStats();
 
         // All themed stats — single call into the registry replaces ~250 lines of inline calculations.
-        _stats = StatsEngine.Compute(_playersById, _filteredMatches, isAllTime: _selectedPeriod == "all");
+        // Season scope uses the ladder-aware context so ELO-based badges show seasonal numbers.
+        _stats = IsSeasonScope
+            ? StatsEngine.ComputeSeason(_playersById, _seasonPlayersById, _filteredMatches, isFullScope: _selectedPeriod == "all")
+            : StatsEngine.Compute(_playersById, _filteredMatches, isAllTime: _selectedPeriod == "all");
 
         _h2hMatrix = BuildMatrix(includeAcrossTeams: true);
         _teammateMatrix = BuildMatrix(includeAcrossTeams: false);
         CalculateEloTrajectory();
     }
+
+    private static bool IsWinByScore(Match match, int teamNumber) =>
+        teamNumber == 1 ? match.Team1Score > match.Team2Score : match.Team2Score > match.Team1Score;
+
+    /// <summary>Current ELO of the selected ladder — orders chart series and the distribution chart.</summary>
+    private int CurrentEloOf(int playerId) => IsSeasonScope
+        ? (_seasonPlayersById.TryGetValue(playerId, out var sp) ? sp.Elo : Constants.Elo.DefaultRating)
+        : _rankings.FirstOrDefault(r => r.PlayerId == playerId)?.Elo ?? 0;
 
     private List<PlayerMatrix.MatrixRow> BuildMatrix(bool includeAcrossTeams)
     {
@@ -318,11 +380,10 @@ else
         }
 
         var rankingByPlayerId = _filteredRankings.ToDictionary(r => r.PlayerId);
-        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
 
         var orderedIds = _filteredRankings
             .Select(r => r.PlayerId)
-            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .OrderByDescending(CurrentEloOf)
             .ToList();
 
         return orderedIds
@@ -357,9 +418,8 @@ else
         _eloTrajectoryLabels = ordered.Select(m => m.PlayedAt.ToString("MMM dd")).ToList();
 
         var participantIds = ordered.SelectMany(m => m.MatchPlayers.Select(mp => mp.PlayerId)).Distinct().ToHashSet();
-        var currentEloByPlayerId = _rankings.ToDictionary(r => r.PlayerId, r => r.Elo);
         var orderedPlayerIds = participantIds
-            .OrderByDescending(id => currentEloByPlayerId.GetValueOrDefault(id, 0))
+            .OrderByDescending(CurrentEloOf)
             .ToList();
 
         var nameByPlayerId = ordered
@@ -374,7 +434,8 @@ else
             for (var j = 0; j < ordered.Count; j++)
             {
                 var mp = ordered[j].MatchPlayers.FirstOrDefault(p => p.PlayerId == pid);
-                data[j] = mp?.EloAfter;
+                // Season scope plots the seasonal ladder trajectory.
+                data[j] = mp == null ? null : IsSeasonScope ? mp.SeasonEloAfter : mp.EloAfter;
             }
             _eloTrajectoryDatasets.Add(new EloTrajectoryDataset
             {
@@ -408,7 +469,7 @@ else
         if (teamPlayers.Count != 2) return;
 
         var key = $"{teamPlayers[0].PlayerId}-{teamPlayers[1].PlayerId}";
-        var won = teamPlayers[0].EloChange > 0;
+        var won = IsWinByScore(match, teamNumber);
 
         if (!pairStats.TryGetValue(key, out var pair))
         {
@@ -438,7 +499,7 @@ else
             {
                 var day = startDate.AddDays(i);
                 _matchesOverTime[day.ToString("MMM dd")] =
-                    _filteredMatches.Count(m => DateOnly.FromDateTime(m.PlayedAt.Date) == day);
+                    _filteredMatches.Count(m => Tz.ToLocalDate(m.PlayedAt) == day);
             }
         }
         else
@@ -452,21 +513,21 @@ else
                 if (weekStart < startDate) weekStart = startDate;
 
                 _matchesOverTime[weekStart.ToString("MMM dd")] = _filteredMatches.Count(m =>
-                    DateOnly.FromDateTime(m.PlayedAt.Date) >= weekStart &&
-                    DateOnly.FromDateTime(m.PlayedAt.Date) <= weekEnd);
+                    Tz.ToLocalDate(m.PlayedAt) >= weekStart &&
+                    Tz.ToLocalDate(m.PlayedAt) <= weekEnd);
             }
         }
     }
 
     private (DateOnly startDate, DateOnly endDate) GetFilterDateRange()
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var range = DateFilterHelper.GetDateRange(_selectedPeriod, _customStartDate, _customEndDate);
+        var today = Tz.Today;
+        var range = DateFilterHelper.GetDateRange(_selectedPeriod, today, _customStartDate, _customEndDate);
 
         if (range.HasValue) return range.Value;
 
         return _allMatches.Count > 0
-            ? (DateOnly.FromDateTime(_allMatches.Min(m => m.PlayedAt.Date)), today)
+            ? (Tz.ToLocalDate(_allMatches.Min(m => m.PlayedAt)), today)
             : (today.AddMonths(-1), today);
     }
 
@@ -475,7 +536,7 @@ else
         _dayOfWeekStats = new int[7];
         foreach (var match in _filteredMatches)
         {
-            _dayOfWeekStats[(int)match.PlayedAt.DayOfWeek]++;
+            _dayOfWeekStats[(int)Tz.ToLocalDate(match.PlayedAt).DayOfWeek]++;
         }
     }
 
@@ -488,7 +549,7 @@ else
 
     private string GetFilterDescription()
     {
-        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
+        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
         return periodDesc != null ? $"{periodDesc} ({_filteredMatchCount} matches)" : $"{_filteredMatchCount} matches";
     }
 
@@ -511,7 +572,22 @@ else
 
     private async Task RenderCharts()
     {
-        if (_rankings.Count > 0)
+        // ELO distribution: seasonal ladder (participants' SeasonPlayer.Elo) in season scope,
+        // all-time Player.Elo otherwise.
+        if (IsSeasonScope)
+        {
+            var participants = _seasonPlayersById.Values
+                .Where(sp => _playersById.TryGetValue(sp.PlayerId, out var p) && p.IsActive)
+                .OrderByDescending(sp => sp.Elo)
+                .ToList();
+            if (participants.Count > 0)
+            {
+                var eloLabels = participants.Select(sp => _playersById[sp.PlayerId].Name).ToArray();
+                var eloData = participants.Select(sp => sp.Elo).ToArray();
+                await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "Seasonal ELO", "#198754");
+            }
+        }
+        else if (_rankings.Count > 0)
         {
             var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
             var eloData = _rankings.Select(r => r.Elo).ToArray();

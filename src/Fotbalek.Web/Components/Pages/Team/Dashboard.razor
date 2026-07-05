@@ -6,7 +6,9 @@
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject MatchService MatchService
+@inject SeasonService SeasonService
 @inject PlayerService PlayerService
+@inject TimeZoneService Tz
 
 <PageTitle>@(_team?.Name ?? "Dashboard") - Foosball Manager</PageTitle>
 
@@ -17,15 +19,80 @@
 else if (_team != null)
 {
     <div class="container py-4">
+        @if (_activeSeason != null)
+        {
+            <div class="card border-success mb-4">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <h4 class="mb-0"><i class="bi bi-award me-2 text-success"></i>@_activeSeason.Name</h4>
+                                <span class="badge bg-success">Live</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_activeSeason.Description))
+                            {
+                                <div class="text-muted small mt-1">@_activeSeason.Description</div>
+                            }
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-calendar-range me-1"></i>@FormatPeriod(_activeSeason)
+                                <span class="mx-1">·</span>
+                                Day @_seasonDay
+                                <span class="mx-1">·</span>
+                                @_seasonMatchCount match@(_seasonMatchCount == 1 ? "" : "es")
+                            </div>
+                        </div>
+                        <a href="/@TeamCode/seasons/@_activeSeason.Id" class="btn btn-sm btn-outline-success">
+                            Season detail
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_latestClosedSeason != null && _nextScheduledSeason == null)
+        {
+            <div class="alert alert-success d-flex flex-wrap align-items-center gap-2 mb-4">
+                <span><strong>@_latestClosedSeason.Name</strong> has ended 🏆</span>
+                <a href="/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">View the final results and awards</a>
+                <span class="text-muted small ms-auto">Content below shows all-time numbers.</span>
+            </div>
+        }
+        else if (_nextScheduledSeason != null)
+        {
+            <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-4">
+                <span>
+                    <strong>@_nextScheduledSeason.Name</strong> starts in @_daysUntilNextSeason day@(_daysUntilNextSeason == 1 ? "" : "s")
+                    (@Tz.FormatLocalDate(_nextScheduledSeason.StartsAt)).
+                </span>
+                @if (_latestClosedSeason != null)
+                {
+                    <a href="/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">Results of @_latestClosedSeason.Name</a>
+                }
+                <span class="text-muted small ms-auto">Until then, matches are off-season; content below shows all-time numbers.</span>
+            </div>
+        }
+        else if (!_hasAnySeason && _isAdmin)
+        {
+            <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-4">
+                <span><i class="bi bi-award me-1"></i>Group your matches into seasons — fresh ELO ladder, champions and permanent awards.</span>
+                <a href="/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
+            </div>
+        }
+
         <div class="row">
             <div class="col-lg-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Rankings</h5>
+                        <h5 class="mb-0">
+                            <i class="bi bi-bar-chart me-2"></i>Rankings
+                            @if (_activeSeason != null)
+                            {
+                                <small class="text-muted fw-normal">(@_activeSeason.Name)</small>
+                            }
+                        </h5>
                         <a href="/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a>
                     </div>
                     <div class="card-body p-0">
-                        @if (_rankings.Count > 0)
+                        @if (_rankingRows.Count > 0)
                         {
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0">
@@ -38,7 +105,7 @@ else if (_team != null)
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var player in _rankings.Take(Constants.Pagination.DashboardTopPlayers))
+                                        @foreach (var player in _rankingRows.Take(Constants.Pagination.DashboardTopPlayers))
                                         {
                                             var isMine = player.PlayerId == MyPlayerId;
                                             <tr class="@(isMine ? "table-success" : "")">
@@ -69,7 +136,7 @@ else if (_team != null)
                         }
                         else
                         {
-                            <EmptyState Icon="bi bi-people" Message="No players yet. Add some players to get started!">
+                            <EmptyState Icon="bi bi-people" Message="@(_activeSeason != null ? "No seasonal matches yet — record the first one!" : "No players yet. Add some players to get started!")">
                                 <a href="/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
                             </EmptyState>
                         }
@@ -93,7 +160,7 @@ else if (_team != null)
                         }
                         else
                         {
-                            <EmptyState Icon="bi bi-calendar-x" Message="No matches played yet.">
+                            <EmptyState Icon="bi bi-calendar-x" Message="@(_activeSeason != null ? "No matches in this season yet." : "No matches played yet.")">
                                 @if (_playerCount >= 4)
                                 {
                                     <a href="/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
@@ -114,7 +181,7 @@ else if (_team != null)
                 <StatTile Variant="success" Value="@_playerCount.ToString()" Label="Active Players" />
             </div>
             <div class="col-md-3 mb-3">
-                <StatTile Variant="primary" Value="@_matchCount.ToString()" Label="Total Matches" />
+                <StatTile Variant="primary" Value="@_matchCount.ToString()" Label="@(_activeSeason != null ? "Season Matches" : "Total Matches")" />
             </div>
             <div class="col-md-3 mb-3">
                 <StatTile Variant="info" Value="@_matchesThisWeek.ToString()" Label="Matches This Week" />
@@ -131,7 +198,7 @@ else if (_team != null)
 
     private Team? _team;
     private bool _loading = true;
-    private List<PlayerRanking> _rankings = [];
+    private bool _isAdmin;
     private List<Match> _recentMatches = [];
     private List<StatResult> _stats = [];
     private int _playerCount;
@@ -140,23 +207,78 @@ else if (_team != null)
     private double _avgMatchScore;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
+    private bool _hasAnySeason;
+    private Season? _activeSeason;
+    private Season? _latestClosedSeason;
+    private Season? _nextScheduledSeason;
+    private int _daysUntilNextSeason;
+    private int _seasonDay;
+    private int _seasonMatchCount;
+
+    // Unified ranking rows: seasonal standings when a season is active, all-time otherwise.
+    private List<(int Rank, int PlayerId, string PlayerName, int AvatarId, int Elo, double WinRate)> _rankingRows = [];
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            await Tz.EnsureResolvedAsync();
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
-                _rankings = await StatsService.GetRankingsAsync(_team.Id);
-                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, Constants.Pagination.DashboardRecentMatches);
-                _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                _isAdmin = await TeamAccess.IsAdminAsync(_team);
+
+                var seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                var now = DateTimeOffset.UtcNow;
+                _hasAnySeason = seasons.Count > 0;
+                _activeSeason = seasons.FirstOrDefault(s => s.IsActiveAt(now));
+                _latestClosedSeason = seasons.Where(s => s.IsClosed).OrderByDescending(s => s.ClosedAt).FirstOrDefault();
+                _nextScheduledSeason = seasons.Where(s => s.IsScheduledAt(now)).OrderBy(s => s.StartsAt).FirstOrDefault();
+                if (_nextScheduledSeason != null)
+                {
+                    _daysUntilNextSeason = Math.Max(1, (int)Math.Ceiling((_nextScheduledSeason.StartsAt - now).TotalDays));
+                }
+
+                // "Current season" is the default lens; with no active season everything falls back to all-time.
+                var seasonId = _activeSeason?.Id;
+
+                if (_activeSeason != null)
+                {
+                    _seasonDay = Math.Max(1, (int)(now - _activeSeason.StartsAt).TotalDays + 1);
+                    _seasonMatchCount = await SeasonService.GetMatchCountAsync(_activeSeason.Id);
+
+                    var standings = await StatsService.GetSeasonStandingsAsync(_activeSeason);
+                    _rankingRows = standings
+                        .Select(r => (r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.WinRate))
+                        .ToList();
+
+                    var (players, matches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _activeSeason.Id);
+                    _stats = StatsEngine.ComputeSeason(players, seasonPlayers, matches, isFullScope: true);
+                }
+                else
+                {
+                    var rankings = await StatsService.GetRankingsAsync(_team.Id);
+                    _rankingRows = rankings
+                        .Select(r => (r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.WinRate))
+                        .ToList();
+                    _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                }
+
+                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, Constants.Pagination.DashboardRecentMatches, seasonId);
                 _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
-                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id);
-                _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id);
-                _avgMatchScore = await MatchService.GetAverageMatchScoreAsync(_team.Id);
+                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id, seasonId);
+                _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id, seasonId);
+                _avgMatchScore = await MatchService.GetAverageMatchScoreAsync(_team.Id, seasonId);
             }
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private string FormatPeriod(Season season)
+    {
+        var start = Tz.FormatLocalDate(season.StartsAt);
+        var end = season.EndsAt is { } ends ? Tz.FormatLocalDate(ends) : "open-ended";
+        return $"{start} – {end}";
     }
 }

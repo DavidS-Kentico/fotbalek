@@ -6,6 +6,7 @@
 @inject CurrentUserService CurrentUser
 @inject PlayerService PlayerService
 @inject MatchService MatchService
+@inject SeasonService SeasonService
 @inject EloService EloService
 
 <PageTitle>New Match - Foosball Manager</PageTitle>
@@ -43,6 +44,33 @@ else
                         <i class="bi bi-plus me-1"></i> New Match
                     </button>
                 </div>
+            </div>
+        }
+
+        @if (_activeSeason != null)
+        {
+            <div class="card mb-3">
+                <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="seasonalToggle"
+                               checked="@_seasonalToggle" @onchange="OnSeasonalToggleChanged" />
+                        <label class="form-check-label" for="seasonalToggle">
+                            <i class="bi bi-trophy me-1 text-success"></i>Seasonal match
+                            <span class="fw-semibold">(@_activeSeason.Name)</span>
+                        </label>
+                    </div>
+                    <small class="text-muted ms-auto">
+                        @(_seasonalToggle
+                            ? "Counts toward the season ladder — ELO shown below is seasonal."
+                            : "Will be recorded off-season — only all-time ELO is affected.")
+                    </small>
+                </div>
+            </div>
+        }
+        else if (_hasAnySeason)
+        {
+            <div class="alert alert-light border py-2 small mb-3">
+                <i class="bi bi-info-circle me-1"></i>No season is currently active — this match will be recorded <strong>off-season</strong>.
             </div>
         }
 
@@ -156,7 +184,7 @@ else
                     </div>
                 </div>
                 <div class="match-preview-footer">
-                    <i class="bi bi-bar-chart-fill me-1"></i> Win probability based on team ELO
+                    <i class="bi bi-bar-chart-fill me-1"></i> Win probability based on @(UseSeasonalLadder ? "seasonal" : "all-time") team ELO
                 </div>
             </div>
         }
@@ -246,6 +274,15 @@ else
     private bool _showSuccess;
     private string? _successMessage;
 
+    private Season? _activeSeason;
+    private bool _hasAnySeason;
+    private bool _seasonalToggle;
+    private Dictionary<int, int> _seasonEloByPlayer = new();
+
+    // Matchmaking uses the match's ladder: seasonal ELO when the match will be seasonal
+    // (toggle on, the default), all-time ELO for off-season matches.
+    private bool UseSeasonalLadder => _seasonalToggle && _activeSeason != null;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
@@ -254,10 +291,28 @@ else
         if (_team != null)
         {
             _players = await PlayerService.GetByTeamAsync(_team.Id);
+            await LoadSeasonContextAsync();
+            _seasonalToggle = _activeSeason != null; // checked by default when a season is active
             await TryPrefillFromRematchAsync();
         }
         _loading = false;
         StateHasChanged();
+    }
+
+    private async Task LoadSeasonContextAsync()
+    {
+        if (_team == null) return;
+        _hasAnySeason = await SeasonService.HasAnySeasonAsync(_team.Id);
+        _activeSeason = _hasAnySeason ? await SeasonService.GetActiveSeasonAsync(_team.Id) : null;
+        _seasonEloByPlayer = _activeSeason != null
+            ? await SeasonService.GetSeasonEloMapAsync(_activeSeason.Id)
+            : new Dictionary<int, int>();
+    }
+
+    private void OnSeasonalToggleChanged(ChangeEventArgs e)
+    {
+        // Toggling re-evaluates matchmaking numbers — they all read EloOf, which follows the ladder.
+        _seasonalToggle = e.Value is bool b && b;
     }
 
     private async Task TryPrefillFromRematchAsync()
@@ -365,7 +420,11 @@ else
         return winningTeam == 1 ? c1 : c2;
     }
 
-    private int EloOf(int playerId) => _players.First(p => p.Id == playerId).Elo;
+    // The match's own ladder: seasonal ELO (players without a ladder row count as 1000)
+    // when the match will be seasonal, all-time ELO otherwise.
+    private int EloOf(int playerId) => UseSeasonalLadder
+        ? _seasonEloByPlayer.GetValueOrDefault(playerId, Constants.Elo.DefaultRating)
+        : _players.First(p => p.Id == playerId).Elo;
 
     private void OpenBalancePicker()
     {
@@ -393,7 +452,7 @@ else
 
         var picked = _balanceSelectedIds.Select(id => _players.First(p => p.Id == id)).ToList();
 
-        // Three possible 2v2 splits — pick the one minimizing team ELO gap.
+        // Three possible 2v2 splits — pick the one minimizing team ELO gap (on the match's ladder).
         var splits = new (Player a1, Player a2, Player b1, Player b2)[]
         {
             (picked[0], picked[1], picked[2], picked[3]),
@@ -401,7 +460,7 @@ else
             (picked[0], picked[3], picked[1], picked[2]),
         };
 
-        var best = splits.OrderBy(s => Math.Abs((s.a1.Elo + s.a2.Elo) - (s.b1.Elo + s.b2.Elo))).First();
+        var best = splits.OrderBy(s => Math.Abs((EloOf(s.a1.Id) + EloOf(s.a2.Id)) - (EloOf(s.b1.Id) + EloOf(s.b2.Id)))).First();
 
         // Assign positions to minimize per-position imbalance across teams.
         Player bestAtk1 = best.a1, bestGk1 = best.a2, bestAtk2 = best.b1, bestGk2 = best.b2;
@@ -413,7 +472,7 @@ else
             var gk1  = swap1 ? best.a1 : best.a2;
             var atk2 = swap2 ? best.b2 : best.b1;
             var gk2  = swap2 ? best.b1 : best.b2;
-            var score = Math.Abs(atk1.Elo - atk2.Elo) + Math.Abs(gk1.Elo - gk2.Elo);
+            var score = Math.Abs(EloOf(atk1.Id) - EloOf(atk2.Id)) + Math.Abs(EloOf(gk1.Id) - EloOf(gk2.Id));
             if (score < bestScore)
             {
                 bestScore = score;
@@ -497,18 +556,33 @@ else
                 return;
             }
 
-            var match = await MatchService.CreateAsync(
+            var result = await MatchService.CreateAsync(
                 _team.Id,
                 Team1GkId, Team1AtkId,
                 Team2GkId, Team2AtkId,
                 Team1Score, Team2Score,
-                userId.Value);
+                userId.Value,
+                seasonal: UseSeasonalLadder);
 
             _players = await PlayerService.GetByTeamAsync(_team.Id);
+            await LoadSeasonContextAsync();
+            if (_activeSeason == null) _seasonalToggle = false;
 
-            var winner = Team1Score > Team2Score ? "Team 1" : "Team 2";
-            var winningPlayer = match.MatchPlayers.First(mp => mp.EloChange > 0);
-            _successMessage = $"{winner} wins! ELO change: +{winningPlayer.EloChange}";
+            // Winner determined by score; the ELO change shown comes from the match's own ladder
+            // (seasonal by default, per the contextual display rule).
+            var match = result.Match;
+            var winningTeamNumber = match.Team1Score > match.Team2Score ? 1 : 2;
+            var winningPlayer = match.MatchPlayers.First(mp => mp.TeamNumber == winningTeamNumber);
+            var winner = winningTeamNumber == 1 ? "Team 1" : "Team 2";
+            var eloDelta = result.Season != null
+                ? winningPlayer.SeasonEloChange ?? 0
+                : winningPlayer.EloChange;
+            var ladderLabel = result.Season != null ? $"seasonal ELO ({result.Season.Name})" : "ELO";
+            _successMessage = $"{winner} wins! {ladderLabel} change: {(eloDelta >= 0 ? "+" : "")}{eloDelta}";
+            if (result.SeasonalFallback)
+            {
+                _successMessage += " — the season ended in the meantime, so the match was recorded off-season.";
+            }
             _showSuccess = true;
         }
         catch (ArgumentException ex)

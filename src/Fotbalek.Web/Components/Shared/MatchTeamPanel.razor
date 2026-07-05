@@ -1,4 +1,5 @@
-@* Match-detail panel showing one team's roster with ELO changes. *@
+@* Match-detail panel showing one team's roster with ELO changes. Leads with the ladder the match
+   belongs to (seasonal for seasonal matches); the all-time change is secondary in that case. *@
 
 <div class="card @(IsWinner ? "border-success" : "")">
     <div class="card-header bg-@HeaderVariant bg-opacity-25">
@@ -7,6 +8,9 @@
     <div class="card-body">
         @foreach (var mp in Players)
         {
+            var change = IsSeasonal ? mp.SeasonEloChange ?? 0 : mp.EloChange;
+            var before = IsSeasonal ? mp.SeasonEloBefore ?? 0 : mp.EloBefore;
+            var after = IsSeasonal ? mp.SeasonEloAfter ?? 0 : mp.EloAfter;
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex align-items-center gap-2">
                     <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
@@ -18,10 +22,16 @@
                     </div>
                 </div>
                 <div class="text-end">
-                    <span class="badge @(mp.EloChange > 0 ? "bg-success" : "bg-danger")">
-                        @(mp.EloChange > 0 ? "+" : "")@mp.EloChange
+                    <span class="badge @(change >= 0 ? "bg-success" : "bg-danger")" title="@(IsSeasonal ? "Seasonal ELO change" : "ELO change")">
+                        @(change >= 0 ? "+" : "")@change
                     </span>
-                    <small class="text-muted d-block">@mp.EloBefore -> @mp.EloAfter</small>
+                    <small class="text-muted d-block">@before -> @after</small>
+                    @if (IsSeasonal)
+                    {
+                        <small class="text-muted d-block" title="All-time ladder (secondary)">
+                            all-time @(mp.EloChange >= 0 ? "+" : "")@mp.EloChange
+                        </small>
+                    }
                 </div>
             </div>
         }
@@ -34,4 +44,7 @@
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool IsWinner { get; set; }
     [Parameter] public string HeaderVariant { get; set; } = "warning";
+
+    /// <summary>When true the panel leads with the seasonal ladder numbers.</summary>
+    [Parameter] public bool IsSeasonal { get; set; }
 }

@@ -1,0 +1,43 @@
+@* Season scope selector: current season (default when active) / past seasons / all-time. *@
+
+<div class="d-flex align-items-center gap-2">
+    <span class="text-muted small"><i class="bi bi-award me-1"></i>Season:</span>
+    <select class="form-select form-select-sm w-auto" value="@(Value?.ToString() ?? AllTimeValue)" @onchange="OnChanged">
+        @if (ActiveSeason != null)
+        {
+            <option value="@ActiveSeason.Id">@ActiveSeason.Name (current)</option>
+        }
+        @foreach (var season in PastSeasons)
+        {
+            <option value="@season.Id">@season.Name</option>
+        }
+        <option value="@AllTimeValue">All-time</option>
+    </select>
+</div>
+
+@code {
+    private const string AllTimeValue = "all";
+
+    /// <summary>Selected season id; null = all-time.</summary>
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+
+    /// <summary>All seasons of the team (any order); the component picks out current and past ones.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Season> Seasons { get; set; } = [];
+    [Parameter] public EventCallback OnChangedCallback { get; set; }
+
+    private Season? ActiveSeason => Seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow));
+
+    // Closed seasons, newest first. Scheduled seasons carry no data, so they are not selectable.
+    private IEnumerable<Season> PastSeasons => Seasons
+        .Where(s => s.IsClosed)
+        .OrderByDescending(s => s.StartsAt);
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        int? selected = int.TryParse(raw, out var id) ? id : null;
+        await ValueChanged.InvokeAsync(selected);
+        await OnChangedCallback.InvokeAsync();
+    }
+}

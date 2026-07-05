@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class PlayerService(AppDbContext db)
+public class PlayerService(IDbContextFactory<AppDbContext> dbFactory)
 {
     public async Task<List<Player>> GetByTeamAsync(int teamId, bool includeInactive = false)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var query = db.Players.Where(p => p.TeamId == teamId);
         if (!includeInactive)
             query = query.Where(p => p.IsActive);
@@ -16,21 +17,25 @@ public class PlayerService(AppDbContext db)
 
     public async Task<Player?> GetByIdAsync(int id)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Players.FindAsync(id);
     }
 
     public async Task<Player?> GetByIdWithTeamAsync(int id)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Players.Include(p => p.Team).Include(p => p.User).FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<Player?> GetUserPlayerInTeamAsync(int teamId, int userId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Players.FirstOrDefaultAsync(p => p.TeamId == teamId && p.UserId == userId);
     }
 
     public async Task<List<Player>> GetClaimablePlayersAsync(int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Players
             .Where(p => p.TeamId == teamId && p.UserId == null && p.IsActive)
             .OrderBy(p => p.Name)
@@ -39,6 +44,7 @@ public class PlayerService(AppDbContext db)
 
     public async Task<Player> CreateAsync(int teamId, string name, int avatarId, int? userId = null)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var player = new Player
         {
             TeamId = teamId,
@@ -61,14 +67,19 @@ public class PlayerService(AppDbContext db)
     /// </summary>
     public async Task<Player?> CreatePlaceholderAsync(int teamId, int currentUserId, string name, int avatarId)
     {
-        var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
-        if (team == null || team.AdminUserId != currentUserId)
-            return null;
+        await using (var db = await dbFactory.CreateDbContextAsync())
+        {
+            var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
+            if (team == null || team.AdminUserId != currentUserId)
+                return null;
+        }
         return await CreateAsync(teamId, name, avatarId, userId: null);
     }
 
     public async Task<bool> ClaimAsync(int playerId, int teamId, int userId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
+
         // Defense in depth: the caller must already be a member of the team.
         // The UI gates this, but the service must not trust UI-only checks.
         var isMember = await db.TeamMemberships
@@ -79,7 +90,7 @@ public class PlayerService(AppDbContext db)
         var hasPlayer = await db.Players.AnyAsync(p => p.TeamId == teamId && p.UserId == userId);
         if (hasPlayer) return false;
 
-        var player = await GetByIdAsync(playerId);
+        var player = await db.Players.FindAsync(playerId);
         if (player == null || player.TeamId != teamId || player.UserId != null)
             return false;
 
@@ -97,7 +108,9 @@ public class PlayerService(AppDbContext db)
 
     public async Task<bool> UpdateAsync(int playerId, int teamId, int actorUserId, string name, int avatarId)
     {
-        var player = await GetByIdAsync(playerId);
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var player = await db.Players.FindAsync(playerId);
         if (player == null || player.TeamId != teamId)
             return false;
 
@@ -119,6 +132,7 @@ public class PlayerService(AppDbContext db)
 
     public async Task<bool> CanDeactivateAsync(int playerId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var recentActivityThreshold = DateTimeOffset.UtcNow.AddDays(-Constants.TimeThresholds.RecentActivityDays);
         var hasRecentMatches = await db.MatchPlayers
             .AnyAsync(mp => mp.PlayerId == playerId && mp.Match.PlayedAt >= recentActivityThreshold);
@@ -127,7 +141,9 @@ public class PlayerService(AppDbContext db)
 
     public async Task<bool> DeactivateAsync(int playerId, int teamId, int actorUserId)
     {
-        var player = await GetByIdAsync(playerId);
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var player = await db.Players.FindAsync(playerId);
         if (player == null || player.TeamId != teamId)
             return false;
 
@@ -146,7 +162,9 @@ public class PlayerService(AppDbContext db)
 
     public async Task<bool> ReactivateAsync(int playerId, int teamId, int actorUserId)
     {
-        var player = await GetByIdAsync(playerId);
+        await using var db = await dbFactory.CreateDbContextAsync();
+
+        var player = await db.Players.FindAsync(playerId);
         if (player == null || player.TeamId != teamId)
             return false;
 
@@ -162,6 +180,7 @@ public class PlayerService(AppDbContext db)
 
     public async Task<bool> IsNameTakenAsync(int teamId, string name, int? excludePlayerId = null)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var normalizedName = name.ToLowerInvariant();
         var query = db.Players.Where(p => p.TeamId == teamId && p.Name.ToLower() == normalizedName);
         if (excludePlayerId.HasValue)
@@ -171,6 +190,7 @@ public class PlayerService(AppDbContext db)
 
     public async Task<int> GetActiveCountAsync(int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Players.CountAsync(p => p.TeamId == teamId && p.IsActive);
     }
 }

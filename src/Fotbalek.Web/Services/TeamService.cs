@@ -5,16 +5,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class TeamService(AppDbContext db)
+public class TeamService(IDbContextFactory<AppDbContext> dbFactory)
 {
     public async Task<Team?> GetByCodeNameAsync(string codeName)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Teams
             .FirstOrDefaultAsync(t => t.CodeName == codeName.ToLowerInvariant());
     }
 
     public async Task<Team> CreateAsync(string name, string codeName, string password, int adminUserId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var team = new Team
         {
             Name = name,
@@ -40,6 +42,7 @@ public class TeamService(AppDbContext db)
 
     public async Task<bool> IsCodeNameTakenAsync(string codeName)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         return await db.Teams.AnyAsync(t => t.CodeName == codeName.ToLowerInvariant());
     }
 
@@ -49,6 +52,7 @@ public class TeamService(AppDbContext db)
     /// </summary>
     public async Task<bool> TryClaimAdminAsync(int teamId, int userId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var isMember = await db.TeamMemberships
             .AnyAsync(m => m.TeamId == teamId && m.UserId == userId);
         if (!isMember) return false;
@@ -64,6 +68,7 @@ public class TeamService(AppDbContext db)
     /// </summary>
     public async Task<bool> UpdateNameAsync(int teamId, int actorUserId, string newName)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null || team.AdminUserId != actorUserId) return false;
         team.Name = newName;
@@ -76,6 +81,7 @@ public class TeamService(AppDbContext db)
     /// </summary>
     public async Task<bool> UpdatePasswordAsync(int teamId, int actorUserId, string newPassword)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null || team.AdminUserId != actorUserId) return false;
         team.PasswordHash = PasswordHasher.Hash(newPassword);

@@ -4,9 +4,11 @@
 @attribute [Authorize]
 @inject TeamAccessService TeamAccess
 @inject MatchService MatchService
+@inject SeasonService SeasonService
 @inject PlayerService PlayerService
 @inject CurrentUserService CurrentUser
 @inject NavigationManager Navigation
+@inject TimeZoneService Tz
 @using Fotbalek.Web.Helpers
 @using System.Globalization
 
@@ -34,8 +36,27 @@ else
                     <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
                                       @bind-CustomStartDate="_customStartDate"
                                       @bind-CustomEndDate="_customEndDate"
+                                      Today="Tz.Today"
                                       OnFilterChanged="OnFilterChanged" />
                 </div>
+
+                @if (_seasons.Count > 0)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <span class="text-muted small"><i class="bi bi-award me-1"></i>Season:</span>
+                        <select class="form-select form-select-sm w-auto" value="@(_selectedSeasonId?.ToString() ?? "all")" @onchange="OnSeasonFilterChanged">
+                            <option value="all">All matches</option>
+                            @if (_activeSeason != null)
+                            {
+                                <option value="@_activeSeason.Id">This season (@_activeSeason.Name)</option>
+                            }
+                            @foreach (var season in _seasons.Where(s => s.IsClosed))
+                            {
+                                <option value="@season.Id">@season.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
 
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                     @if (MyPlayerId.HasValue)
@@ -115,9 +136,14 @@ else
                     .Select(m => m.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == focus))
                     .Where(mp => mp != null)
                     .ToList();
-                var wins = rows.Count(mp => mp!.EloChange > 0);
-                var losses = rows.Count(mp => mp!.EloChange < 0);
-                var netElo = rows.Sum(mp => mp!.EloChange);
+                // Wins judged by score; the net-ELO chip sums the seasonal change when a season
+                // filter is active, the all-time change otherwise (mixed views: every match has an
+                // all-time change, only seasonal ones have a seasonal one).
+                var wins = rows.Count(mp => IsWinByScore(mp!));
+                var losses = rows.Count - wins;
+                var netElo = _selectedSeasonId != null
+                    ? rows.Sum(mp => mp!.SeasonEloChange ?? 0)
+                    : rows.Sum(mp => mp!.EloChange);
                 var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
                 var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
                 <div class="card border-success mb-3">
@@ -155,7 +181,7 @@ else
 
             @foreach (var match in GetCurrentPageMatches())
             {
-                var groupKey = DateOnly.FromDateTime(match.PlayedAt.LocalDateTime.Date);
+                var groupKey = Tz.ToLocalDate(match.PlayedAt);
                 if (_lastGroup != groupKey)
                 {
                     _lastGroup = groupKey;
@@ -164,7 +190,9 @@ else
                     </div>
                 }
 
-                <MatchCard Match="@match" TeamCode="@TeamCode">
+                <MatchCard Match="@match" TeamCode="@TeamCode"
+                           ShowSeasonChip="@(_seasons.Count > 0)"
+                           SeasonName="@match.Season?.Name">
                     <Actions>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-light border-0" type="button"
@@ -282,6 +310,7 @@ else
     [SupplyParameterFromQuery(Name = "size")]    public int? SizeParam { get; set; }
     [SupplyParameterFromQuery(Name = "start")]   public string? StartParam { get; set; }
     [SupplyParameterFromQuery(Name = "end")]     public string? EndParam { get; set; }
+    [SupplyParameterFromQuery(Name = "season")]  public string? SeasonParam { get; set; }
 
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
@@ -303,6 +332,11 @@ else
     private bool _myMatchesOnly;
     private string? _outcome;
 
+    private List<Season> _seasons = [];
+    private Season? _activeSeason;
+    private int? _selectedSeasonId;
+    private int? _defaultSeasonId;
+
     private Match? _pendingDelete;
     private bool _deleting;
     private string? _deleteError;
@@ -312,7 +346,8 @@ else
         _selectedPeriod != "all"
         || _selectedPlayerIds.Count > 0
         || _myMatchesOnly
-        || _outcome != null;
+        || _outcome != null
+        || _selectedSeasonId != _defaultSeasonId;
 
     private bool _canFilterByOutcome =>
         (_myMatchesOnly && MyPlayerId.HasValue) || _selectedPlayerIds.Count == 1;
@@ -343,6 +378,7 @@ else
     {
         if (firstRender)
         {
+            await Tz.EnsureResolvedAsync();
             _team = await TeamAccess.GetCurrentTeamAsync();
             _isAdmin = await TeamAccess.IsAdminAsync();
             if (_team != null)
@@ -350,7 +386,13 @@ else
                 _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);
                 _players = await PlayerService.GetByTeamAsync(_team.Id);
 
-                _customEndDate = DateOnly.FromDateTime(DateTime.Today);
+                _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                _activeSeason = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow));
+                // "This season" is the default preset when an active season exists.
+                _defaultSeasonId = _activeSeason?.Id;
+                _selectedSeasonId = _defaultSeasonId;
+
+                _customEndDate = Tz.Today;
                 _customStartDate = _customEndDate.Value.AddMonths(-1);
 
                 ApplyFiltersFromUrl();
@@ -397,12 +439,28 @@ else
 
         if (OutcomeParam is "wins" or "losses") _outcome = OutcomeParam;
 
+        if (!string.IsNullOrWhiteSpace(SeasonParam))
+        {
+            if (SeasonParam == "all") _selectedSeasonId = null;
+            else if (int.TryParse(SeasonParam, out var seasonId) && _seasons.Any(s => s.Id == seasonId))
+                _selectedSeasonId = seasonId;
+        }
+
         if (SizeParam is 10 or 25 or 50) _pageSize = SizeParam.Value;
         if (PageParam is > 0) _currentPage = PageParam.Value;
     }
 
     private void OnFilterChanged()
     {
+        _currentPage = 1;
+        ApplyFilter();
+        SyncUrl();
+    }
+
+    private void OnSeasonFilterChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        _selectedSeasonId = int.TryParse(raw, out var id) ? id : null;
         _currentPage = 1;
         ApplyFilter();
         SyncUrl();
@@ -461,6 +519,7 @@ else
         _selectedPlayerIds.Clear();
         _myMatchesOnly = false;
         _outcome = null;
+        _selectedSeasonId = _defaultSeasonId;
         _currentPage = 1;
         ApplyFilter();
         SyncUrl();
@@ -470,9 +529,15 @@ else
     {
         var query = _allMatches.AsEnumerable();
 
+        if (_selectedSeasonId is int seasonId)
+        {
+            query = query.Where(m => m.SeasonId == seasonId);
+        }
+
         query = query.Where(m => DateFilterHelper.IsDateInPeriod(
-            DateOnly.FromDateTime(m.PlayedAt.Date),
+            Tz.ToLocalDate(m.PlayedAt),
             _selectedPeriod,
+            Tz.Today,
             _customStartDate,
             _customEndDate));
 
@@ -503,7 +568,7 @@ else
                 query = query.Where(m =>
                 {
                     var mp = m.MatchPlayers.FirstOrDefault(p => p.PlayerId == focus.Value);
-                    return mp != null && (want ? mp.EloChange > 0 : mp.EloChange < 0);
+                    return mp != null && IsWinByScore(mp) == want;
                 });
             }
         }
@@ -553,11 +618,28 @@ else
         return pages;
     }
 
+    private static bool IsWinByScore(MatchPlayer mp)
+    {
+        var teamScore = mp.TeamNumber == 1 ? mp.Match.Team1Score : mp.Match.Team2Score;
+        var opponentScore = mp.TeamNumber == 1 ? mp.Match.Team2Score : mp.Match.Team1Score;
+        return teamScore > opponentScore;
+    }
+
     private string GetFilterDescription()
     {
         var parts = new List<string>();
 
-        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, _customStartDate, _customEndDate);
+        if (_selectedSeasonId is int seasonId)
+        {
+            var name = _seasons.FirstOrDefault(s => s.Id == seasonId)?.Name;
+            if (name != null) parts.Add(name);
+        }
+        else if (_defaultSeasonId != null)
+        {
+            parts.Add("All seasons");
+        }
+
+        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
         if (periodDesc != null) parts.Add(periodDesc);
 
         if (_myMatchesOnly) parts.Add("My matches");
@@ -578,7 +660,7 @@ else
 
     private string FormatGroup(DateOnly date)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Tz.Today;
         if (date == today) return "Today";
         if (date == today.AddDays(-1)) return "Yesterday";
 
@@ -593,6 +675,9 @@ else
     {
         var qs = new Dictionary<string, object?>
         {
+            ["season"]  = _selectedSeasonId == _defaultSeasonId
+                            ? null
+                            : _selectedSeasonId?.ToString() ?? "all",
             ["period"]  = _selectedPeriod == "all" ? null : _selectedPeriod,
             ["start"]   = _selectedPeriod == "custom" ? _customStartDate?.ToString("yyyy-MM-dd") : null,
             ["end"]     = _selectedPeriod == "custom" ? _customEndDate?.ToString("yyyy-MM-dd") : null,

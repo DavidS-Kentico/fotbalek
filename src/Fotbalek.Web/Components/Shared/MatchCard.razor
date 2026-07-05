@@ -8,8 +8,15 @@
     var meLost = (meInTeam1 || meInTeam2) && !meWon;
 
     // Both teammates always receive the same ELO change (zero-sum), so show one chip per team.
-    var team1Change = team1Players.FirstOrDefault()?.EloChange ?? 0;
-    var team2Change = team2Players.FirstOrDefault()?.EloChange ?? 0;
+    // The chip shows the match's own ladder: seasonal ELO change for seasonal matches,
+    // all-time change for off-season ones (contextual display rule).
+    var isSeasonal = Match.SeasonId != null;
+    var team1Change = isSeasonal
+        ? team1Players.FirstOrDefault()?.SeasonEloChange ?? 0
+        : team1Players.FirstOrDefault()?.EloChange ?? 0;
+    var team2Change = isSeasonal
+        ? team2Players.FirstOrDefault()?.SeasonEloChange ?? 0
+        : team2Players.FirstOrDefault()?.EloChange ?? 0;
 
     var margin = Math.Abs(Match.Team1Score - Match.Team2Score);
     string? marginLabel = null;
@@ -98,6 +105,19 @@
                             <i class="bi @marginIcon me-1"></i>@marginLabel
                         </span>
                     }
+                    @if (ShowSeasonChip)
+                    {
+                        @if (SeasonName != null)
+                        {
+                            <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match">
+                                <i class="bi bi-award me-1"></i>@SeasonName
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
+                        }
+                    }
                 </div>
             </div>
         }
@@ -109,5 +129,11 @@
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Show the season / off-season chip (pages enable this once the team has seasons).</summary>
+    [Parameter] public bool ShowSeasonChip { get; set; }
+    /// <summary>Season name for the chip; null renders a muted "off-season" chip.</summary>
+    [Parameter] public string? SeasonName { get; set; }
+
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 }

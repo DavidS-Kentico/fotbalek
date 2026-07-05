@@ -19,7 +19,7 @@ public class TopGainerStat : StatBase
         var totals = context.Matches
             .SelectMany(m => m.MatchPlayers)
             .GroupBy(mp => mp.PlayerId)
-            .ToDictionary(g => g.Key, g => g.Sum(mp => mp.EloChange));
+            .ToDictionary(g => g.Key, g => g.Sum(context.EloChangeOf));
 
         if (totals.Count == 0) return [];
         var max = totals.Values.Max();

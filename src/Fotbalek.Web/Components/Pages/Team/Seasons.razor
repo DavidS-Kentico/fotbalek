@@ -1,0 +1,172 @@
+@page "/{TeamCode}/seasons"
+@layout TeamLayout
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
+@inject SeasonService SeasonService
+@inject TimeZoneService Tz
+
+<PageTitle>Seasons - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+            <h2 class="mb-0"><i class="bi bi-award me-2"></i>Seasons</h2>
+            @if (_isAdmin)
+            {
+                <a href="/@TeamCode/seasons/new" class="btn btn-success">
+                    <i class="bi bi-plus-lg me-1"></i> Start new season
+                </a>
+            }
+        </div>
+
+        @if (_isAdmin && _seasons.Any(s => s.ClosedAt == null && s.EndsAt == null))
+        {
+            <div class="alert alert-light border py-2 small">
+                <i class="bi bi-info-circle me-1"></i>
+                The current season is <strong>open-ended</strong> — starting a <em>later</em> season requires ending it (or setting its end date) first.
+                Creating a season entirely in the past (backfill) remains possible.
+            </div>
+        }
+
+        @if (_seasons.Count == 0)
+        {
+            <EmptyState Icon="bi bi-award" IconSize="xl" Padding="py-5"
+                        Title="No seasons yet"
+                        Message="Seasons group matches into named periods with their own ELO ladder, champions and awards.">
+                @if (_isAdmin)
+                {
+                    <a href="/@TeamCode/seasons/new" class="btn btn-success">Start your first season</a>
+                }
+            </EmptyState>
+        }
+        else
+        {
+            @foreach (var season in _seasons)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var matchCount = _matchCounts.GetValueOrDefault(season.Id);
+                _champions.TryGetValue(season.Id, out var champion);
+
+                <div class="card mb-3 @(season.IsActiveAt(now) ? "border-success" : "")">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="/@TeamCode/seasons/@season.Id" class="text-decoration-none">
+                                        <h5 class="mb-0 d-inline">@season.Name</h5>
+                                    </a>
+                                    @StatusBadge(season, now)
+                                </div>
+                                @if (!string.IsNullOrEmpty(season.Description))
+                                {
+                                    <div class="text-muted small mt-1">@season.Description</div>
+                                }
+                                <div class="text-muted small mt-1">
+                                    <i class="bi bi-calendar-range me-1"></i>@FormatPeriod(season)
+                                    <span class="mx-1">·</span>
+                                    <i class="bi bi-controller me-1"></i>@matchCount match@(matchCount == 1 ? "" : "es")
+                                </div>
+                            </div>
+
+                            @if (season.IsClosed && champion != null)
+                            {
+                                <a href="/@TeamCode/players/@champion.PlayerId" class="text-decoration-none d-flex align-items-center gap-2"
+                                   title="@(champion.IsAwardHolder ? "Season champion (Player award)" : "Season standings leader")">
+                                    <span class="fs-4">🏆</span>
+                                    <Avatar AvatarId="@champion.AvatarId" Size="sm" />
+                                    <span class="fw-semibold">@champion.Name</span>
+                                </a>
+                            }
+
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-success">
+                                    @(season.IsClosed ? "Results" : "Details")
+                                </a>
+                                @if (_isAdmin)
+                                {
+                                    <SeasonManageActions Season="season" OnChanged="ReloadAsync" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private bool _loading = true;
+    private bool _isAdmin;
+    private List<Season> _seasons = [];
+    private Dictionary<int, int> _matchCounts = new();
+    private Dictionary<int, SeasonService.SeasonChampion> _champions = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Tz.EnsureResolvedAsync();
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
+        {
+            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            await LoadAsync();
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_team == null) return;
+        _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+        _matchCounts = await SeasonService.GetMatchCountsBySeasonAsync(_team.Id);
+        _champions = await SeasonService.GetChampionsAsync(_team.Id);
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private string FormatPeriod(Season season)
+    {
+        var start = Tz.FormatLocalDate(season.StartsAt);
+        var end = season.EndsAt is { } ends ? Tz.FormatLocalDate(ends) : "open-ended";
+        return $"{start} – {end}";
+    }
+
+    private RenderFragment StatusBadge(Season season, DateTimeOffset now) => __builder =>
+    {
+        @if (season.IsActiveAt(now))
+        {
+            <span class="badge bg-success"><span class="live-dot me-1">●</span>Live</span>
+        }
+        else if (season.IsScheduledAt(now))
+        {
+            var startsIn = (int)Math.Ceiling((season.StartsAt - now).TotalDays);
+            <span class="badge bg-info text-dark" title="@($"Starts {Tz.ToLocalTime(season.StartsAt):f}")">
+                Scheduled · starts in @startsIn day@(startsIn == 1 ? "" : "s")
+            </span>
+        }
+        else if (season.IsClosed)
+        {
+            <span class="badge bg-secondary">Closed</span>
+        }
+        else
+        {
+            <span class="badge bg-warning text-dark">Ended · closing…</span>
+        }
+    };
+}

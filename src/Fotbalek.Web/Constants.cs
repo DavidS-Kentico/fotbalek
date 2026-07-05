@@ -40,6 +40,27 @@ public static class Constants
     }
 
     /// <summary>
+    /// Season-related thresholds and enum-like values
+    /// </summary>
+    public static class Seasons
+    {
+        /// <summary>A season generates awards only when it has at least this many matches in total.</summary>
+        public const int MinMatchesForAwards = 10;
+
+        /// <summary>The Top-3-players award category requires at least this many matches played in the season.</summary>
+        public const int MinMatchesForPlayerAward = 10;
+
+        /// <summary>Values of <see cref="Data.Entities.SeasonAward.Category"/>.</summary>
+        public static class AwardCategories
+        {
+            public const string Player = "Player";
+            public const string Goalkeeper = "Goalkeeper";
+            public const string Attacker = "Attacker";
+            public const string Pair = "Pair";
+        }
+    }
+
+    /// <summary>
     /// Pagination defaults
     /// </summary>
     public static class Pagination

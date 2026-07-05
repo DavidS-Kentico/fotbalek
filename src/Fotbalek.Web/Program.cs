@@ -13,7 +13,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<AppDbContext>(options =>
+// Factory pattern (recommended for Blazor Server): services create a short-lived DbContext per
+// unit of work instead of sharing one circuit-scoped context for hours. AddDbContextFactory also
+// registers AppDbContext itself as a scoped service, which Identity's AddEntityFrameworkStores
+// and the startup migration below still rely on.
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // Identity
@@ -61,6 +65,8 @@ builder.Services.AddScoped<ShareTokenService>();
 builder.Services.AddScoped<TeamMembershipService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<TeamAccessService>();
+builder.Services.AddScoped<TimeZoneService>();
+builder.Services.AddScoped<SeasonService>();
 builder.Services.AddScoped<LandingStatsService>();
 builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<CircuitHandler, PresenceCircuitHandler>();

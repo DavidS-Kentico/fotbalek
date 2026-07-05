@@ -15,18 +15,19 @@ public class FurthestFromPeakStat : StatBase
     public override StatTheme Theme => StatTheme.CareerArc;
     public override string Description => $"Currently furthest below their peak ELO (min {MinDrop} drop)";
 
-    public override bool Applies(StatContext context) => context.IsAllTime;
+    // "Current ELO of the selected ladder" is well-defined for a full season too.
+    public override bool Applies(StatContext context) => context.IsFullScope;
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
         var peaks = context.Matches
             .SelectMany(m => m.MatchPlayers)
             .GroupBy(mp => mp.PlayerId)
-            .ToDictionary(g => g.Key, g => g.Max(mp => mp.EloAfter));
+            .ToDictionary(g => g.Key, g => g.Max(context.EloAfterOf));
 
         var drops = peaks
             .Where(kv => context.PlayersById.TryGetValue(kv.Key, out var p) && p.IsActive)
-            .Select(kv => new { PlayerId = kv.Key, Peak = kv.Value, Current = context.PlayersById[kv.Key].Elo })
+            .Select(kv => new { PlayerId = kv.Key, Peak = kv.Value, Current = context.CurrentEloOf(context.PlayersById[kv.Key]) })
             .Where(x => x.Peak - x.Current >= MinDrop)
             .ToList();
 

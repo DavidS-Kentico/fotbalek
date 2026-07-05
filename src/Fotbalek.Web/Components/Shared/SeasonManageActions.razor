@@ -1,0 +1,246 @@
+@* Admin controls for one season: end prematurely, edit (name/description/end date), delete. *@
+@inject SeasonService SeasonService
+@inject CurrentUserService CurrentUser
+@inject TimeZoneService Tz
+@using System.Globalization
+
+<div class="d-inline-flex gap-1">
+    @if (!Season.IsClosed && !Season.IsScheduledAt(DateTimeOffset.UtcNow))
+    {
+        <button class="btn btn-sm btn-outline-danger" title="End the season now — freezes standings and generates awards"
+                @onclick="() => _showEndConfirm = true">
+            <i class="bi bi-flag me-1"></i>End season
+        </button>
+    }
+    <button class="btn btn-sm btn-outline-secondary" title="Edit season" @onclick="ShowEdit">
+        <i class="bi bi-pencil"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-danger" title="Delete season" @onclick="() => { _deleteError = null; _showDeleteConfirm = true; }">
+        <i class="bi bi-trash"></i>
+    </button>
+</div>
+
+<Modal Show="_showEndConfirm" Title="End Season" Icon="bi bi-flag" OnClose="() => _showEndConfirm = false">
+    <Body>
+        <AlertMessage Message="@_endError" Variant="danger" />
+        <p>End <strong>@Season.Name</strong> now?</p>
+        <p class="text-muted small mb-0">
+            The final standings will be frozen and awards generated immediately. Matches recorded
+            afterwards will be off-season (until a new season starts). Matches of a closed season
+            can no longer be deleted.
+        </p>
+    </Body>
+    <Footer>
+        <button type="button" class="btn btn-secondary" @onclick="() => _showEndConfirm = false">Cancel</button>
+        <SpinnerButton Variant="danger" Busy="_busy" OnClick="ConfirmEnd">End season</SpinnerButton>
+    </Footer>
+</Modal>
+
+<Modal Show="_showEdit" Title="Edit Season" Icon="bi bi-pencil" OnClose="() => _showEdit = false">
+    <Body>
+        <AlertMessage Message="@_editError" Variant="danger" />
+        <div class="mb-3">
+            <label class="form-label" for="seasonEditName">Name</label>
+            <input id="seasonEditName" class="form-control" maxlength="100" @bind="_editName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="seasonEditDescription">Description <span class="text-muted">(optional)</span></label>
+            <textarea id="seasonEditDescription" class="form-control" rows="2" maxlength="500" @bind="_editDescription"></textarea>
+        </div>
+        @if (!Season.IsClosed)
+        {
+            <div class="mb-2">
+                <label class="form-label" for="seasonEditEndDate">Ends at <span class="text-muted">(optional — empty = open-ended)</span></label>
+                <input id="seasonEditEndDate" type="datetime-local" class="form-control" style="max-width: 220px;"
+                       value="@(_editEnd?.ToString("yyyy-MM-ddTHH:mm"))" @onchange="OnEndChanged" />
+                <small class="text-muted d-block mt-1">
+                    Local time, exclusive — matches played at or after this moment are no longer part of the season.
+                </small>
+                @if (Season.IsPendingCloseAt(DateTimeOffset.UtcNow))
+                {
+                    <small class="text-warning d-block mt-1">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Extending the end date revives this ended season.
+                        Matches recorded in the meantime stay off-season — they cannot join the season later.
+                    </small>
+                }
+            </div>
+            @if (_pendingUnassignCount > 0)
+            {
+                <div class="alert alert-warning py-2 small mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>@_pendingUnassignCount</strong> match(es) were played after the new end date and will become
+                    <strong>off-season</strong> — their seasonal ELO is rolled back and the season ladder is recomputed.
+                    Save again to confirm.
+                </div>
+            }
+        }
+        else
+        {
+            <small class="text-muted"><i class="bi bi-lock me-1"></i>This season is closed — the period and results are frozen; only name and description can change.</small>
+        }
+    </Body>
+    <Footer>
+        <button type="button" class="btn btn-secondary" @onclick="() => _showEdit = false">Cancel</button>
+        <SpinnerButton Busy="_busy" OnClick="SaveEdit">@(_pendingUnassignCount > 0 ? "Confirm & save" : "Save")</SpinnerButton>
+    </Footer>
+</Modal>
+
+<Modal Show="_showDeleteConfirm" Title="Delete Season" Icon="bi bi-trash" OnClose="() => _showDeleteConfirm = false">
+    <Body>
+        <AlertMessage Message="@_deleteError" Variant="danger" />
+        <p>Delete <strong>@Season.Name</strong>? This will:</p>
+        <ul class="small mb-2">
+            <li>Turn all its matches into <strong>off-season</strong> matches (they are not deleted; all-time ELO is unaffected).</li>
+            <li>Delete the season ladder, frozen standings and pair results.</li>
+            <li><strong>Permanently delete all awards from this season — players lose these achievements.</strong></li>
+        </ul>
+        <p class="text-muted small mb-0">This cannot be undone.</p>
+    </Body>
+    <Footer>
+        <button type="button" class="btn btn-secondary" @onclick="() => _showDeleteConfirm = false">Cancel</button>
+        <SpinnerButton Variant="danger" Busy="_busy" OnClick="ConfirmDelete">Delete season</SpinnerButton>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Season Season { get; set; } = null!;
+    /// <summary>Raised after any successful change (end/edit/delete) so the host page can reload.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+    /// <summary>Raised after a successful delete (e.g. to navigate away from a detail page).</summary>
+    [Parameter] public EventCallback OnDeleted { get; set; }
+
+    private bool _showEndConfirm;
+    private bool _showEdit;
+    private bool _showDeleteConfirm;
+    private bool _busy;
+    private string? _endError;
+    private string? _editError;
+    private string? _deleteError;
+
+    private string _editName = string.Empty;
+    private string? _editDescription;
+    private DateTime? _editEnd;
+    private DateTime? _originalEnd;
+    private int _pendingUnassignCount;
+
+    private void ShowEdit()
+    {
+        _editName = Season.Name;
+        _editDescription = Season.Description;
+        // Wall-clock local time; the input renders minutes only, but an untouched field fires no
+        // change event, so sub-minute precision (e.g. a manual "End season" timestamp) survives.
+        _originalEnd = Season.EndsAt is { } ends ? Tz.ToLocalTime(ends).DateTime : null;
+        _editEnd = _originalEnd;
+        _editError = null;
+        _pendingUnassignCount = 0;
+        _showEdit = true;
+    }
+
+    private void OnEndChanged(ChangeEventArgs e)
+    {
+        _editEnd = DateTime.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+        _pendingUnassignCount = 0; // date changed — re-evaluate on save
+    }
+
+    private async Task ConfirmEnd()
+    {
+        _busy = true;
+        _endError = null;
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) { _endError = "Not signed in."; return; }
+            await SeasonService.EndNowAsync(Season.Id, userId.Value);
+            _showEndConfirm = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            _endError = ex.Message;
+        }
+        catch
+        {
+            _endError = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveEdit()
+    {
+        _busy = true;
+        _editError = null;
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) { _editError = "Not signed in."; return; }
+
+            await SeasonService.UpdateDetailsAsync(Season.Id, userId.Value, _editName, _editDescription);
+
+            // EndsAt changes only apply to non-closed seasons; the input is a local wall-clock
+            // time. Untouched values are not re-saved (the stored instant stays exact).
+            if (!Season.IsClosed && _editEnd != _originalEnd)
+            {
+                var newEndsAt = _editEnd is { } d ? Tz.LocalDateTimeToInstant(d) : (DateTimeOffset?)null;
+
+                // Shrinking past already-assigned matches requires an explicit confirmation:
+                // first save computes the count, second save confirms.
+                if (_pendingUnassignCount == 0 && newEndsAt != null)
+                {
+                    var affected = await SeasonService.CountMatchesBeyondAsync(Season.Id, newEndsAt.Value);
+                    if (affected > 0)
+                    {
+                        _pendingUnassignCount = affected;
+                        return;
+                    }
+                }
+
+                await SeasonService.UpdateEndsAtAsync(Season.Id, userId.Value, newEndsAt, allowUnassign: _pendingUnassignCount > 0);
+            }
+
+            _showEdit = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            _editError = ex.Message;
+        }
+        catch
+        {
+            _editError = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        _busy = true;
+        _deleteError = null;
+        try
+        {
+            var userId = await CurrentUser.GetUserIdAsync();
+            if (userId == null) { _deleteError = "Not signed in."; return; }
+            await SeasonService.DeleteAsync(Season.Id, userId.Value);
+            _showDeleteConfirm = false;
+            await OnDeleted.InvokeAsync();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            _deleteError = ex.Message;
+        }
+        catch
+        {
+            _deleteError = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

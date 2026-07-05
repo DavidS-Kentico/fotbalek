@@ -18,7 +18,7 @@ public class PeakEloStat : StatBase
         var peaks = context.Matches
             .SelectMany(m => m.MatchPlayers)
             .GroupBy(mp => mp.PlayerId)
-            .Select(g => new { PlayerId = g.Key, Peak = g.Max(mp => mp.EloAfter) })
+            .Select(g => new { PlayerId = g.Key, Peak = g.Max(context.EloAfterOf) })
             .ToList();
 
         if (peaks.Count == 0) return [];

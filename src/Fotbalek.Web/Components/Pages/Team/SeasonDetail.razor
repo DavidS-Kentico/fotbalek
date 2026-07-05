@@ -1,0 +1,470 @@
+@page "/{TeamCode}/seasons/{SeasonId:int}"
+@layout TeamLayout
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject TeamAccessService TeamAccess
+@inject SeasonService SeasonService
+@inject StatsService StatsService
+@inject TimeZoneService Tz
+@inject NavigationManager Navigation
+
+<PageTitle>@(_season?.Name ?? "Season") - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_season == null)
+{
+    <div class="container py-4">
+        <AlertMessage Message="Season not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
+        <a href="/@TeamCode/seasons" class="btn btn-primary">Back to Seasons</a>
+    </div>
+}
+else
+{
+    var now = DateTimeOffset.UtcNow;
+    var isScheduled = _season.IsScheduledAt(now);
+
+    <div class="container py-4">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="/@TeamCode/seasons">Seasons</a></li>
+                <li class="breadcrumb-item active">@_season.Name</li>
+            </ol>
+        </nav>
+
+        <div class="card mb-4 @(_season.IsActiveAt(now) ? "border-success" : "")">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h2 class="mb-0">@_season.Name</h2>
+                            @if (_season.IsActiveAt(now))
+                            {
+                                <span class="badge bg-success">Live</span>
+                            }
+                            else if (isScheduled)
+                            {
+                                <span class="badge bg-info text-dark">Scheduled</span>
+                            }
+                            else if (_season.IsClosed)
+                            {
+                                <span class="badge bg-secondary">Closed</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Ended · closing…</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(_season.Description))
+                        {
+                            <div class="text-muted mt-1">@_season.Description</div>
+                        }
+                        <div class="text-muted small mt-1">
+                            <i class="bi bi-calendar-range me-1"></i>@FormatPeriod()
+                            <span class="mx-1">·</span>
+                            <i class="bi bi-controller me-1"></i>@_matchCount match@(_matchCount == 1 ? "" : "es")
+                            <span class="mx-1">·</span>
+                            <i class="bi bi-people me-1"></i>@_standings.Count participant@(_standings.Count == 1 ? "" : "s")
+                        </div>
+                    </div>
+                    @if (_isAdmin)
+                    {
+                        <SeasonManageActions Season="_season" OnChanged="ReloadAsync" OnDeleted="OnSeasonDeleted" />
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (isScheduled)
+        {
+            <EmptyState Icon="bi bi-hourglass-split" IconSize="xl" Padding="py-5"
+                        Title="This season hasn't started yet"
+                        Message="@($"It starts {Tz.ToLocalTime(_season.StartsAt):f}. Until then, matches are recorded off-season (or in the still-active previous season).")" />
+        }
+        else
+        {
+            @* ---------------- Awards ---------------- *@
+            @if (_season.IsClosed && _awards.Count > 0)
+            {
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Awards</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            @AwardColumn(Constants.Seasons.AwardCategories.Player, "Top Players", "bi bi-star-fill")
+                            @AwardColumn(Constants.Seasons.AwardCategories.Goalkeeper, "Top Goalkeepers", "bi bi-shield-fill")
+                            @AwardColumn(Constants.Seasons.AwardCategories.Attacker, "Top Attackers", "bi bi-bullseye")
+                            @AwardColumn(Constants.Seasons.AwardCategories.Pair, "Top Pairs", "bi bi-people-fill")
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (_season.IsClosed)
+            {
+                <div class="alert alert-light border py-2 small mb-4">
+                    <i class="bi bi-info-circle me-1"></i>
+                    This season closed with fewer than @Constants.Seasons.MinMatchesForAwards matches — standings were frozen, but no awards were generated.
+                </div>
+            }
+            else
+            {
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Provisional awards</h5>
+                        <span class="text-muted small">preview — decided at season close</span>
+                    </div>
+                    <div class="card-body">
+                        @if (_matchCount < Constants.Seasons.MinMatchesForAwards)
+                        {
+                            <div class="text-muted small">
+                                <i class="bi bi-lock me-1"></i>Awards unlock at @Constants.Seasons.MinMatchesForAwards season matches
+                                (currently @_matchCount). Below that, the season closes with frozen standings but no awards.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                @PreviewColumn("Top Players", "bi bi-star-fill",
+                                    _standings.Where(s => s.Matches >= Constants.Seasons.MinMatchesForPlayerAward).Take(3)
+                                        .Select(s => (s.PlayerId, s.PlayerName, s.AvatarId, (string?)null)).ToList(),
+                                    $"min {Constants.Seasons.MinMatchesForPlayerAward} matches")
+                                @PreviewColumn("Top Goalkeepers", "bi bi-shield-fill",
+                                    _goalkeepers.Take(3).Select(p => (p.PlayerId, p.PlayerName, p.AvatarId, (string?)$"{p.AverageGoals:F1} conceded/game")).ToList(),
+                                    $"min {Constants.TimeThresholds.MinGamesForPositionBadge} matches as GK")
+                                @PreviewColumn("Top Attackers", "bi bi-bullseye",
+                                    _attackers.Take(3).Select(p => (p.PlayerId, p.PlayerName, p.AvatarId, (string?)$"{p.AverageGoals:F1} scored/game")).ToList(),
+                                    $"min {Constants.TimeThresholds.MinGamesForPositionBadge} matches as ATK")
+                                @PreviewPairColumn()
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* ---------------- Standings ---------------- *@
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bar-chart me-2"></i>@(_season.IsClosed ? "Final standings" : "Standings")
+                        <small class="text-muted fw-normal">(seasonal ELO@(_season.IsClosed ? ", frozen at close" : ""))</small>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    @if (_standings.Count > 0)
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" style="width: 60px;">Rank</th>
+                                        <th>Player</th>
+                                        <th class="text-end">ELO</th>
+                                        <th class="text-end">Matches</th>
+                                        <th class="text-end">W/L</th>
+                                        <th class="text-end">Win Rate</th>
+                                        <th class="text-end" title="Longest win / loss streak in the season">Streaks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _standings)
+                                    {
+                                        var isMine = row.PlayerId == MyPlayerId;
+                                        <tr class="@(isMine ? "table-success" : "")">
+                                            <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
+                                            <td>
+                                                <a href="/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-2">
+                                                    <Avatar AvatarId="@row.AvatarId" Size="sm" />
+                                                    <span>@row.PlayerName</span>
+                                                </a>
+                                                @if (isMine)
+                                                {
+                                                    <span class="badge badge-you ms-1">you</span>
+                                                }
+                                            </td>
+                                            <td class="text-end fw-bold">@row.Elo</td>
+                                            <td class="text-end">@row.Matches</td>
+                                            <td class="text-end"><span class="text-success">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
+                                            <td class="text-end">
+                                                <span class="@(row.WinRate >= 50 ? "text-success" : "text-danger")">@row.WinRate.ToString("F1")%</span>
+                                            </td>
+                                            <td class="text-end small">
+                                                <span class="text-success" title="Longest win streak">W@(row.LongestWinStreak)</span>
+                                                <span class="text-muted mx-1">·</span>
+                                                <span class="text-danger" title="Longest loss streak">L@(row.LongestLossStreak)</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <EmptyState Icon="bi bi-people" Message="No seasonal matches yet." />
+                    }
+                </div>
+            </div>
+
+            @* ---------------- Position tables ---------------- *@
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <PositionRankingTable Players="_goalkeepers"
+                                          Title="Best Goalkeepers"
+                                          Icon="bi bi-shield-fill"
+                                          HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as GK)")"
+                                          TeamCode="@TeamCode"
+                                          MyPlayerId="MyPlayerId"
+                                          AverageColumnLabel="Avg Conceded"
+                                          AverageColumnTooltip="Average goals conceded per game"
+                                          AverageColumnClass="text-secondary"
+                                          EmptyIcon="bi bi-shield"
+                                          EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games.")" />
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <PositionRankingTable Players="_attackers"
+                                          Title="Best Attackers"
+                                          Icon="bi bi-bullseye"
+                                          HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as ATK)")"
+                                          TeamCode="@TeamCode"
+                                          MyPlayerId="MyPlayerId"
+                                          AverageColumnLabel="Avg Scored"
+                                          AverageColumnTooltip="Average goals scored per game"
+                                          AverageColumnClass="text-danger"
+                                          EmptyIcon="bi bi-bullseye"
+                                          EmptyMessage="@($"No attackers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games.")" />
+                </div>
+            </div>
+
+            @* ---------------- Pairs ---------------- *@
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Best Pairs (min @Constants.TimeThresholds.MinGamesForPartnerStats matches)</h5>
+                </div>
+                <div class="card-body p-0">
+                    @if (_pairs.Count > 0)
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" style="width: 60px;">Rank</th>
+                                        <th>Players</th>
+                                        <th class="text-end">Matches</th>
+                                        <th class="text-end">W/L</th>
+                                        <th class="text-end">Win Rate</th>
+                                        @if (!_season.IsClosed)
+                                        {
+                                            <th class="text-end">Avg Score</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var pairRank = 1; }
+                                    @foreach (var pair in _pairs)
+                                    {
+                                        var pairContainsMe = MyPlayerId.HasValue && (pair.Player1Id == MyPlayerId || pair.Player2Id == MyPlayerId);
+                                        <tr class="@(pairContainsMe ? "table-success" : "")">
+                                            <td class="text-center"><RankBadge Rank="@pairRank" Large="true" /></td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
+                                                    <span class="@(pair.Player1Id == MyPlayerId ? "fw-bold" : "")">@pair.Player1Name</span>
+                                                    <span class="text-muted">&</span>
+                                                    <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
+                                                    <span class="@(pair.Player2Id == MyPlayerId ? "fw-bold" : "")">@pair.Player2Name</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">@pair.Matches</td>
+                                            <td class="text-end"><span class="text-success">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span></td>
+                                            <td class="text-end">
+                                                <span class="@(pair.WinRate >= 50 ? "text-success" : "text-danger") fw-bold">@pair.WinRate.ToString("F1")%</span>
+                                            </td>
+                                            @if (!_season.IsClosed)
+                                            {
+                                                <td class="text-end">@pair.AverageScore.ToString("F1")</td>
+                                            }
+                                        </tr>
+                                        pairRank++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <EmptyState Icon="bi bi-people"
+                                    Message="@($"No pairs with at least {Constants.TimeThresholds.MinGamesForPartnerStats} matches together.")" />
+                    }
+                </div>
+            </div>
+
+            <a href="/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-list-ul me-1"></i> View the season's matches
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int SeasonId { get; set; }
+    [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
+
+    private Team? _team;
+    private Season? _season;
+    private bool _loading = true;
+    private bool _isAdmin;
+    private int _matchCount;
+    private List<SeasonStandingRow> _standings = [];
+    private List<PositionRanking> _goalkeepers = [];
+    private List<PositionRanking> _attackers = [];
+    private List<PairStats> _pairs = [];
+    private List<SeasonAward> _awards = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await Tz.EnsureResolvedAsync();
+        _team = await TeamAccess.GetCurrentTeamAsync();
+        if (_team != null)
+        {
+            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            await LoadAsync();
+        }
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_team == null) return;
+
+        var season = await SeasonService.GetByIdAsync(SeasonId);
+        if (season == null || season.TeamId != _team.Id)
+        {
+            _season = null;
+            return;
+        }
+        _season = season;
+        _matchCount = await SeasonService.GetMatchCountAsync(season.Id);
+        _standings = await StatsService.GetSeasonStandingsAsync(season);
+        (_goalkeepers, _attackers) = await StatsService.GetSeasonPositionRankingsAsync(season);
+        _pairs = await StatsService.GetSeasonPairRankingsAsync(season);
+        _awards = season.IsClosed ? await SeasonService.GetAwardsAsync(season.Id) : [];
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private void OnSeasonDeleted()
+    {
+        Navigation.NavigateTo($"/{TeamCode}/seasons");
+    }
+
+    private string FormatPeriod()
+    {
+        if (_season == null) return string.Empty;
+        var start = Tz.FormatLocalDate(_season.StartsAt);
+        var end = _season.EndsAt is { } ends ? Tz.FormatLocalDate(ends) : "open-ended";
+        return $"{start} – {end}";
+    }
+
+    private static string Medal(int rank) => rank switch { 1 => "🥇", 2 => "🥈", _ => "🥉" };
+
+    private RenderFragment AwardColumn(string category, string title, string icon) => __builder =>
+    {
+        // Pair awards have one row per member — show each pair once, from the smaller-id member's row.
+        var rows = _awards
+            .Where(a => a.Category == category &&
+                        (a.PartnerPlayerId == null || a.PlayerId < a.PartnerPlayerId))
+            .OrderBy(a => a.Rank)
+            .ToList();
+
+        <div class="col-md-6 col-xl-3">
+            <div class="fw-semibold small mb-2"><i class="@icon me-1"></i>@title</div>
+            @if (rows.Count == 0)
+            {
+                <div class="text-muted small fst-italic">Not awarded — no eligible candidates.</div>
+            }
+            else
+            {
+                @foreach (var award in rows)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span title="@($"Rank {award.Rank}")">@Medal(award.Rank)</span>
+                        <a href="/@TeamCode/players/@award.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                            <Avatar AvatarId="@award.Player.AvatarId" Size="sm" />
+                            <span class="small">@award.Player.Name</span>
+                        </a>
+                        @if (award.PartnerPlayer != null)
+                        {
+                            <span class="text-muted small">&</span>
+                            <a href="/@TeamCode/players/@award.PartnerPlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                                <Avatar AvatarId="@award.PartnerPlayer.AvatarId" Size="sm" />
+                                <span class="small">@award.PartnerPlayer.Name</span>
+                            </a>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment PreviewColumn(string title, string icon, List<(int PlayerId, string Name, int AvatarId, string? Detail)> rows, string hint) => __builder =>
+    {
+        <div class="col-md-6 col-xl-3">
+            <div class="fw-semibold small mb-2"><i class="@icon me-1"></i>@title <span class="text-muted fw-normal">(@hint)</span></div>
+            @if (rows.Count == 0)
+            {
+                <div class="text-muted small fst-italic">No eligible candidates yet.</div>
+            }
+            else
+            {
+                @for (var i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span>@Medal(i + 1)</span>
+                        <a href="/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                            <Avatar AvatarId="@row.AvatarId" Size="sm" />
+                            <span class="small">@row.Name</span>
+                        </a>
+                        @if (row.Detail != null)
+                        {
+                            <span class="text-muted small">@row.Detail</span>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment PreviewPairColumn() => __builder =>
+    {
+        var topPairs = _pairs.Take(3).ToList();
+        <div class="col-md-6 col-xl-3">
+            <div class="fw-semibold small mb-2"><i class="bi bi-people-fill me-1"></i>Top Pairs <span class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPartnerStats together)</span></div>
+            @if (topPairs.Count == 0)
+            {
+                <div class="text-muted small fst-italic">No eligible candidates yet.</div>
+            }
+            else
+            {
+                @for (var i = 0; i < topPairs.Count; i++)
+                {
+                    var pair = topPairs[i];
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span>@Medal(i + 1)</span>
+                        <span class="small">@pair.Player1Name & @pair.Player2Name</span>
+                        <span class="text-muted small">@pair.WinRate.ToString("F0")%</span>
+                    </div>
+                }
+            }
+        </div>
+    };
+}

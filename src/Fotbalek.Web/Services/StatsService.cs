@@ -7,12 +7,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class StatsService(AppDbContext db)
+public class StatsService(IDbContextFactory<AppDbContext> dbFactory)
 {
-    public async Task<PlayerStats> GetPlayerStatsAsync(int playerId)
+    /// <summary>
+    /// Per-player aggregates, parameterized by (match subset, ladder): with a <paramref name="seasonId"/>
+    /// only that season's matches count and every ELO-based figure reads the SeasonElo* fields;
+    /// otherwise all matches and the all-time ladder. Wins are determined by score in both scopes.
+    /// </summary>
+    public async Task<PlayerStats> GetPlayerStatsAsync(int playerId, int? seasonId = null)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var matchPlayers = await db.MatchPlayers
-            .Where(mp => mp.PlayerId == playerId)
+            .Where(mp => mp.PlayerId == playerId && (seasonId == null || mp.Match.SeasonId == seasonId))
             .Include(mp => mp.Match)
                 .ThenInclude(m => m.MatchPlayers)
                     .ThenInclude(mp => mp.Player)
@@ -23,19 +29,39 @@ public class StatsService(AppDbContext db)
         if (player == null)
             return new PlayerStats();
 
+        // Ladder accessors: seasonal fields in season scope, classic fields otherwise.
+        var seasonScope = seasonId != null;
+        int EloBeforeOf(MatchPlayer mp) => seasonScope ? mp.SeasonEloBefore ?? Constants.Elo.DefaultRating : mp.EloBefore;
+        int EloAfterOf(MatchPlayer mp) => seasonScope ? mp.SeasonEloAfter ?? Constants.Elo.DefaultRating : mp.EloAfter;
+        int EloChangeOf(MatchPlayer mp) => seasonScope ? mp.SeasonEloChange ?? 0 : mp.EloChange;
+
+        var currentElo = player.Elo;
+        if (seasonScope)
+        {
+            // Seasonal ELO from the ladder row; default 1000 when the player has no seasonal match.
+            currentElo = await db.SeasonPlayers
+                .Where(sp => sp.SeasonId == seasonId && sp.PlayerId == playerId)
+                .Select(sp => (int?)sp.Elo)
+                .FirstOrDefaultAsync() ?? Constants.Elo.DefaultRating;
+        }
+
         var stats = new PlayerStats
         {
-            CurrentElo = player.Elo,
+            CurrentElo = currentElo,
             TotalMatches = matchPlayers.Count
         };
 
         if (matchPlayers.Count == 0)
+        {
+            stats.HighestElo = currentElo;
+            stats.LowestElo = currentElo;
             return stats;
+        }
 
         // ELO history - consider all ELO values including current
-        var allEloValues = matchPlayers.Select(mp => mp.EloBefore)
-            .Concat(matchPlayers.Select(mp => mp.EloAfter))
-            .Append(player.Elo);
+        var allEloValues = matchPlayers.Select(EloBeforeOf)
+            .Concat(matchPlayers.Select(EloAfterOf))
+            .Append(currentElo);
         stats.HighestElo = allEloValues.Max();
         stats.LowestElo = allEloValues.Min();
 
@@ -105,7 +131,7 @@ public class StatsService(AppDbContext db)
         var partnerStats = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
                 .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId)
-                .Select(p => new { Partner = p, OwnEloChange = mp.EloChange }))
+                .Select(p => new { Partner = p, Won = mp.IsWinner(), OwnEloChange = EloChangeOf(mp) }))
             .GroupBy(x => x.Partner.PlayerId)
             .Select(g => new RelationshipStat
             {
@@ -113,7 +139,7 @@ public class StatsService(AppDbContext db)
                 Name = g.First().Partner.Player.Name,
                 AvatarId = g.First().Partner.Player.AvatarId,
                 Games = g.Count(),
-                Wins = g.Count(x => x.OwnEloChange > 0),
+                Wins = g.Count(x => x.Won),
                 AvgEloChange = g.Average(x => (double)x.OwnEloChange)
             })
             .OrderByDescending(p => p.Games)
@@ -141,11 +167,11 @@ public class StatsService(AppDbContext db)
             }
         }
 
-        // Enemy stats (full list; win counted from player's perspective when enemy lost ELO)
+        // Enemy stats (full list; win counted from the player's perspective, by score)
         var enemyStats = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
                 .Where(p => p.TeamNumber != mp.TeamNumber)
-                .Select(p => new { Enemy = p, OwnEloChange = mp.EloChange }))
+                .Select(p => new { Enemy = p, Won = mp.IsWinner(), OwnEloChange = EloChangeOf(mp) }))
             .GroupBy(x => x.Enemy.PlayerId)
             .Select(g => new RelationshipStat
             {
@@ -153,7 +179,7 @@ public class StatsService(AppDbContext db)
                 Name = g.First().Enemy.Player.Name,
                 AvatarId = g.First().Enemy.Player.AvatarId,
                 Games = g.Count(),
-                Wins = g.Count(x => x.OwnEloChange > 0),
+                Wins = g.Count(x => x.Won),
                 AvgEloChange = g.Average(x => (double)x.OwnEloChange)
             })
             .OrderByDescending(e => e.Games)
@@ -181,30 +207,30 @@ public class StatsService(AppDbContext db)
             }
         }
 
-        // Average ELO change on wins / losses
-        var winningMps = matchPlayers.Where(mp => mp.EloChange > 0).ToList();
-        var losingMps = matchPlayers.Where(mp => mp.EloChange < 0).ToList();
-        stats.AvgEloChangeOnWin = winningMps.Count > 0 ? winningMps.Average(mp => mp.EloChange) : 0;
-        stats.AvgEloChangeOnLoss = losingMps.Count > 0 ? losingMps.Average(mp => mp.EloChange) : 0;
+        // Average ELO change on wins / losses (win/loss by score, change from the selected ladder)
+        var winningMps = matchPlayers.Where(mp => mp.IsWinner()).ToList();
+        var losingMps = matchPlayers.Where(mp => !mp.IsWinner()).ToList();
+        stats.AvgEloChangeOnWin = winningMps.Count > 0 ? winningMps.Average(EloChangeOf) : 0;
+        stats.AvgEloChangeOnLoss = losingMps.Count > 0 ? losingMps.Average(EloChangeOf) : 0;
 
-        // Average opponent / teammate ELO (using pre-match ELO at the time of each match)
+        // Average opponent / teammate ELO (using pre-match ELO of the selected ladder)
         var opponentElos = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
                 .Where(p => p.TeamNumber != mp.TeamNumber)
-                .Select(p => p.EloBefore))
+                .Select(EloBeforeOf))
             .ToList();
         stats.AvgOpponentElo = opponentElos.Count > 0 ? (int)Math.Round(opponentElos.Average()) : 0;
 
         var teammateElos = matchPlayers
             .SelectMany(mp => mp.Match.MatchPlayers
                 .Where(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId)
-                .Select(p => p.EloBefore))
+                .Select(EloBeforeOf))
             .ToList();
         stats.AvgTeammateElo = teammateElos.Count > 0 ? (int)Math.Round(teammateElos.Average()) : 0;
 
         // Recent form: last 10 matches (matchPlayers is ordered ascending by PlayedAt)
         var recent = matchPlayers.TakeLast(10).ToList();
-        stats.RecentForm = recent.Select(mp => mp.EloChange > 0).ToList();
+        stats.RecentForm = recent.Select(mp => mp.IsWinner()).ToList();
         stats.RecentFormWinRate = recent.Count > 0
             ? (double)stats.RecentForm.Count(w => w) / recent.Count * 100
             : 0;
@@ -236,7 +262,7 @@ public class StatsService(AppDbContext db)
         foreach (var mp in matchPlayers)
         {
             if (!mp.Match.TryGetTeams(out var winners, out var losers)) continue;
-            var carry = CarriedStat.AnalyzeCarry(winners[0], winners[1], losers[0], losers[1]);
+            var carry = CarriedStat.AnalyzeCarry(winners[0], winners[1], losers[0], losers[1], EloBeforeOf);
             if (carry is null) continue;
             if (carry.Value.CarriedId == playerId) stats.CarriedCount++;
             if (carry.Value.CarrierId == playerId) stats.CarryCount++;
@@ -247,7 +273,7 @@ public class StatsService(AppDbContext db)
             .Select(mp => new EloHistoryPoint
             {
                 Date = mp.Match.PlayedAt,
-                Elo = mp.EloAfter
+                Elo = EloAfterOf(mp)
             })
             .ToList();
 
@@ -270,18 +296,18 @@ public class StatsService(AppDbContext db)
 
             var teammate = mp.Match.MatchPlayers
                 .FirstOrDefault(p => p.TeamNumber == mp.TeamNumber && p.PlayerId != playerId);
-            var teamAvg = teammate != null ? (mp.EloBefore + teammate.EloBefore) / 2.0 : mp.EloBefore;
-            var oppAvg = opp.Average(p => (double)p.EloBefore);
+            var teamAvg = teammate != null ? (EloBeforeOf(mp) + EloBeforeOf(teammate)) / 2.0 : EloBeforeOf(mp);
+            var oppAvg = opp.Average(p => (double)EloBeforeOf(p));
             var expected = 1.0 / (1.0 + Math.Pow(10, (oppAvg - teamAvg) / 400.0));
             expectedWins += expected;
 
-            var won = mp.EloChange > 0;
-            if (oppAvg - mp.EloBefore >= StrongerThreshold)
+            var won = mp.IsWinner();
+            if (oppAvg - EloBeforeOf(mp) >= StrongerThreshold)
             {
                 gamesVsStronger++;
                 if (won) winsVsStronger++;
             }
-            else if (mp.EloBefore - oppAvg >= StrongerThreshold)
+            else if (EloBeforeOf(mp) - oppAvg >= StrongerThreshold)
             {
                 gamesVsWeaker++;
                 if (won) winsVsWeaker++;
@@ -291,7 +317,7 @@ public class StatsService(AppDbContext db)
             var oppScore = mp.TeamNumber == 1 ? mp.Match.Team2Score : mp.Match.Team1Score;
             var margin = ownScore - oppScore;
             if (won) { winMarginSum += margin; winMarginCount++; }
-            else if (mp.EloChange < 0) { lossMarginSum += -margin; lossMarginCount++; }
+            else { lossMarginSum += -margin; lossMarginCount++; }
 
             if (mp.Position == Constants.Positions.Goalkeeper && oppScore == 0)
                 cleanSheetsAsGk++;
@@ -331,15 +357,15 @@ public class StatsService(AppDbContext db)
         stats.FirstMatchDate = matchPlayers.FirstOrDefault()?.Match.PlayedAt;
         if (matchPlayers.Count > 0)
         {
-            var biggestGain = matchPlayers.OrderByDescending(mp => mp.EloChange).First();
-            stats.BiggestEloGain = biggestGain.EloChange;
+            var biggestGain = matchPlayers.OrderByDescending(EloChangeOf).First();
+            stats.BiggestEloGain = EloChangeOf(biggestGain);
             stats.BiggestEloGainDate = biggestGain.Match.PlayedAt;
 
-            var biggestLoss = matchPlayers.OrderBy(mp => mp.EloChange).First();
-            stats.BiggestEloLoss = biggestLoss.EloChange;
+            var biggestLoss = matchPlayers.OrderBy(EloChangeOf).First();
+            stats.BiggestEloLoss = EloChangeOf(biggestLoss);
             stats.BiggestEloLossDate = biggestLoss.Match.PlayedAt;
 
-            var peak = matchPlayers.OrderByDescending(mp => mp.EloAfter).First();
+            var peak = matchPlayers.OrderByDescending(EloAfterOf).First();
             stats.PeakEloDate = peak.Match.PlayedAt;
         }
 
@@ -348,6 +374,7 @@ public class StatsService(AppDbContext db)
 
     public async Task<List<PlayerRanking>> GetRankingsAsync(int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         // Fix N+1: Load all data in a single query with grouping
         var players = await db.Players
             .Where(p => p.TeamId == teamId && p.IsActive)
@@ -396,8 +423,271 @@ public class StatsService(AppDbContext db)
         return rankings;
     }
 
+    /// <summary>
+    /// Season standings. Active seasons aggregate on the fly from season matches (wins by score,
+    /// active players only, ranked by seasonal ELO with the deterministic tie-breaks). Closed
+    /// seasons render entirely from the frozen tables — zero aggregation; participants with
+    /// FinalRank == null (inactive at close) are hidden.
+    /// </summary>
+    public async Task<List<SeasonStandingRow>> GetSeasonStandingsAsync(Season season)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        if (season.IsClosed)
+        {
+            var frozen = await db.SeasonPlayerResults
+                .Where(r => r.SeasonPlayer.SeasonId == season.Id && r.FinalRank != null)
+                .OrderBy(r => r.FinalRank)
+                .Select(r => new SeasonStandingRow
+                {
+                    Rank = r.FinalRank!.Value,
+                    PlayerId = r.SeasonPlayer.PlayerId,
+                    PlayerName = r.SeasonPlayer.Player.Name,
+                    AvatarId = r.SeasonPlayer.Player.AvatarId,
+                    Elo = r.SeasonPlayer.Elo,
+                    Matches = r.MatchesPlayed,
+                    Wins = r.Wins,
+                    Losses = r.Losses,
+                    LongestWinStreak = r.LongestWinStreak,
+                    LongestLossStreak = r.LongestLossStreak
+                })
+                .ToListAsync();
+            foreach (var row in frozen)
+            {
+                row.WinRate = row.Matches > 0 ? (double)row.Wins / row.Matches * 100 : 0;
+            }
+            return frozen;
+        }
+
+        var (ladder, aggregates) = await LoadLiveSeasonAggregatesAsync(db, season.Id);
+
+        // Live ladder: seasonal ELO desc → wins desc → matches played desc → PlayerId asc.
+        var rows = ladder
+            .Where(sp => sp.Player.IsActive)
+            .OrderByDescending(sp => sp.Elo)
+            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.Wins : 0)
+            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.MatchesPlayed : 0)
+            .ThenBy(sp => sp.PlayerId)
+            .Select((sp, index) =>
+            {
+                var agg = aggregates.TryGetValue(sp.PlayerId, out var a) ? a : new SeasonAggregates.ParticipantAggregate();
+                return new SeasonStandingRow
+                {
+                    Rank = index + 1,
+                    PlayerId = sp.PlayerId,
+                    PlayerName = sp.Player.Name,
+                    AvatarId = sp.Player.AvatarId,
+                    Elo = sp.Elo,
+                    Matches = agg.MatchesPlayed,
+                    Wins = agg.Wins,
+                    Losses = agg.Losses,
+                    WinRate = agg.MatchesPlayed > 0 ? (double)agg.Wins / agg.MatchesPlayed * 100 : 0,
+                    LongestWinStreak = agg.LongestWinStreak,
+                    LongestLossStreak = agg.LongestLossStreak
+                };
+            })
+            .ToList();
+        return rows;
+    }
+
+    /// <summary>
+    /// Season position tables — the same goals-per-game metric and thresholds as the awards, with
+    /// the award tie-break chain, so the podium always matches what the tables show. Frozen data
+    /// for closed seasons, on-the-fly aggregation for the active one.
+    /// </summary>
+    public async Task<(List<PositionRanking> Goalkeepers, List<PositionRanking> Attackers)> GetSeasonPositionRankingsAsync(Season season)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        List<(int PlayerId, string Name, int AvatarId, int Elo, SeasonAggregates.ParticipantAggregate Agg)> participants;
+
+        if (season.IsClosed)
+        {
+            var frozen = await db.SeasonPlayerResults
+                .Where(r => r.SeasonPlayer.SeasonId == season.Id && r.FinalRank != null)
+                .Select(r => new
+                {
+                    r.SeasonPlayer.PlayerId,
+                    r.SeasonPlayer.Player.Name,
+                    r.SeasonPlayer.Player.AvatarId,
+                    r.SeasonPlayer.Elo,
+                    r.GoalkeeperMatches,
+                    r.GoalsConcededAsGoalkeeper,
+                    r.AttackerMatches,
+                    r.GoalsScoredAsAttacker
+                })
+                .ToListAsync();
+
+            participants = frozen.Select(r =>
+            {
+                var agg = new SeasonAggregates.ParticipantAggregate
+                {
+                    GoalkeeperMatches = r.GoalkeeperMatches,
+                    GoalsConcededAsGoalkeeper = r.GoalsConcededAsGoalkeeper,
+                    AttackerMatches = r.AttackerMatches,
+                    GoalsScoredAsAttacker = r.GoalsScoredAsAttacker
+                };
+                return (r.PlayerId, r.Name, r.AvatarId, r.Elo, agg);
+            }).ToList();
+        }
+        else
+        {
+            var (ladder, aggregates) = await LoadLiveSeasonAggregatesAsync(db, season.Id);
+            participants = ladder
+                .Where(sp => sp.Player.IsActive && aggregates.ContainsKey(sp.PlayerId))
+                .Select(sp => (sp.PlayerId, sp.Player.Name, sp.Player.AvatarId, sp.Elo, aggregates[sp.PlayerId]))
+                .ToList();
+        }
+
+        var minGames = Constants.TimeThresholds.MinGamesForPositionBadge;
+
+        // Goals per game (conceded asc / scored desc) → matches in position desc → seasonal ELO desc → PlayerId asc.
+        var goalkeepers = participants
+            .Where(p => p.Agg.GoalkeeperMatches >= minGames)
+            .OrderBy(p => (double)p.Agg.GoalsConcededAsGoalkeeper / p.Agg.GoalkeeperMatches)
+            .ThenByDescending(p => p.Agg.GoalkeeperMatches)
+            .ThenByDescending(p => p.Elo)
+            .ThenBy(p => p.PlayerId)
+            .Select((p, index) => new PositionRanking
+            {
+                Rank = index + 1,
+                PlayerId = p.PlayerId,
+                PlayerName = p.Name,
+                AvatarId = p.AvatarId,
+                Games = p.Agg.GoalkeeperMatches,
+                Goals = p.Agg.GoalsConcededAsGoalkeeper,
+                AverageGoals = (double)p.Agg.GoalsConcededAsGoalkeeper / p.Agg.GoalkeeperMatches
+            })
+            .ToList();
+
+        var attackers = participants
+            .Where(p => p.Agg.AttackerMatches >= minGames)
+            .OrderByDescending(p => (double)p.Agg.GoalsScoredAsAttacker / p.Agg.AttackerMatches)
+            .ThenByDescending(p => p.Agg.AttackerMatches)
+            .ThenByDescending(p => p.Elo)
+            .ThenBy(p => p.PlayerId)
+            .Select((p, index) => new PositionRanking
+            {
+                Rank = index + 1,
+                PlayerId = p.PlayerId,
+                PlayerName = p.Name,
+                AvatarId = p.AvatarId,
+                Games = p.Agg.AttackerMatches,
+                Goals = p.Agg.GoalsScoredAsAttacker,
+                AverageGoals = (double)p.Agg.GoalsScoredAsAttacker / p.Agg.AttackerMatches
+            })
+            .ToList();
+
+        return (goalkeepers, attackers);
+    }
+
+    /// <summary>
+    /// Season pair standings — wins by score, minimum games applied at render time, ordered with
+    /// the pair-award tie-break chain (win rate desc → matches desc → combined seasonal ELO desc →
+    /// smaller PlayerId asc). Frozen SeasonPair rows for closed seasons (pairs with a member
+    /// inactive at close hidden; no average score stored), live aggregation for the active one.
+    /// </summary>
+    public async Task<List<PairStats>> GetSeasonPairRankingsAsync(Season season)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var ladder = await db.SeasonPlayers
+            .AsNoTracking()
+            .Include(sp => sp.Player)
+            .Where(sp => sp.SeasonId == season.Id)
+            .ToListAsync();
+        var eloByPlayer = ladder.ToDictionary(sp => sp.PlayerId, sp => sp.Elo);
+        var playerById = ladder.ToDictionary(sp => sp.PlayerId, sp => sp.Player);
+
+        List<PairStats> pairs;
+        if (season.IsClosed)
+        {
+            // Frozen view: what a closed season displays never depends on current IsActive — only
+            // on the state frozen at close (FinalRank == null ⇔ inactive at close).
+            var activeAtClose = (await db.SeasonPlayerResults
+                    .Where(r => r.SeasonPlayer.SeasonId == season.Id && r.FinalRank != null)
+                    .Select(r => r.SeasonPlayer.PlayerId)
+                    .ToListAsync())
+                .ToHashSet();
+
+            pairs = (await db.SeasonPairs
+                    .Where(p => p.SeasonId == season.Id)
+                    .Include(p => p.Player1)
+                    .Include(p => p.Player2)
+                    .ToListAsync())
+                .Where(p => activeAtClose.Contains(p.Player1Id) && activeAtClose.Contains(p.Player2Id))
+                .Select(p => new PairStats
+                {
+                    Player1Id = p.Player1Id,
+                    Player1Name = p.Player1.Name,
+                    Player1AvatarId = p.Player1.AvatarId,
+                    Player2Id = p.Player2Id,
+                    Player2Name = p.Player2.Name,
+                    Player2AvatarId = p.Player2.AvatarId,
+                    Matches = p.MatchesTogether,
+                    Wins = p.WinsTogether,
+                    Losses = p.MatchesTogether - p.WinsTogether,
+                    WinRate = p.MatchesTogether > 0 ? (double)p.WinsTogether / p.MatchesTogether * 100 : 0
+                })
+                .ToList();
+        }
+        else
+        {
+            var matches = await db.Matches
+                .AsNoTracking()
+                .Include(m => m.MatchPlayers)
+                .Where(m => m.SeasonId == season.Id)
+                .ToListAsync();
+
+            pairs = SeasonAggregates.ComputePairs(matches)
+                .Where(kv => playerById.TryGetValue(kv.Key.Player1Id, out var p1) && p1.IsActive &&
+                             playerById.TryGetValue(kv.Key.Player2Id, out var p2) && p2.IsActive)
+                .Select(kv => new PairStats
+                {
+                    Player1Id = kv.Key.Player1Id,
+                    Player1Name = playerById[kv.Key.Player1Id].Name,
+                    Player1AvatarId = playerById[kv.Key.Player1Id].AvatarId,
+                    Player2Id = kv.Key.Player2Id,
+                    Player2Name = playerById[kv.Key.Player2Id].Name,
+                    Player2AvatarId = playerById[kv.Key.Player2Id].AvatarId,
+                    Matches = kv.Value.Matches,
+                    Wins = kv.Value.Wins,
+                    Losses = kv.Value.Matches - kv.Value.Wins,
+                    WinRate = kv.Value.Matches > 0 ? (double)kv.Value.Wins / kv.Value.Matches * 100 : 0,
+                    TotalScore = kv.Value.TotalScore,
+                    AverageScore = kv.Value.Matches > 0 ? (double)kv.Value.TotalScore / kv.Value.Matches : 0
+                })
+                .ToList();
+        }
+
+        return pairs
+            .Where(p => p.Matches >= Constants.TimeThresholds.MinGamesForPartnerStats)
+            .OrderByDescending(p => p.WinRate)
+            .ThenByDescending(p => p.Matches)
+            .ThenByDescending(p => eloByPlayer.GetValueOrDefault(p.Player1Id) + eloByPlayer.GetValueOrDefault(p.Player2Id))
+            .ThenBy(p => Math.Min(p.Player1Id, p.Player2Id))
+            .ToList();
+    }
+
+    private static async Task<(List<SeasonPlayer> Ladder, Dictionary<int, SeasonAggregates.ParticipantAggregate> Aggregates)>
+        LoadLiveSeasonAggregatesAsync(AppDbContext db, int seasonId)
+    {
+        var matches = await db.Matches
+            .AsNoTracking()
+            .Include(m => m.MatchPlayers)
+            .Where(m => m.SeasonId == seasonId)
+            .OrderBy(m => m.PlayedAt).ThenBy(m => m.Id)
+            .ToListAsync();
+
+        var ladder = await db.SeasonPlayers
+            .AsNoTracking()
+            .Include(sp => sp.Player)
+            .Where(sp => sp.SeasonId == seasonId)
+            .ToListAsync();
+
+        return (ladder, SeasonAggregates.ComputeParticipants(matches));
+    }
+
     public async Task<(List<PositionRanking> Goalkeepers, List<PositionRanking> Attackers)> GetPositionRankingsAsync(int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var players = await db.Players
             .Where(p => p.TeamId == teamId && p.IsActive)
             .ToListAsync();
@@ -466,6 +756,7 @@ public class StatsService(AppDbContext db)
 
     public async Task<List<PairStats>> GetPairRankingsAsync(int teamId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var matches = await db.Matches
             .Where(m => m.TeamId == teamId)
             .Include(m => m.MatchPlayers)
@@ -497,7 +788,7 @@ public class StatsService(AppDbContext db)
         if (teamPlayers.Count != 2) return;
 
         var key = $"{teamPlayers[0].PlayerId}-{teamPlayers[1].PlayerId}";
-        var won = teamPlayers[0].EloChange > 0;
+        var won = GetTeamScore(match, teamNumber) > GetOpponentScore(match, teamNumber);
         var teamScore = GetTeamScore(match, teamNumber);
 
         if (!pairStats.TryGetValue(key, out var pair))
@@ -547,9 +838,9 @@ public class StatsService(AppDbContext db)
 
         foreach (var mp in matchPlayers)
         {
-            var won = mp.EloChange > 0;
             var teamScore = GetTeamScore(mp.Match, mp.TeamNumber);
             var opponentScore = GetOpponentScore(mp.Match, mp.TeamNumber);
+            var won = teamScore > opponentScore;
 
             if (won)
             {
@@ -750,6 +1041,23 @@ public class PlayerRanking
     public int Matches { get; set; }
     public int Wins { get; set; }
     public double WinRate { get; set; }
+}
+
+/// <summary>One row of season standings — live (active season) or frozen (closed season).</summary>
+public class SeasonStandingRow
+{
+    public int Rank { get; set; }
+    public int PlayerId { get; set; }
+    public string PlayerName { get; set; } = string.Empty;
+    public int AvatarId { get; set; }
+    /// <summary>Seasonal ELO (final for closed seasons).</summary>
+    public int Elo { get; set; }
+    public int Matches { get; set; }
+    public int Wins { get; set; }
+    public int Losses { get; set; }
+    public double WinRate { get; set; }
+    public int LongestWinStreak { get; set; }
+    public int LongestLossStreak { get; set; }
 }
 
 public class PositionRanking

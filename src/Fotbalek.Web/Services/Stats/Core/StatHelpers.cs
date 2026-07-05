@@ -16,7 +16,10 @@ internal static class StatHelpers
     public static int OpponentScore(this Match match, int teamNumber) =>
         teamNumber == 1 ? match.Team2Score : match.Team1Score;
 
-    public static bool IsWinner(this MatchPlayer mp) => mp.EloChange > 0;
+    // Wins are determined by score, not by ELO-change sign: with K=32 and an ELO gap ≳720 the
+    // winner's change rounds to 0 (and SeasonEloChange is nullable besides).
+    public static bool IsWinner(this MatchPlayer mp) =>
+        mp.Match.TeamScore(mp.TeamNumber) > mp.Match.OpponentScore(mp.TeamNumber);
 
     public static int WinningTeamNumber(this Match match) =>
         match.Team1Score > match.Team2Score ? 1 : 2;

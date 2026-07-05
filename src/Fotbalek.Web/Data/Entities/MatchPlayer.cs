@@ -11,6 +11,12 @@ public class MatchPlayer
     public int EloBefore { get; set; }
     public int EloAfter { get; set; }
 
+    // Seasonal-ladder mirror of the Elo* fields. Null for off-season matches; cleared whenever
+    // the match leaves its season (season delete, EndsAt shrink).
+    public int? SeasonEloBefore { get; set; }
+    public int? SeasonEloAfter { get; set; }
+    public int? SeasonEloChange { get; set; }
+
     public Match Match { get; set; } = null!;
     public Player Player { get; set; } = null!;
 }

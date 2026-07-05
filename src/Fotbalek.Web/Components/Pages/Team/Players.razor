@@ -5,6 +5,7 @@
 @inject TeamAccessService TeamAccess
 @inject PlayerService PlayerService
 @inject StatsEngine StatsEngine
+@inject SeasonService SeasonService
 @inject CurrentUserService CurrentUser
 @inject ShareTokenService ShareTokenService
 @inject NavigationManager Navigation
@@ -187,6 +188,8 @@ else
     private List<StatResult> _stats = [];
     private Dictionary<int, PlayerSummary> _summaries = [];
     private Dictionary<int, int> _ranks = [];
+    private Season? _activeSeason;
+    private IReadOnlyDictionary<int, SeasonPlayer> _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
 
     private string _search = string.Empty;
     private string _sortBy = "elo";
@@ -216,6 +219,7 @@ else
         var summary = _summaries.GetValueOrDefault(player.Id) ?? new PlayerSummary();
         var badges = StatRegistry.PlayerBadges(_stats, player.Id);
         var isMine = player.Id == MyPlayerId;
+        var rating = RatingOf(player);
         var rank = !isInactive && _ranks.TryGetValue(player.Id, out var r) ? r : (int?)null;
         var rankClass = rank switch
         {
@@ -269,13 +273,20 @@ else
                         }
                     </div>
                     <div class="elo-row">
-                        <span>ELO</span>
-                        <span class="elo-value">@player.Elo</span>
-                        @if (summary.Games > 0)
+                        <span>@(_activeSeason != null ? "Season ELO" : "ELO")</span>
+                        @if (rating is int ratingValue)
                         {
-                            <span class="trend @trendClass" title="Last match ELO change">
-                                <i class="bi @trendIcon"></i>@(trendDelta > 0 ? "+" : "")@trendDelta
-                            </span>
+                            <span class="elo-value">@ratingValue</span>
+                            @if (summary.Games > 0)
+                            {
+                                <span class="trend @trendClass" title="@(_activeSeason != null ? "Last seasonal match ELO change" : "Last match ELO change")">
+                                    <i class="bi @trendIcon"></i>@(trendDelta > 0 ? "+" : "")@trendDelta
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="elo-value text-muted" title="No seasonal match yet">—</span>
                         }
                     </div>
                     @if (summary.Games > 0)
@@ -291,7 +302,7 @@ else
                     }
                     else
                     {
-                        <div class="stat-line">No matches yet</div>
+                        <div class="stat-line">@(_activeSeason != null ? "No seasonal matches yet" : "No matches yet")</div>
                     }
                     <div class="badges-row">
                         @foreach (var badge in badges.Take(visibleBadgeCount))
@@ -329,11 +340,22 @@ else
                               .ThenBy(p => p.Name),
             "recent" => query.OrderByDescending(p => _summaries.GetValueOrDefault(p.Id)?.LastPlayedAt ?? DateTimeOffset.MinValue)
                              .ThenBy(p => p.Name),
-            _ => query.OrderByDescending(p => p.Elo).ThenBy(p => p.Name)
+            // ELO sort follows the default lens; players without a seasonal rating sort after rated ones.
+            _ => query.OrderByDescending(p => RatingOf(p) != null)
+                      .ThenByDescending(p => RatingOf(p) ?? 0)
+                      .ThenBy(p => p.Name)
         };
 
         return query.ToList();
     }
+
+    /// <summary>
+    /// The displayed rating: seasonal ELO when a season is active (null = no SeasonPlayer row —
+    /// shown as "—" and never defaulted to 1000), all-time ELO otherwise.
+    /// </summary>
+    private int? RatingOf(Player player) => _activeSeason != null
+        ? (_seasonPlayersById.TryGetValue(player.Id, out var sp) ? sp.Elo : null)
+        : player.Elo;
 
     private void OnSearchChanged(ChangeEventArgs e) => _search = e.Value?.ToString() ?? string.Empty;
     private void OnSortChanged(ChangeEventArgs e) => _sortBy = e.Value?.ToString() ?? "elo";
@@ -370,21 +392,51 @@ else
     {
         if (_team == null) return;
 
-        var (playersById, matches) = await StatsEngine.LoadAsync(_team.Id);
-        _stats = StatsEngine.Compute(playersById, matches, isAllTime: true);
+        // The roster follows the default lens: with an active season, ratings/ranks/summaries and
+        // badges come from the season; with no active season, all-time (idle default).
+        _activeSeason = await SeasonService.GetActiveSeasonAsync(_team.Id);
 
-        var all = playersById.Values.ToList();
-        _activePlayers = all.Where(p => p.IsActive).ToList();
-        _inactivePlayers = all.Where(p => !p.IsActive).ToList();
+        if (_activeSeason != null)
+        {
+            var (playersById, seasonMatches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _activeSeason.Id);
+            _seasonPlayersById = seasonPlayers;
+            _stats = StatsEngine.ComputeSeason(playersById, seasonPlayers, seasonMatches, isFullScope: true);
 
-        _summaries = BuildSummaries(matches);
-        _ranks = _activePlayers
-            .OrderByDescending(p => p.Elo)
-            .Select((p, idx) => (p.Id, Rank: idx + 1))
-            .ToDictionary(x => x.Id, x => x.Rank);
+            var all = playersById.Values.ToList();
+            _activePlayers = all.Where(p => p.IsActive).ToList();
+            _inactivePlayers = all.Where(p => !p.IsActive).ToList();
+
+            _summaries = BuildSummaries(seasonMatches, seasonal: true);
+            // Only players with a seasonal rating are ranked — with the same deterministic
+            // tie-breaks as the season standings, so the chips match the Rankings page.
+            _ranks = _activePlayers
+                .Where(p => _seasonPlayersById.ContainsKey(p.Id))
+                .OrderByDescending(p => _seasonPlayersById[p.Id].Elo)
+                .ThenByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Wins ?? 0)
+                .ThenByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Games ?? 0)
+                .ThenBy(p => p.Id)
+                .Select((p, idx) => (p.Id, Rank: idx + 1))
+                .ToDictionary(x => x.Id, x => x.Rank);
+        }
+        else
+        {
+            var (playersById, matches) = await StatsEngine.LoadAsync(_team.Id);
+            _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
+            _stats = StatsEngine.Compute(playersById, matches, isAllTime: true);
+
+            var all = playersById.Values.ToList();
+            _activePlayers = all.Where(p => p.IsActive).ToList();
+            _inactivePlayers = all.Where(p => !p.IsActive).ToList();
+
+            _summaries = BuildSummaries(matches, seasonal: false);
+            _ranks = _activePlayers
+                .OrderByDescending(p => p.Elo)
+                .Select((p, idx) => (p.Id, Rank: idx + 1))
+                .ToDictionary(x => x.Id, x => x.Rank);
+        }
     }
 
-    private static Dictionary<int, PlayerSummary> BuildSummaries(IReadOnlyList<Match> matches)
+    private static Dictionary<int, PlayerSummary> BuildSummaries(IReadOnlyList<Match> matches, bool seasonal)
     {
         var result = new Dictionary<int, PlayerSummary>();
         foreach (var match in matches)
@@ -404,7 +456,8 @@ else
                 if (s.LastPlayedAt == null || match.PlayedAt > s.LastPlayedAt)
                 {
                     s.LastPlayedAt = match.PlayedAt;
-                    s.LastEloChange = mp.EloChange;
+                    // The trend chip shows the change on the lens's ladder.
+                    s.LastEloChange = seasonal ? mp.SeasonEloChange ?? 0 : mp.EloChange;
                 }
             }
         }

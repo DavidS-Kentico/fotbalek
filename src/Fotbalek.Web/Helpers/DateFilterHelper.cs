@@ -1,21 +1,25 @@
 namespace Fotbalek.Web.Helpers;
 
+/// <summary>
+/// Date-range helpers for the time period filters. Parameterized by the user's local "today"
+/// (from <see cref="Services.TimeZoneService"/>) — never touches server-local time.
+/// </summary>
 public static class DateFilterHelper
 {
     /// <summary>
     /// Gets the date range for a given period selection.
     /// </summary>
     /// <param name="period">The period: "today", "week", "month", "custom", or "all"</param>
+    /// <param name="today">The user's local today</param>
     /// <param name="customStartDate">Custom start date (required when period is "custom")</param>
     /// <param name="customEndDate">Custom end date (required when period is "custom")</param>
     /// <returns>A tuple of (startDate, endDate) for the period, or null for "all"</returns>
     public static (DateOnly startDate, DateOnly endDate)? GetDateRange(
         string period,
+        DateOnly today,
         DateOnly? customStartDate = null,
         DateOnly? customEndDate = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-
         return period switch
         {
             "today" => (today, today),
@@ -46,15 +50,16 @@ public static class DateFilterHelper
     }
 
     /// <summary>
-    /// Checks if a date falls within the specified period.
+    /// Checks if a (local) date falls within the specified period.
     /// </summary>
     public static bool IsDateInPeriod(
         DateOnly date,
         string period,
+        DateOnly today,
         DateOnly? customStartDate = null,
         DateOnly? customEndDate = null)
     {
-        var range = GetDateRange(period, customStartDate, customEndDate);
+        var range = GetDateRange(period, today, customStartDate, customEndDate);
         if (range == null)
             return true; // "all" period includes everything
 
@@ -66,11 +71,10 @@ public static class DateFilterHelper
     /// </summary>
     public static string? GetPeriodDescription(
         string period,
+        DateOnly today,
         DateOnly? customStartDate = null,
         DateOnly? customEndDate = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-
         return period switch
         {
             "today" => $"Today ({today:MMM d})",

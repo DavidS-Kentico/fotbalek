@@ -8,6 +8,7 @@
 @inject ShareTokenService ShareTokenService
 @inject PresenceTracker Presence
 @inject NavigationManager Navigation
+@inject TimeZoneService Tz
 @inject IJSRuntime JS
 
 <div class="min-vh-100 d-flex flex-column">
@@ -49,6 +50,11 @@
                         <li class="nav-item">
                             <NavLink class="nav-link" href="@($"/{_team.CodeName}/players")">
                                 <i class="bi bi-people me-1"></i> Players
+                            </NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/seasons")">
+                                <i class="bi bi-award me-1"></i> Seasons
                             </NavLink>
                         </li>
                     </ul>
@@ -363,6 +369,10 @@
         {
             try
             {
+                // Resolve the user's browser timezone once per circuit (interop is unavailable
+                // during prerender, so this must happen after the first render).
+                await Tz.EnsureResolvedAsync();
+
                 var teamCode = TeamAccess.GetTeamCodeFromUrl();
                 _user = await CurrentUser.GetUserAsync();
 

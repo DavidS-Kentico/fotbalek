@@ -12,6 +12,11 @@ function formatLocalDates() {
 // Run on page load and after Blazor updates
 document.addEventListener('DOMContentLoaded', formatLocalDates);
 
+// The user's IANA timezone — resolved once per circuit by TimeZoneService.
+window.getBrowserTimeZone = function () {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
 // Chart.js rendering functions
 window.renderEloChart = function(canvasId, labels, data) {
     const ctx = document.getElementById(canvasId);

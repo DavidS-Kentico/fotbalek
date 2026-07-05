@@ -29,7 +29,7 @@
         <div class="d-flex align-items-center gap-2">
             <input type="date" class="form-control form-control-sm" style="width: 140px;"
                    value="@CustomStartDate?.ToString("yyyy-MM-dd")"
-                   max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                   max="@Today.ToString("yyyy-MM-dd")"
                    @onchange="OnStartDateInput" />
             <span class="text-muted">to</span>
             <input type="date" class="form-control form-control-sm" style="width: 140px;"
@@ -54,6 +54,9 @@
     [Parameter] public EventCallback OnFilterChanged { get; set; }
 
     [Parameter] public bool LimitCustomRangeToThreeMonths { get; set; } = false;
+
+    /// <summary>The user's local today (from TimeZoneService). Bounds the custom date inputs.</summary>
+    [Parameter] public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
     // Unique ID for radio button group to avoid conflicts when multiple instances on page
     private string _radioGroupName = $"period_{Guid.NewGuid():N}";
@@ -110,12 +113,11 @@
 
     private DateOnly GetMaxEndDate()
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
         if (LimitCustomRangeToThreeMonths && CustomStartDate.HasValue)
         {
             var maxFromStart = CustomStartDate.Value.AddMonths(3);
-            return maxFromStart < today ? maxFromStart : today;
+            return maxFromStart < Today ? maxFromStart : Today;
         }
-        return today;
+        return Today;
     }
 }

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
-public class ShareTokenService(AppDbContext db)
+public class ShareTokenService(IDbContextFactory<AppDbContext> dbFactory)
 {
     /// <summary>
     /// Generates a share link for a team. The caller must be a member of that team.
@@ -13,6 +13,7 @@ public class ShareTokenService(AppDbContext db)
     /// </summary>
     public async Task<string?> GenerateTokenAsync(int teamId, int actorUserId)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var isMember = await db.TeamMemberships
             .AnyAsync(m => m.TeamId == teamId && m.UserId == actorUserId);
         if (!isMember) return null;
@@ -40,6 +41,7 @@ public class ShareTokenService(AppDbContext db)
 
     public async Task<Team?> ValidateTokenAsync(string token)
     {
+        await using var db = await dbFactory.CreateDbContextAsync();
         var shareToken = await db.ShareTokens
             .Include(st => st.Team)
             .FirstOrDefaultAsync(st => st.Token == token && st.ExpiresAt > DateTimeOffset.UtcNow);
