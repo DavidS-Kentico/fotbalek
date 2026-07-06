@@ -4,7 +4,7 @@
 
 const INTERP_DELAY_MS = 125;      // render this far behind server time (§4.4)
 const MAX_EXTRAPOLATION_MS = 100; // cap ball extrapolation past the newest snapshot
-const NUDGE_RATE = 4;             // /s — pull of predicted own rods toward server offsets
+const NUDGE_RATE = 4;             // /s — correction of predicted own rods by time-aligned error
 const PAD = 30;                   // logical padding around the playfield (goal pockets, handles)
 
 // Mirrors SeatMap.cs: [seat][hand] → rod, and the 1v1 pairs [side][hand] → rods (§2.2).
@@ -41,6 +41,7 @@ const held = [{ up: false, down: false }, { up: false, down: false }];
 const sentDir = [0, 0];
 let myRods = null;      // { hands: [rodIdxs, rodIdxs] } when seated, else null
 let predicted = null;   // rodIdx → offset
+let predHistory = {};   // rodIdx → [{ t, o }] — past predictions on the server timeline
 let lastFrameTime = 0;
 
 export async function init(canvasEl, options) {
@@ -57,6 +58,7 @@ export async function init(canvasEl, options) {
     lastKickTick = -1;
     myRods = null;
     predicted = null;
+    predHistory = {};
     lastLayoutKey = '';
     lastFrameTime = 0;
     for (const hand of [0, 1]) {
@@ -226,6 +228,7 @@ function applyRoomState(state) {
         }
         myRods = null;
         predicted = null;
+        predHistory = {};
         return;
     }
     const side = mySeat.seat <= 1 ? 0 : 1;
@@ -242,6 +245,7 @@ function applyRoomState(state) {
     for (const key of Object.keys(predicted)) {
         if (!owned.has(Number(key))) {
             delete predicted[key];
+            delete predHistory[key];
         }
     }
 }
@@ -384,25 +388,75 @@ function footValue(rodIdx, figIdx, renderTime) {
     return 0;
 }
 
-/** Own rods render from locally integrated key state, nudged toward server values (§4.4). */
-function predictOwnRods(rods, dtSec) {
+/** Own rods render from locally integrated key state, reconciled against the server (§4.4).
+ *  The server offset we can see (`rods`) is ~INTERP_DELAY_MS old, so correcting the live
+ *  prediction toward it directly would rubber-band: a tap snaps back and glides up as the
+ *  delayed stream catches up. Instead we compare like with like — the server value at
+ *  `renderTime` against what we predicted for that same instant (kept in `predHistory`) — and
+ *  fold only that error in. When the server confirms our input the error is ~0 (no spring);
+ *  genuine drift (missed input, wall clamp, pairing change) still corrects smoothly. */
+function predictOwnRods(rods, dtSec, renderTime) {
     if (!myRods || !predicted) {
         return rods;
     }
     const out = rods.slice();
     const nudge = 1 - Math.exp(-NUDGE_RATE * dtSec);
+    const serverNow = renderTime + INTERP_DELAY_MS; // server time this prediction represents
     for (const hand of [0, 1]) {
         for (const rodIdx of myRods.hands[hand]) {
             const rod = config.rods[rodIdx];
             let p = predicted[rodIdx] ?? rods[rodIdx];
             p += sentDir[hand] * (config.rodSpeed / rod.travel) * dtSec;
             p = Math.min(1, Math.max(0, p));
-            p += (rods[rodIdx] - p) * nudge;
+            const past = sampleHistory(rodIdx, renderTime);
+            if (past !== null) {
+                p = Math.min(1, Math.max(0, p + (rods[rodIdx] - past) * nudge));
+            }
             predicted[rodIdx] = p;
+            recordHistory(rodIdx, serverNow, p);
             out[rodIdx] = p;
         }
     }
     return out;
+}
+
+/** Store the prediction for a rod on the server timeline, pruning entries too old to ever be
+ *  looked up (renderTime = serverNow - INTERP_DELAY_MS, with margin). */
+function recordHistory(rodIdx, t, o) {
+    const h = predHistory[rodIdx] ?? (predHistory[rodIdx] = []);
+    h.push({ t, o });
+    const cutoff = t - INTERP_DELAY_MS - 300;
+    let drop = 0;
+    while (drop < h.length - 1 && h[drop + 1].t < cutoff) {
+        drop++;
+    }
+    if (drop > 0) {
+        h.splice(0, drop);
+    }
+}
+
+/** What we predicted for this rod at server time `t`, linearly interpolated; null if no
+ *  history yet (first frames after sitting — just integrate until it fills). */
+function sampleHistory(rodIdx, t) {
+    const h = predHistory[rodIdx];
+    if (!h || h.length === 0) {
+        return null;
+    }
+    if (t <= h[0].t) {
+        return h[0].o;
+    }
+    if (t >= h[h.length - 1].t) {
+        return h[h.length - 1].o;
+    }
+    for (let i = h.length - 1; i > 0; i--) {
+        if (h[i - 1].t <= t) {
+            const a = h[i - 1];
+            const b = h[i];
+            const alpha = b.t > a.t ? (t - a.t) / (b.t - a.t) : 0;
+            return a.o + (b.o - a.o) * alpha;
+        }
+    }
+    return h[0].o;
 }
 
 // ---- Rendering -------------------------------------------------------------------------------
@@ -452,7 +506,7 @@ function frame(nowMs) {
     if (!world) {
         return;
     }
-    const rods = predictOwnRods(world.rods, dtSec);
+    const rods = predictOwnRods(world.rods, dtSec, world.renderTime);
     draw(world.ball, rods, world.snap, nowMs, world.renderTime);
 }
 
