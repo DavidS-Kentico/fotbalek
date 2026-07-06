@@ -1,0 +1,371 @@
+@page "/team/{TeamCode}/game"
+@layout TeamLayout
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Fotbalek.Web.Game
+@using Fotbalek.Web.Game.Core
+@implements IAsyncDisposable
+@inject TeamAccessService TeamAccess
+@inject CurrentUserService CurrentUser
+@inject PlayerService PlayerService
+@inject GameRoomManager Rooms
+@inject IJSRuntime JS
+
+<PageTitle>Live Game - Foosball Manager</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_team != null && _user != null)
+{
+    <div class="container py-4">
+        @if (_state == null)
+        {
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div style="font-size: 3rem;">🎮</div>
+                    <h4 class="mt-2">@(_roomEnded ? "The game has ended" : "No live game right now")</h4>
+                    <p class="text-muted">Play foosball in the browser against your teammates — up to 4 players, everyone else can watch.</p>
+                    <button class="btn btn-success" @onclick="StartGame">
+                        <i class="bi bi-play-fill me-1"></i> Start live game
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card mb-3">
+                <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3">
+                    <div class="fs-5 fw-bold">
+                        <span class="game-side-dot game-side-a"></span> Team A
+                        <span class="mx-2">@_state.ScoreA : @_state.ScoreB</span>
+                        Team B <span class="game-side-dot game-side-b"></span>
+                    </div>
+                    <span class="text-muted"><i class="bi bi-eye me-1"></i>@_state.Viewers.Count viewer@(_state.Viewers.Count == 1 ? "" : "s")</span>
+                    <div class="ms-auto">
+                        @if (IsSeated)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => _showEndModal = true">
+                                <i class="bi bi-x-circle me-1"></i> End game
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-lg-9">
+                    <div class="game-canvas-wrap">
+                        <canvas @ref="_canvas" data-room-id="@_room?.RoomId"></canvas>
+
+                        @if (_state.State == (int)GamePhase.Waiting)
+                        {
+                            <div class="game-overlay">
+                                <div class="game-overlay-box">
+                                    @if (WaitingForReconnect is { Count: > 0 } names)
+                                    {
+                                        <div class="fs-5">⏸️ Waiting for @string.Join(" & ", names) to reconnect…</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="fs-5">Waiting for opponents…</div>
+                                        <div class="text-muted small mt-1">Ball rolls once each side has a player.</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else if (_state.State == (int)GamePhase.GameOver)
+                        {
+                            <div class="game-overlay">
+                                <div class="game-overlay-box text-center">
+                                    <div class="fs-4">
+                                        🏆
+                                        @for (var i = 0; i < _state.Winners.Count; i++)
+                                        {
+                                            var w = _state.Winners[i];
+                                            if (i > 0)
+                                            {
+                                                <span class="mx-1">&amp;</span>
+                                            }
+                                            <Avatar AvatarId="@w.AvatarId" Size="sm" CssClass="mx-1" />@w.Name
+                                        }
+                                        win @Math.Max(_state.ScoreA, _state.ScoreB) : @Math.Min(_state.ScoreA, _state.ScoreB)
+                                    </div>
+                                    @if (IsSeated)
+                                    {
+                                        <button class="btn btn-success mt-3" @onclick="Rematch">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Rematch
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (IsSeated)
+                    {
+                        <div class="text-center text-muted small mt-2">
+                            <kbd>W</kbd>/<kbd>S</kbd> — your left rod · <kbd>↑</kbd>/<kbd>↓</kbd> — your right rod
+                        </div>
+                    }
+                </div>
+
+                <div class="col-lg-3">
+                    <div class="card mb-3">
+                        <div class="card-header py-2"><strong>Seats</strong></div>
+                        <ul class="list-group list-group-flush">
+                            @foreach (var seat in _state.Seats)
+                            {
+                                var isMine = seat.UserId == _user.Id;
+                                <li class="list-group-item d-flex align-items-center gap-2 @(isMine ? "bg-success-subtle" : "")">
+                                    <span class="game-side-dot @(seat.Seat <= 1 ? "game-side-a" : "game-side-b")"></span>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="small text-muted">@SeatMap.SeatNames[seat.Seat]</div>
+                                        @if (seat.UserId != null)
+                                        {
+                                            <span class="@(seat.Connected ? "" : "text-muted")">
+                                                <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" />
+                                                @seat.Name
+                                                @if (!seat.Connected)
+                                                {
+                                                    <i class="bi bi-wifi-off ms-1" title="Reconnecting…"></i>
+                                                }
+                                                @if (isMine)
+                                                {
+                                                    <span class="badge badge-you ms-1">you</span>
+                                                }
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
+                                                <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Take seat")
+                                            </button>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header py-2"><strong>Viewers</strong> <i class="bi bi-eye ms-1"></i> @_state.Viewers.Count</div>
+                        <ul class="list-group list-group-flush">
+                            @if (_state.Viewers.Count == 0)
+                            {
+                                <li class="list-group-item text-muted small">Nobody is watching.</li>
+                            }
+                            @foreach (var viewer in _state.Viewers)
+                            {
+                                <li class="list-group-item py-1">
+                                    <Avatar AvatarId="@viewer.AvatarId" Size="sm" />
+                                    <span class="ms-1">@viewer.Name</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+
+                    @if (IsSeated)
+                    {
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetBall">
+                                <i class="bi bi-record-circle me-1"></i> Reset ball
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetScore">
+                                <i class="bi bi-0-circle me-1"></i> Reset score
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="LeaveSeat">
+                                <i class="bi bi-box-arrow-left me-1"></i> Leave seat
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <Modal Show="_showEndModal" Title="End game" Icon="bi bi-x-circle" OnClose="() => _showEndModal = false">
+        <Body>
+            <p>End the live game for everyone? The score will be lost.</p>
+        </Body>
+        <Footer>
+            <button type="button" class="btn btn-secondary" @onclick="() => _showEndModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="EndGame">End game</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    private Team? _team;
+    private AppUser? _user;
+    private Player? _myPlayer;
+    private GameRoom? _room;
+    private RoomStateDto? _state;
+    private bool _loading = true;
+    private bool _roomEnded;
+    private bool _showEndModal;
+    private bool _subscribed;
+
+    private ElementReference _canvas;
+    private IJSObjectReference? _jsModule;
+    private bool _jsInitialized;
+    private Guid? _jsRoomId;
+
+    private bool IsSeated => _state != null && _user != null && _state.Seats.Any(s => s.UserId == _user.Id);
+
+    private string MyDisplayName => _myPlayer?.Name ?? _user?.UserName ?? "Player";
+    private int MyAvatarId => _myPlayer?.AvatarId ?? 1;
+
+    /// <summary>Names of grace-held occupants, but only when the wait is a reconnect hold —
+    /// i.e. both sides are seated and one has no connected player (§3.4).</summary>
+    private List<string>? WaitingForReconnect
+    {
+        get
+        {
+            if (_state == null)
+                return null;
+            var sideAOccupied = _state.Seats.Any(s => s.Seat <= 1 && s.UserId != null);
+            var sideBOccupied = _state.Seats.Any(s => s.Seat >= 2 && s.UserId != null);
+            if (!sideAOccupied || !sideBOccupied)
+                return null;
+            return _state.Seats
+                .Where(s => s.UserId != null && !s.Connected)
+                .Select(s => s.Name!)
+                .ToList();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _team = await TeamAccess.GetCurrentTeamAsync();
+            _user = await CurrentUser.GetUserAsync();
+            if (_team == null || _user == null)
+            {
+                return; // TeamLayout handles the redirect
+            }
+            _myPlayer = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+
+            Rooms.Changed += OnRoomsChanged;
+            _subscribed = true;
+            RefreshRoom();
+            _loading = false;
+            StateHasChanged();
+        }
+
+        // The canvas exists only after the room renders; (re)initialize the JS client then.
+        if (_room != null && _state != null && !_jsInitialized)
+        {
+            _jsInitialized = true;
+            _jsRoomId = _room.RoomId;
+            _jsModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/game.js");
+            await _jsModule.InvokeVoidAsync("init", _canvas, new
+            {
+                hubUrl = "/hubs/game",
+                roomId = _room.RoomId.ToString(),
+                userId = _user!.Id,
+            });
+        }
+    }
+
+    private void RefreshRoom()
+    {
+        var room = _team != null ? Rooms.GetForTeam(_team.Id) : null;
+        if (_room != null && room == null)
+        {
+            _roomEnded = true;
+        }
+        _room = room;
+        _state = room?.GetState();
+    }
+
+    private async void OnRoomsChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                RefreshRoom();
+                if (_jsInitialized && _room?.RoomId != _jsRoomId)
+                {
+                    // Room gone (or replaced) — tear the JS client down; a new room re-inits
+                    // on the next render.
+                    _jsInitialized = false;
+                    _jsRoomId = null;
+                    await DisposeJsClientAsync();
+                }
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit torn down between event and dispatch.
+        }
+    }
+
+    private void StartGame()
+    {
+        if (_team == null || _user == null)
+        {
+            return;
+        }
+        _roomEnded = false;
+        var room = Rooms.GetOrCreateForTeam(_team.Id);
+        room.TryTakeFirstFreeSeat(_user.Id, MyDisplayName, MyAvatarId);
+        RefreshRoom();
+    }
+
+    private void TakeSeat(int seat) => _room?.TakeSeat(_user!.Id, seat, MyDisplayName, MyAvatarId);
+    private void LeaveSeat() => _room?.LeaveSeat(_user!.Id);
+    private void ResetBall() => _room?.ResetBall(_user!.Id);
+    private void ResetScore() => _room?.ResetScore(_user!.Id);
+    private void Rematch() => _room?.Rematch(_user!.Id);
+
+    private void EndGame()
+    {
+        _showEndModal = false;
+        _room?.EndGame(_user!.Id);
+    }
+
+    private async Task DisposeJsClientAsync()
+    {
+        if (_jsModule == null)
+        {
+            return;
+        }
+        try
+        {
+            await _jsModule.InvokeVoidAsync("dispose");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_subscribed)
+        {
+            Rooms.Changed -= OnRoomsChanged;
+            _subscribed = false;
+        }
+        await DisposeJsClientAsync();
+        if (_jsModule != null)
+        {
+            try
+            {
+                await _jsModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            _jsModule = null;
+        }
+    }
+}

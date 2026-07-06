@@ -843,3 +843,75 @@ h1:focus {
         order: -1; /* score on top */
     }
 }
+
+/* ===== Live Game (online foosball mini-game) ===== */
+.live-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #dc3545;
+    animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); }
+    70% { box-shadow: 0 0 0 7px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.game-canvas-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    line-height: 0; /* no phantom gap under the canvas */
+}
+
+.game-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+}
+
+.game-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.35);
+    line-height: 1.5;
+}
+
+.game-overlay-box {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 1.25rem 2rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+    text-align: center;
+    max-width: 90%;
+}
+
+.game-connection-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(33, 37, 41, 0.75);
+    color: #fff;
+    font-weight: 600;
+    line-height: 1.5;
+    z-index: 5;
+}
+
+.game-side-dot {
+    display: inline-block;
+    width: 0.75em;
+    height: 0.75em;
+    border-radius: 50%;
+    vertical-align: baseline;
+}
+
+.game-side-a { background-color: #ffc107; }
+.game-side-b { background-color: #0d6efd; }

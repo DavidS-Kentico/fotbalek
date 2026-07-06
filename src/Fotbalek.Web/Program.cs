@@ -5,6 +5,7 @@ using Fotbalek.Web.Configuration;
 using Fotbalek.Web.Data;
 using Fotbalek.Web.Data.Entities;
 using Fotbalek.Web.Endpoints;
+using Fotbalek.Web.Game;
 using Fotbalek.Web.Services;
 using Fotbalek.Web.Services.Stats;
 using Microsoft.AspNetCore.Authentication;
@@ -140,6 +141,10 @@ builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<CircuitHandler, PresenceCircuitHandler>();
 builder.Services.AddFoosballStats();
 
+// Live game (in-memory foosball mini-game): rooms + dedicated hub for the JS canvas client.
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<GameRoomManager>();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -176,6 +181,7 @@ app.MapRazorComponents<App>()
 
 app.MapAccountEndpoints();
 app.MapAdminEndpoints();
+app.MapHub<GameHub>("/hubs/game");
 
 // Apply migrations on startup (for PoC simplicity)
 using (var scope = app.Services.CreateScope())

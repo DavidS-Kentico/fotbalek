@@ -2,6 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
+@implements IDisposable
+@inject GameRoomManager GameRooms
 @inject TeamAccessService TeamAccess
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
@@ -75,6 +77,33 @@ else if (_team != null)
             <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-4">
                 <span><i class="bi bi-award me-1"></i>Group your matches into seasons — fresh ELO ladder, champions and permanent awards.</span>
                 <a href="/team/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
+            </div>
+        }
+
+        @if (GameRooms.GetForTeam(_team.Id) is { } liveRoom)
+        {
+            var liveState = liveRoom.GetState();
+            var seatedPlayers = liveState.Seats.Where(s => s.UserId != null).ToList();
+            var freeSeats = 4 - seatedPlayers.Count;
+            <div class="card border-danger mb-4">
+                <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3">
+                    <span class="live-dot"></span>
+                    <strong>Live game in progress</strong>
+                    <span>
+                        @foreach (var seat in seatedPlayers)
+                        {
+                            <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" Title="@seat.Name" CssClass="me-1" />
+                        }
+                    </span>
+                    <span class="text-muted small">
+                        @(freeSeats > 0 ? $"{freeSeats} seat{(freeSeats == 1 ? "" : "s")} free" : "table full")
+                        <span class="mx-1">·</span>
+                        <i class="bi bi-eye me-1"></i>@liveState.Viewers.Count watching
+                    </span>
+                    <a href="/team/@TeamCode/game" class="btn btn-sm btn-danger ms-auto">
+                        @(freeSeats > 0 ? "Join" : "Watch")
+                    </a>
+                </div>
             </div>
         }
 
@@ -256,10 +285,35 @@ else if (_team != null)
             : _rankingRows.Take(limit).ToList();
     }
 
+    private bool _gameRoomsSubscribed;
+
+    private async void OnGameRoomsChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit torn down between event and dispatch.
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_gameRoomsSubscribed)
+        {
+            GameRooms.Changed -= OnGameRoomsChanged;
+            _gameRoomsSubscribed = false;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            GameRooms.Changed += OnGameRoomsChanged;
+            _gameRoomsSubscribed = true;
             await Tz.EnsureResolvedAsync();
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
