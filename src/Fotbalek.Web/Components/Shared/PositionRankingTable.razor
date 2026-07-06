@@ -36,9 +36,13 @@
                                     <RankBadge Rank="@p.Rank" Large="true" />
                                 </td>
                                 <td>
-                                    <a href="/@TeamCode/players/@p.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                    <a href="/team/@TeamCode/players/@p.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
                                         <Avatar AvatarId="@p.AvatarId" Size="sm" />
                                         <span>@p.PlayerName</span>
+                                        @if (p.PlayerId == CaptainPlayerId)
+                                        {
+                                            <CaptainMark />
+                                        }
                                         @if (isMine)
                                         {
                                             <span class="badge badge-you ms-1">you</span>
@@ -67,6 +71,7 @@
     [Parameter] public string? HeaderHint { get; set; }
     [Parameter] public string TeamCode { get; set; } = string.Empty;
     [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public int? CaptainPlayerId { get; set; }
     [Parameter] public string AverageColumnLabel { get; set; } = "Avg";
     [Parameter] public string? AverageColumnTooltip { get; set; }
     [Parameter] public string AverageColumnClass { get; set; } = "text-secondary";

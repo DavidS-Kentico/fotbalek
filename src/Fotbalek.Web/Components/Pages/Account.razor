@@ -1,0 +1,176 @@
+@page "/account"
+@attribute [Authorize]
+@inject CurrentUserService CurrentUser
+@inject TeamMembershipService MembershipService
+@inject TimeZoneService Tz
+
+<PageTitle>My account - Foosball Manager</PageTitle>
+
+<div class="container py-4" style="max-width: 800px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0"><i class="bi bi-person-circle me-2"></i>My account</h1>
+        <a href="/" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-house-door me-1"></i> Overview
+        </a>
+    </div>
+
+    <AlertMessage Message="@(string.IsNullOrEmpty(Success) ? null : SuccessMessage)" Variant="success" Icon="bi bi-check-circle" />
+    <AlertMessage Message="@Error" Variant="danger" />
+
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (_user != null)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-person me-2"></i>Profile</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between flex-wrap gap-2">
+                    <div>
+                        <div class="text-muted small">Username</div>
+                        <div class="fw-semibold">@_user.UserName</div>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Member since</div>
+                        <div class="fw-semibold">@Tz.FormatLocalDate(_user.CreatedAt)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people-fill me-2"></i>Teams</h5>
+            </div>
+            @if (_memberships.Count == 0)
+            {
+                <div class="card-body">
+                    <EmptyState Icon="bi bi-shield" Message="You are not a member of any team yet." />
+                    <div class="text-center">
+                        <a href="/create" class="btn btn-success btn-sm me-2">Create team</a>
+                        <a href="/join" class="btn btn-outline-success btn-sm">Join team</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var m in _memberships)
+                    {
+                        <div class="list-group-item py-3">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <a href="/team/@m.Team.CodeName" class="text-decoration-none fw-semibold">
+                                        <i class="bi bi-shield-fill text-success me-1"></i>@m.Team.Name
+                                    </a>
+                                    <small class="text-muted ms-1">@@@m.Team.CodeName</small>
+                                    @if (m.IsCaptain)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-2">Captain</span>
+                                    }
+                                    <div class="text-muted small mt-1">Joined @Tz.FormatLocalDate(m.JoinedAt)</div>
+                                </div>
+                                <div class="text-end">
+                                    @if (m.MyPlayer != null)
+                                    {
+                                        <div class="d-flex align-items-center gap-2 justify-content-end">
+                                            <Avatar AvatarId="@m.MyPlayer.AvatarId" Size="sm" />
+                                            <span class="fw-semibold">@m.MyPlayer.Name</span>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">@m.MyPlayer.Elo ELO</span>
+                                            @if (!m.MyPlayer.IsActive)
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">
+                                            No player claimed —
+                                            <a href="/team/@m.Team.CodeName/claim">claim one</a>
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Change password</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/account/change-password">
+                    <AntiforgeryToken />
+
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current password</label>
+                        <input id="currentPassword" name="currentPassword" type="password" class="form-control" autocomplete="current-password" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New password</label>
+                        <input id="newPassword" name="newPassword" type="password" class="form-control" autocomplete="new-password" required minlength="6" />
+                        <div class="form-text">At least 6 characters.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm new password</label>
+                        <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" autocomplete="new-password" required minlength="6" />
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i>Change password
+                    </button>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private AppUser? _user;
+    private List<TeamMembershipService.MembershipOverview> _memberships = [];
+    private bool _loading = true;
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "success")]
+    public string? Success { get; set; }
+
+    private string SuccessMessage => Success switch
+    {
+        "password-changed" => "Your password has been changed.",
+        _ => "Done."
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            // Nothing under MainLayout resolves the browser timezone — do it here before
+            // formatting any dates.
+            await Tz.EnsureResolvedAsync();
+
+            _user = await CurrentUser.GetUserAsync();
+            if (_user != null)
+            {
+                _memberships = await MembershipService.GetMembershipOverviewForUserAsync(_user.Id);
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -178,7 +178,7 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
         Season season;
         await using (var db = await dbFactory.CreateDbContextAsync())
         {
-            await EnsureAdminAsync(db, teamId, actorUserId);
+            await EnsureCaptainAsync(db, teamId, actorUserId);
 
             await using var transaction = await db.Database.BeginTransactionAsync();
             try
@@ -253,7 +253,7 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
         await using var db = await dbFactory.CreateDbContextAsync();
         var season = await db.Seasons.FirstOrDefaultAsync(s => s.Id == seasonId)
             ?? throw new InvalidOperationException("Season not found.");
-        await EnsureAdminAsync(db, season.TeamId, actorUserId);
+        await EnsureCaptainAsync(db, season.TeamId, actorUserId);
         (name, description) = ValidateNameAndDescription(name, description);
         await EnsureNameAvailableAsync(db, season.TeamId, name, excludeSeasonId: seasonId);
 
@@ -280,7 +280,7 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
         await using var db = await dbFactory.CreateDbContextAsync();
         var probe = await db.Seasons.AsNoTracking().FirstOrDefaultAsync(s => s.Id == seasonId)
             ?? throw new InvalidOperationException("Season not found.");
-        await EnsureAdminAsync(db, probe.TeamId, actorUserId);
+        await EnsureCaptainAsync(db, probe.TeamId, actorUserId);
 
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -351,7 +351,7 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
         await using var db = await dbFactory.CreateDbContextAsync();
         var probe = await db.Seasons.AsNoTracking().FirstOrDefaultAsync(s => s.Id == seasonId)
             ?? throw new InvalidOperationException("Season not found.");
-        await EnsureAdminAsync(db, probe.TeamId, actorUserId);
+        await EnsureCaptainAsync(db, probe.TeamId, actorUserId);
 
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -454,7 +454,7 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
         await using var db = await dbFactory.CreateDbContextAsync();
         var probe = await db.Seasons.AsNoTracking().FirstOrDefaultAsync(s => s.Id == seasonId)
             ?? throw new InvalidOperationException("Season not found.");
-        await EnsureAdminAsync(db, probe.TeamId, actorUserId);
+        await EnsureCaptainAsync(db, probe.TeamId, actorUserId);
 
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -731,12 +731,12 @@ public class SeasonService(IDbContextFactory<AppDbContext> dbFactory, EloService
     // Plumbing
     // ---------------------------------------------------------------------
 
-    private static async Task EnsureAdminAsync(AppDbContext db, int teamId, int actorUserId)
+    private static async Task EnsureCaptainAsync(AppDbContext db, int teamId, int actorUserId)
     {
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId)
             ?? throw new InvalidOperationException("Team not found.");
-        if (team.AdminUserId != actorUserId)
-            throw new UnauthorizedAccessException("Only the team admin can manage seasons.");
+        if (team.CaptainUserId != actorUserId)
+            throw new UnauthorizedAccessException("Only the team captain can manage seasons.");
     }
 
     /// <summary>

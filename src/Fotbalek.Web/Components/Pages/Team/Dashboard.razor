@@ -1,4 +1,4 @@
-@page "/{TeamCode}"
+@page "/team/{TeamCode}"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -41,7 +41,7 @@ else if (_team != null)
                                 @_seasonMatchCount match@(_seasonMatchCount == 1 ? "" : "es")
                             </div>
                         </div>
-                        <a href="/@TeamCode/seasons/@_activeSeason.Id" class="btn btn-sm btn-outline-success">
+                        <a href="/team/@TeamCode/seasons/@_activeSeason.Id" class="btn btn-sm btn-outline-success">
                             Season detail
                         </a>
                     </div>
@@ -52,7 +52,7 @@ else if (_team != null)
         {
             <div class="alert alert-success d-flex flex-wrap align-items-center gap-2 mb-4">
                 <span><strong>@_latestClosedSeason.Name</strong> has ended 🏆</span>
-                <a href="/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">View the final results and awards</a>
+                <a href="/team/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">View the final results and awards</a>
                 <span class="text-muted small ms-auto">Content below shows all-time numbers.</span>
             </div>
         }
@@ -65,16 +65,16 @@ else if (_team != null)
                 </span>
                 @if (_latestClosedSeason != null)
                 {
-                    <a href="/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">Results of @_latestClosedSeason.Name</a>
+                    <a href="/team/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">Results of @_latestClosedSeason.Name</a>
                 }
                 <span class="text-muted small ms-auto">Until then, matches are off-season; content below shows all-time numbers.</span>
             </div>
         }
-        else if (!_hasAnySeason && _isAdmin)
+        else if (!_hasAnySeason && _isCaptain)
         {
             <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-4">
                 <span><i class="bi bi-award me-1"></i>Group your matches into seasons — fresh ELO ladder, champions and permanent awards.</span>
-                <a href="/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
+                <a href="/team/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
             </div>
         }
 
@@ -89,7 +89,7 @@ else if (_team != null)
                                 <small class="text-muted fw-normal">(@_activeSeason.Name)</small>
                             }
                         </h5>
-                        <a href="/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a>
+                        <a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a>
                     </div>
                     <div class="card-body p-0">
                         @if (_rankingRows.Count > 0)
@@ -121,10 +121,14 @@ else if (_team != null)
                                                     <RankBadge Rank="@player.Rank" />
                                                 </td>
                                                 <td>
-                                                    <a href="/@TeamCode/players/@player.PlayerId" class="text-decoration-none">
+                                                    <a href="/team/@TeamCode/players/@player.PlayerId" class="text-decoration-none">
                                                         <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                         <span class="ms-2">@player.PlayerName</span>
                                                     </a>
+                                                    @if (player.PlayerId == _captainPlayerId)
+                                                    {
+                                                        <CaptainMark Class="ms-1" />
+                                                    }
                                                     @if (isMine)
                                                     {
                                                         <span class="badge badge-you ms-1">you</span>
@@ -144,7 +148,7 @@ else if (_team != null)
                             </div>
                             @if (_rankingRows.Count > displayRows.Count)
                             {
-                                <a href="/@TeamCode/rankings" class="d-block text-center text-muted small text-decoration-none py-2 border-top">
+                                <a href="/team/@TeamCode/rankings" class="d-block text-center text-muted small text-decoration-none py-2 border-top">
                                     Showing @displayRows.Count of @_rankingRows.Count players · <span class="text-success">View full rankings</span>
                                 </a>
                             }
@@ -152,7 +156,7 @@ else if (_team != null)
                         else
                         {
                             <EmptyState Icon="bi bi-people" Message="@(_activeSeason != null ? "No seasonal matches yet — record the first one!" : "No players yet. Add some players to get started!")">
-                                <a href="/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
+                                <a href="/team/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
                             </EmptyState>
                         }
                     </div>
@@ -163,7 +167,7 @@ else if (_team != null)
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Matches</h5>
-                        <a href="/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a>
+                        <a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a>
                     </div>
                     <div class="card-body">
                         @if (_recentMatches.Count > 0)
@@ -178,7 +182,7 @@ else if (_team != null)
                             <EmptyState Icon="bi bi-calendar-x" Message="@(_activeSeason != null ? "No matches in this season yet." : "No matches played yet.")">
                                 @if (_playerCount >= 4)
                                 {
-                                    <a href="/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
+                                    <a href="/team/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
                                 }
                                 else
                                 {
@@ -213,7 +217,7 @@ else if (_team != null)
 
     private Team? _team;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private List<Match> _recentMatches = [];
     private List<StatResult> _stats = [];
     private int _playerCount;
@@ -221,6 +225,9 @@ else if (_team != null)
     private int _matchesThisWeek;
     private double _avgMatchScore;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
+
+    // Player claimed by the team captain, if any — marked with the armband "C" in the rankings preview.
+    private int? _captainPlayerId;
 
     private bool _hasAnySeason;
     private Season? _activeSeason;
@@ -257,7 +264,12 @@ else if (_team != null)
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
-                _isAdmin = await TeamAccess.IsAdminAsync(_team);
+                _isCaptain = await TeamAccess.IsCaptainAsync(_team);
+
+                if (_team.CaptainUserId is int captainUserId)
+                {
+                    _captainPlayerId = (await PlayerService.GetUserPlayerInTeamAsync(_team.Id, captainUserId))?.Id;
+                }
 
                 var seasons = await SeasonService.GetByTeamAsync(_team.Id);
                 var now = DateTimeOffset.UtcNow;

@@ -1,4 +1,4 @@
-@page "/{TeamCode}/seasons/new"
+@page "/team/{TeamCode}/seasons/new"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -15,11 +15,11 @@
 {
     <LoadingSpinner />
 }
-else if (!_isAdmin)
+else if (!_isCaptain)
 {
     <div class="container py-4">
-        <AlertMessage Message="Only the team admin can create seasons." Variant="warning" Icon="bi bi-exclamation-triangle" />
-        <a href="/@TeamCode/seasons" class="btn btn-outline-secondary">Back to Seasons</a>
+        <AlertMessage Message="Only the team captain can create seasons." Variant="warning" Icon="bi bi-exclamation-triangle" />
+        <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Back to Seasons</a>
     </div>
 }
 else
@@ -27,7 +27,7 @@ else
     <div class="container py-4" style="max-width: 860px;">
         <nav aria-label="breadcrumb" class="mb-3">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/@TeamCode/seasons">Seasons</a></li>
+                <li class="breadcrumb-item"><a href="/team/@TeamCode/seasons">Seasons</a></li>
                 <li class="breadcrumb-item active">New season</li>
             </ol>
         </nav>
@@ -123,7 +123,7 @@ else
             <SpinnerButton Variant="success" CssClass="px-4" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
                 Create season
             </SpinnerButton>
-            <a href="/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>
+            <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>
         </div>
     </div>
 }
@@ -133,7 +133,7 @@ else
 
     private Team? _team;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private bool _saving;
     private string? _error;
 
@@ -153,7 +153,7 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _isCaptain = await TeamAccess.IsCaptainAsync(_team);
             _start = Tz.Today.ToDateTime(TimeOnly.MinValue);
             await RefreshImportCandidatesAsync();
         }
@@ -175,7 +175,7 @@ else
 
     private async Task RefreshImportCandidatesAsync()
     {
-        if (_team == null || !_isAdmin) return;
+        if (_team == null || !_isCaptain) return;
         var startsAt = Tz.LocalDateTimeToInstant(_start);
         var endsAt = _end is { } end ? Tz.LocalDateTimeToInstant(end) : (DateTimeOffset?)null;
         _importCandidates = await SeasonService.GetImportCandidatesAsync(_team.Id, startsAt, endsAt);
@@ -213,7 +213,7 @@ else
                 _team.Id, userId.Value, _name, _description, startsAt, endsAt,
                 _selectedImportIds.Count > 0 ? _selectedImportIds.ToList() : null);
 
-            Navigation.NavigateTo($"/{TeamCode}/seasons/{season.Id}");
+            Navigation.NavigateTo($"/team/{TeamCode}/seasons/{season.Id}");
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
         {

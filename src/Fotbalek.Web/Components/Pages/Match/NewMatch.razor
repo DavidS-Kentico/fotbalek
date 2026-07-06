@@ -1,4 +1,4 @@
-@page "/{TeamCode}/match/new"
+@page "/team/{TeamCode}/match/new"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -20,7 +20,7 @@ else if (_players.Count < 4)
     <div class="container py-4">
         <AlertMessage Variant="warning" Icon="bi bi-exclamation-triangle">
             You need at least 4 active players to record a match.
-            <a href="/@TeamCode/players" class="alert-link">Add more players</a>
+            <a href="/team/@TeamCode/players" class="alert-link">Add more players</a>
         </AlertMessage>
     </div>
 }

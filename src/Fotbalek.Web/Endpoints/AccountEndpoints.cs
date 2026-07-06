@@ -73,6 +73,35 @@ public static class AccountEndpoints
             await signInManager.SignOutAsync();
             return Results.Redirect("/login");
         });
+
+        // The default policy also rejects admin-only sessions (no NameIdentifier claim),
+        // which is correct here — the admin is not an app user.
+        group.MapPost("/change-password", async (
+            [FromForm] string currentPassword,
+            [FromForm] string newPassword,
+            [FromForm] string confirmPassword,
+            UserManager<AppUser> userManager,
+            SignInManager<AppUser> signInManager,
+            HttpContext http) =>
+        {
+            var user = await userManager.GetUserAsync(http.User);
+            if (user == null)
+                return Results.Redirect("/login");
+
+            if (newPassword != confirmPassword)
+                return RedirectToAccount("New password and confirmation do not match.");
+
+            // Handles current-password verification and password policy (min length 6).
+            var result = await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            if (!result.Succeeded)
+                return RedirectToAccount(string.Join("; ", result.Errors.Select(e => e.Description)));
+
+            // ChangePasswordAsync rotates the security stamp — without refreshing the cookie
+            // the revalidating auth-state provider signs the user out within 30 minutes.
+            await signInManager.RefreshSignInAsync(user);
+
+            return Results.Redirect("/account?success=password-changed");
+        }).RequireAuthorization();
     }
 
     private static bool IsValidUsername(string username, out string error)
@@ -98,6 +127,9 @@ public static class AccountEndpoints
         error = string.Empty;
         return true;
     }
+
+    private static IResult RedirectToAccount(string error) =>
+        Results.Redirect("/account?error=" + Uri.EscapeDataString(error));
 
     private static IResult RedirectToRegister(string error, string username, string? returnUrl)
     {

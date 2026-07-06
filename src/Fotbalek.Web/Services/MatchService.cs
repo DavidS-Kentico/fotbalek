@@ -57,7 +57,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
         int userId,
         bool seasonal = false)
     {
-        // Authorization: admin OR one of the four players belongs to the user.
+        // Authorization: captain OR one of the four players belongs to the user.
         var playerIds = new[] { team1GkId, team1AtkId, team2GkId, team2AtkId };
         if (!await CanUserCreateMatchAsync(teamId, userId, playerIds))
             throw new UnauthorizedAccessException("You can only create matches you participate in.");
@@ -233,7 +233,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
     /// <summary>
     /// Returns true if the current user can delete/edit this match:
     /// - the time window and "no later matches" rules are satisfied, AND
-    /// - the user is the team admin OR has a Player participating in the match.
+    /// - the user is the team captain OR has a Player participating in the match.
     /// </summary>
     public async Task<bool> CanUserEditOrDeleteAsync(int matchId, int teamId, int userId)
     {
@@ -243,7 +243,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
         await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null) return false;
-        if (team.AdminUserId == userId) return true;
+        if (team.CaptainUserId == userId) return true;
 
         var hasPlayerInMatch = await db.MatchPlayers
             .AsNoTracking()
@@ -252,7 +252,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
     }
 
     /// <summary>
-    /// Returns true if user is admin of the team OR one of the player ids belongs to the user.
+    /// Returns true if user is captain of the team OR one of the player ids belongs to the user.
     /// Used to gate match creation.
     /// </summary>
     public async Task<bool> CanUserCreateMatchAsync(int teamId, int userId, IEnumerable<int> playerIds)
@@ -260,7 +260,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
         await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null) return false;
-        if (team.AdminUserId == userId) return true;
+        if (team.CaptainUserId == userId) return true;
 
         var ids = playerIds.ToList();
         return await db.Players
@@ -281,7 +281,7 @@ public class MatchService(IDbContextFactory<AppDbContext> dbFactory, EloService 
             return (false, $"Matches can only be deleted within {Constants.TimeThresholds.MatchDeletionWindowHours} hours of creation");
 
         // Matches of a closed season cannot be deleted — deleting would corrupt frozen standings
-        // and awards. Reachable when the admin ends a season prematurely inside the 24h window.
+        // and awards. Reachable when the captain ends a season prematurely inside the 24h window.
         if (match.SeasonId != null &&
             await db.Seasons.AnyAsync(s => s.Id == match.SeasonId && s.ClosedAt != null))
             return (false, "This match belongs to a closed season — its results are frozen");

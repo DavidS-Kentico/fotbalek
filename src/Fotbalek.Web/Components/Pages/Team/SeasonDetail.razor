@@ -1,4 +1,4 @@
-@page "/{TeamCode}/seasons/{SeasonId:int}"
+@page "/team/{TeamCode}/seasons/{SeasonId:int}"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -18,7 +18,7 @@ else if (_season == null)
 {
     <div class="container py-4">
         <AlertMessage Message="Season not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
-        <a href="/@TeamCode/seasons" class="btn btn-primary">Back to Seasons</a>
+        <a href="/team/@TeamCode/seasons" class="btn btn-primary">Back to Seasons</a>
     </div>
 }
 else
@@ -29,7 +29,7 @@ else
     <div class="container py-4">
         <nav aria-label="breadcrumb" class="mb-3">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/@TeamCode/seasons">Seasons</a></li>
+                <li class="breadcrumb-item"><a href="/team/@TeamCode/seasons">Seasons</a></li>
                 <li class="breadcrumb-item active">@_season.Name</li>
             </ol>
         </nav>
@@ -69,7 +69,7 @@ else
                             <i class="bi bi-people me-1"></i>@_standings.Count participant@(_standings.Count == 1 ? "" : "s")
                         </div>
                     </div>
-                    @if (_isAdmin)
+                    @if (_isCaptain)
                     {
                         <SeasonManageActions Season="_season" OnChanged="ReloadAsync" OnDeleted="OnSeasonDeleted" />
                     }
@@ -173,7 +173,7 @@ else
                                         <tr class="@(isMine ? "table-success" : "")">
                                             <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
                                             <td>
-                                                <a href="/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-2">
+                                                <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-2">
                                                     <Avatar AvatarId="@row.AvatarId" Size="sm" />
                                                     <span>@row.PlayerName</span>
                                                 </a>
@@ -299,7 +299,7 @@ else
                 </div>
             </div>
 
-            <a href="/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-secondary btn-sm">
+            <a href="/team/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-list-ul me-1"></i> View the season's matches
             </a>
         }
@@ -314,7 +314,7 @@ else
     private Team? _team;
     private Season? _season;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private int _matchCount;
     private List<SeasonStandingRow> _standings = [];
     private List<PositionRanking> _goalkeepers = [];
@@ -330,7 +330,7 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _isCaptain = await TeamAccess.IsCaptainAsync(_team);
             await LoadAsync();
         }
         _loading = false;
@@ -363,7 +363,7 @@ else
 
     private void OnSeasonDeleted()
     {
-        Navigation.NavigateTo($"/{TeamCode}/seasons");
+        Navigation.NavigateTo($"/team/{TeamCode}/seasons");
     }
 
     private string FormatPeriod()
@@ -397,14 +397,14 @@ else
                 {
                     <div class="d-flex align-items-center gap-2 mb-1">
                         <span title="@($"Rank {award.Rank}")">@Medal(award.Rank)</span>
-                        <a href="/@TeamCode/players/@award.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                        <a href="/team/@TeamCode/players/@award.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
                             <Avatar AvatarId="@award.Player.AvatarId" Size="sm" />
                             <span class="small">@award.Player.Name</span>
                         </a>
                         @if (award.PartnerPlayer != null)
                         {
                             <span class="text-muted small">&</span>
-                            <a href="/@TeamCode/players/@award.PartnerPlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                            <a href="/team/@TeamCode/players/@award.PartnerPlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
                                 <Avatar AvatarId="@award.PartnerPlayer.AvatarId" Size="sm" />
                                 <span class="small">@award.PartnerPlayer.Name</span>
                             </a>
@@ -430,7 +430,7 @@ else
                     var row = rows[i];
                     <div class="d-flex align-items-center gap-2 mb-1">
                         <span>@Medal(i + 1)</span>
-                        <a href="/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                        <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
                             <Avatar AvatarId="@row.AvatarId" Size="sm" />
                             <span class="small">@row.Name</span>
                         </a>

@@ -1,0 +1,22 @@
+@* Team pages used to live at the root (/{code}/...). Redirect old bookmarks and shared
+   links to /team/{code}/... — literal routes (/login, /admin, ...) take precedence over
+   these parameterized ones, so this cannot shadow them. *@
+@page "/{TeamCode}"
+@page "/{TeamCode}/{*Rest}"
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public string? Rest { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var target = $"/team/{TeamCode}";
+        if (!string.IsNullOrEmpty(Rest))
+            target += $"/{Rest}";
+        // Preserve the query string so old /{code}/matches?season=... links survive.
+        target += new Uri(Navigation.Uri).Query;
+        // replace: true keeps the redirecting URL out of history so back doesn't get trapped.
+        Navigation.NavigateTo(target, replace: true);
+    }
+}

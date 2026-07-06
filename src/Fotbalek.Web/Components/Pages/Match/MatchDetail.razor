@@ -1,4 +1,4 @@
-@page "/{TeamCode}/matches/{MatchId:int}"
+@page "/team/{TeamCode}/matches/{MatchId:int}"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -52,8 +52,8 @@ else if (_match != null)
     <div class="container py-4">
         <nav aria-label="breadcrumb" class="mb-3">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="/@TeamCode/matches">Matches</a></li>
+                <li class="breadcrumb-item"><a href="/team/@TeamCode">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/team/@TeamCode/matches">Matches</a></li>
                 <li class="breadcrumb-item active">Match #@MatchId</li>
             </ol>
         </nav>
@@ -61,25 +61,25 @@ else if (_match != null)
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div class="btn-group">
                 <a class="btn btn-outline-secondary btn-sm @(_olderId == null ? "disabled" : "")"
-                   href="@(_olderId != null ? $"/{TeamCode}/matches/{_olderId}" : "#")"
+                   href="@(_olderId != null ? $"/team/{TeamCode}/matches/{_olderId}" : "#")"
                    aria-disabled="@(_olderId == null)" title="Older match">
                     <i class="bi bi-chevron-left"></i> Older
                 </a>
                 <a class="btn btn-outline-secondary btn-sm @(_newerId == null ? "disabled" : "")"
-                   href="@(_newerId != null ? $"/{TeamCode}/matches/{_newerId}" : "#")"
+                   href="@(_newerId != null ? $"/team/{TeamCode}/matches/{_newerId}" : "#")"
                    aria-disabled="@(_newerId == null)" title="Newer match">
                     Newer <i class="bi bi-chevron-right"></i>
                 </a>
             </div>
 
             <div class="d-flex gap-2">
-                <a href="/@TeamCode/match/new?rematch=@MatchId" class="btn btn-success btn-sm">
+                <a href="/team/@TeamCode/match/new?rematch=@MatchId" class="btn btn-success btn-sm">
                     <i class="bi bi-arrow-repeat me-1"></i> Rematch
                 </a>
                 <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CopyLink" title="Copy link">
                     <i class="bi @(_copied ? "bi-check2" : "bi-link-45deg") me-1"></i>@(_copied ? "Copied" : "Copy link")
                 </button>
-                @if (_isAdmin && _canDelete)
+                @if (_isCaptain && _canDelete)
                 {
                     <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">
                         <i class="bi bi-trash me-1"></i> Delete
@@ -182,7 +182,7 @@ else if (_match != null)
             </div>
             <div class="card-footer text-muted small d-flex justify-content-between flex-wrap gap-2">
                 <span>Recorded: <span class="match-date" data-utc="@_match.CreatedAt.ToString("o")">@_match.CreatedAt.ToString("f")</span></span>
-                @if (!_canDelete && _isAdmin)
+                @if (!_canDelete && _isCaptain)
                 {
                     <span title="@_deleteBlockedReason">
                         <i class="bi bi-lock me-1"></i>Cannot be deleted (@(_deleteBlockedReason ?? "locked"))
@@ -194,7 +194,7 @@ else if (_match != null)
         <AlertMessage Message="@_deleteError" Variant="danger" Icon="bi bi-exclamation-triangle"
                       Dismissible="true" OnDismiss="() => _deleteError = null" />
 
-        <a href="/@TeamCode/matches" class="btn btn-outline-secondary">
+        <a href="/team/@TeamCode/matches" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to History
         </a>
     </div>
@@ -220,7 +220,7 @@ else
 {
     <div class="container py-4">
         <AlertMessage Message="Match not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
-        <a href="/@TeamCode/matches" class="btn btn-primary">Back to History</a>
+        <a href="/team/@TeamCode/matches" class="btn btn-primary">Back to History</a>
     </div>
 }
 
@@ -231,7 +231,7 @@ else
     private Team? _team;
     private Match? _match;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private bool _canDelete;
     private string? _deleteBlockedReason;
     private bool _showDeleteConfirm;
@@ -272,7 +272,7 @@ else
         StateHasChanged();
 
         _team ??= await TeamAccess.GetCurrentTeamAsync();
-        _isAdmin = await TeamAccess.IsAdminAsync();
+        _isCaptain = await TeamAccess.IsCaptainAsync();
 
         if (_team != null)
         {
@@ -324,7 +324,7 @@ else
             var deleted = await MatchService.DeleteAsync(MatchId, _team.Id, userId.Value);
             if (deleted)
             {
-                Navigation.NavigateTo($"/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);
+                Navigation.NavigateTo($"/team/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);
             }
             else
             {

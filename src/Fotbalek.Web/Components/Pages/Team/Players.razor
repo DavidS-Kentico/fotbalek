@@ -1,4 +1,4 @@
-@page "/{TeamCode}/players"
+@page "/team/{TeamCode}/players"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -27,7 +27,7 @@ else
                     @_activePlayers.Count active@(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")
                 </div>
             </div>
-            @if (_isAdmin)
+            @if (_isCaptain)
             {
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-success" @onclick="ShowInviteModal" title="Invite players via shareable link">
@@ -83,7 +83,7 @@ else
             </div>
         }
 
-        @if (_isAdmin && _inactivePlayers.Count > 0)
+        @if (_isCaptain && _inactivePlayers.Count > 0)
         {
             <div class="mb-3">
                 <button class="inactive-toggle" @onclick="() => _showInactive = !_showInactive">
@@ -211,7 +211,7 @@ else
 
     private string? _message;
     private bool _messageIsError;
-    private bool _isAdmin;
+    private bool _isCaptain;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     private RenderFragment RenderPlayerCard(Player player, bool isInactive) => __builder =>
@@ -245,28 +245,32 @@ else
                 {
                     <span class="@rankClass" title="Rank by ELO">#@rank</span>
                 }
-                @if (_isAdmin && !isInactive && player.Id != MyPlayerId)
+                @if (_isCaptain && !isInactive && player.Id != MyPlayerId)
                 {
-                    <button class="btn btn-sm btn-outline-danger admin-action"
+                    <button class="btn btn-sm btn-outline-danger captain-action"
                             @onclick="() => ShowDeactivateConfirm(player)"
                             @onclick:stopPropagation="true"
                             title="Deactivate">
                         <i class="bi bi-person-dash"></i>
                     </button>
                 }
-                @if (_isAdmin && isInactive)
+                @if (_isCaptain && isInactive)
                 {
-                    <button class="btn btn-sm btn-outline-success admin-action"
+                    <button class="btn btn-sm btn-outline-success captain-action"
                             @onclick="() => ReactivatePlayer(player)"
                             @onclick:stopPropagation="true"
                             title="Reactivate">
                         <i class="bi bi-person-check"></i>
                     </button>
                 }
-                <a href="/@TeamCode/players/@player.Id" class="card-link text-center">
+                <a href="/team/@TeamCode/players/@player.Id" class="card-link text-center">
                     <Avatar AvatarId="@player.AvatarId" Size="lg" />
                     <div class="player-name">
                         @player.Name
+                        @if (player.UserId != null && player.UserId == _team?.CaptainUserId)
+                        {
+                            <CaptainMark Class="ms-1" />
+                        }
                         @if (isMine)
                         {
                             <span class="badge badge-you ms-1">you</span>
@@ -380,7 +384,7 @@ else
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
-                _isAdmin = await TeamAccess.IsAdminAsync(_team);
+                _isCaptain = await TeamAccess.IsCaptainAsync(_team);
                 await LoadAllAsync();
             }
             _loading = false;
@@ -564,7 +568,7 @@ else
             var created = await PlayerService.CreatePlaceholderAsync(_team.Id, userId.Value, _formModel.Name, _formModel.AvatarId);
             if (created == null)
             {
-                _modalError = "Only the team admin can add players.";
+                _modalError = "Only the team captain can add players.";
                 return;
             }
             _message = $"Player '{_formModel.Name}' added successfully.";

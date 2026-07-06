@@ -121,7 +121,7 @@
             var team = await TeamService.CreateAsync(_model.Name, _model.CodeName, _model.Password, userId.Value);
             await MembershipService.JoinAsync(userId.Value, team.Id);
 
-            Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
+            Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)
         {

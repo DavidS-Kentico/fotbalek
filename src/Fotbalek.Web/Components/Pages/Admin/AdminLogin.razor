@@ -1,0 +1,65 @@
+@page "/admin/login"
+@layout MainLayout
+@using Fotbalek.Web.Configuration
+@using Microsoft.Extensions.Options
+@inject IOptions<AdminOptions> Options
+
+<PageTitle>Admin sign-in - Foosball Manager</PageTitle>
+
+<AuthCardLayout>
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Admin sign-in</h5>
+        </div>
+        <div class="card-body p-4">
+            @if (!_isConfigured)
+            {
+                <AlertMessage Message="Admin access is not configured on this instance." Variant="warning" Icon="bi bi-exclamation-triangle" />
+            }
+
+            <AlertMessage Message="@(string.IsNullOrEmpty(Error) ? null : ErrorMessage)" Variant="danger" />
+
+            <form method="post" action="/admin/auth/login">
+                <AntiforgeryToken />
+
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input id="username" name="username" type="text" class="form-control" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-dark">Sign in</button>
+                </div>
+            </form>
+
+            <hr />
+            <p class="text-muted small mb-0 text-center">
+                <a href="/">Back to Fotbalek</a>
+            </p>
+        </div>
+    </div>
+</AuthCardLayout>
+
+@code {
+    // Expose only IsConfigured — never the configured values.
+    private bool _isConfigured;
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _isConfigured = Options.Value.IsConfigured;
+    }
+
+    private string ErrorMessage => Error switch
+    {
+        "rate" => "Too many attempts — try again in a minute.",
+        _ => "Invalid username or password."
+    };
+}

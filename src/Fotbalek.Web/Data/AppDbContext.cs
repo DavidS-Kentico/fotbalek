@@ -36,9 +36,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
             entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(256);
             entity.HasIndex(e => e.CodeName).IsUnique();
 
-            entity.HasOne(e => e.AdminUser)
-                .WithMany(u => u.AdministeredTeams)
-                .HasForeignKey(e => e.AdminUserId)
+            entity.HasOne(e => e.CaptainUser)
+                .WithMany(u => u.CaptainedTeams)
+                .HasForeignKey(e => e.CaptainUserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

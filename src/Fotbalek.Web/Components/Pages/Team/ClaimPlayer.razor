@@ -1,4 +1,4 @@
-@page "/{TeamCode}/claim"
+@page "/team/{TeamCode}/claim"
 @rendermode InteractiveServer
 @attribute [Authorize]
 @inject TeamService TeamService
@@ -113,7 +113,7 @@ else if (_team != null)
         var existing = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
         if (existing != null)
         {
-            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             return;
         }
 
@@ -131,7 +131,7 @@ else if (_team != null)
                 suffix++;
             }
             await PlayerService.CreateAsync(_team.Id, finalName, 1, _user.Id);
-            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             return;
         }
 
@@ -156,7 +156,7 @@ else if (_team != null)
             var ok = await PlayerService.ClaimAsync(playerId, _team.Id, _user.Id);
             if (ok)
             {
-                Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+                Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             }
             else
             {
@@ -190,7 +190,7 @@ else if (_team != null)
                 return;
             }
             await PlayerService.CreateAsync(_team.Id, name, _newAvatar, _user.Id);
-            Navigation.NavigateTo($"/{_team.CodeName}", forceLoad: true);
+            Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
         }
         catch (Exception)
         {

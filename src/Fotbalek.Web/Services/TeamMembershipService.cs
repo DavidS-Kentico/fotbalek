@@ -53,4 +53,24 @@ public class TeamMembershipService(IDbContextFactory<AppDbContext> dbFactory)
             .Select(m => m.Team)
             .ToListAsync();
     }
+
+    /// <summary>One row per membership for the account page: team, captain flag, and the
+    /// user's claimed player in that team (null when none is claimed).</summary>
+    public record MembershipOverview(Team Team, DateTimeOffset JoinedAt, bool IsCaptain, Player? MyPlayer);
+
+    public async Task<List<MembershipOverview>> GetMembershipOverviewForUserAsync(int userId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        return await db.TeamMemberships
+            .AsNoTracking()
+            .Where(m => m.UserId == userId)
+            .OrderBy(m => m.JoinedAt)
+            .Select(m => new MembershipOverview(
+                m.Team,
+                m.JoinedAt,
+                m.Team.CaptainUserId == userId,
+                // At most one user-Player per team (unique filtered index).
+                m.Team.Players.FirstOrDefault(p => p.UserId == userId)))
+            .ToListAsync();
+    }
 }

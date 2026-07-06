@@ -14,7 +14,7 @@ public class TeamService(IDbContextFactory<AppDbContext> dbFactory)
             .FirstOrDefaultAsync(t => t.CodeName == codeName.ToLowerInvariant());
     }
 
-    public async Task<Team> CreateAsync(string name, string codeName, string password, int adminUserId)
+    public async Task<Team> CreateAsync(string name, string codeName, string password, int captainUserId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var team = new Team
@@ -22,7 +22,7 @@ public class TeamService(IDbContextFactory<AppDbContext> dbFactory)
             Name = name,
             CodeName = codeName.ToLowerInvariant(),
             PasswordHash = PasswordHasher.Hash(password),
-            AdminUserId = adminUserId,
+            CaptainUserId = captainUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -47,10 +47,10 @@ public class TeamService(IDbContextFactory<AppDbContext> dbFactory)
     }
 
     /// <summary>
-    /// Atomically claim the admin role for a team if it currently has no admin
-    /// and the caller is a member. Returns true if the caller became admin.
+    /// Atomically claim the captain role for a team if it currently has no captain
+    /// and the caller is a member. Returns true if the caller became captain.
     /// </summary>
-    public async Task<bool> TryClaimAdminAsync(int teamId, int userId)
+    public async Task<bool> TryClaimCaptainAsync(int teamId, int userId)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var isMember = await db.TeamMemberships
@@ -58,32 +58,32 @@ public class TeamService(IDbContextFactory<AppDbContext> dbFactory)
         if (!isMember) return false;
 
         var rows = await db.Teams
-            .Where(t => t.Id == teamId && t.AdminUserId == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(t => t.AdminUserId, userId));
+            .Where(t => t.Id == teamId && t.CaptainUserId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.CaptainUserId, userId));
         return rows > 0;
     }
 
     /// <summary>
-    /// Updates the team display name. Caller must be the team admin.
+    /// Updates the team display name. Caller must be the team captain.
     /// </summary>
     public async Task<bool> UpdateNameAsync(int teamId, int actorUserId, string newName)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
-        if (team == null || team.AdminUserId != actorUserId) return false;
+        if (team == null || team.CaptainUserId != actorUserId) return false;
         team.Name = newName;
         await db.SaveChangesAsync();
         return true;
     }
 
     /// <summary>
-    /// Updates the team password. Caller must be the team admin.
+    /// Updates the team password. Caller must be the team captain.
     /// </summary>
     public async Task<bool> UpdatePasswordAsync(int teamId, int actorUserId, string newPassword)
     {
         await using var db = await dbFactory.CreateDbContextAsync();
         var team = await db.Teams.FirstOrDefaultAsync(t => t.Id == teamId);
-        if (team == null || team.AdminUserId != actorUserId) return false;
+        if (team == null || team.CaptainUserId != actorUserId) return false;
         team.PasswordHash = PasswordHasher.Hash(newPassword);
         await db.SaveChangesAsync();
         return true;

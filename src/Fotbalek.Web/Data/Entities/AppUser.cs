@@ -8,5 +8,5 @@ public class AppUser : IdentityUser<int>
 
     public ICollection<Player> Players { get; set; } = new List<Player>();
     public ICollection<TeamMembership> Memberships { get; set; } = new List<TeamMembership>();
-    public ICollection<Team> AdministeredTeams { get; set; } = new List<Team>();
+    public ICollection<Team> CaptainedTeams { get; set; } = new List<Team>();
 }

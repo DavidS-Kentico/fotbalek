@@ -1,4 +1,4 @@
-@page "/{TeamCode}/players/{PlayerId:int}"
+@page "/team/{TeamCode}/players/{PlayerId:int}"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -24,8 +24,8 @@ else if (_player != null && _stats != null)
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="/@TeamCode">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="/@TeamCode/players">Players</a></li>
+                    <li class="breadcrumb-item"><a href="/team/@TeamCode">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/team/@TeamCode/players">Players</a></li>
                     <li class="breadcrumb-item active" aria-current="page">@_player.Name</li>
                 </ol>
             </nav>
@@ -43,6 +43,10 @@ else if (_player != null && _stats != null)
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <h2 class="mb-0 text-truncate">@_player.Name</h2>
+                            @if (_isCaptainPlayer)
+                            {
+                                <CaptainMark Class="captain-mark-lg" />
+                            }
                             @if (_isMyPlayer)
                             {
                                 <span class="badge badge-you">you</span>
@@ -445,7 +449,7 @@ else if (_player != null && _stats != null)
                                     var widthPct = Math.Min(100, Math.Max(0, r.WinRate)).ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
                                     <tr>
                                         <td>
-                                            <a href="/@TeamCode/players/@r.PlayerId" class="d-inline-flex align-items-center gap-2 text-decoration-none">
+                                            <a href="/team/@TeamCode/players/@r.PlayerId" class="d-inline-flex align-items-center gap-2 text-decoration-none">
                                                 <Avatar AvatarId="@r.AvatarId" Size="sm" />
                                                 <span>@r.Name</span>
                                             </a>
@@ -612,7 +616,7 @@ else if (_player != null && _stats != null)
                     @if (_totalMatchCount > Constants.Pagination.PlayerDetailRecentMatches)
                     {
                         @* Carry the selected scope into Match History ("all" = explicit all-matches view). *@
-                        <a href="/@TeamCode/matches?player=@PlayerId&season=@(_selectedSeason?.Id.ToString() ?? "all")" class="small">View all (@_totalMatchCount)</a>
+                        <a href="/team/@TeamCode/matches?player=@PlayerId&season=@(_selectedSeason?.Id.ToString() ?? "all")" class="small">View all (@_totalMatchCount)</a>
                     }
                 </div>
                 <div class="card-body">
@@ -810,7 +814,7 @@ else
 {
     <div class="container py-4">
         <AlertMessage Message="Player not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
-        <a href="/@TeamCode/players" class="btn btn-primary">Back to Players</a>
+        <a href="/team/@TeamCode/players" class="btn btn-primary">Back to Players</a>
     </div>
 }
 
@@ -835,6 +839,7 @@ else
     private List<SeasonAward> _trophies = [];
     private int _lastLoadedPlayerId;
     private bool _isMyPlayer;
+    private bool _isCaptainPlayer;
     private bool _canEdit;
     private bool _showEditModal;
     private string _editName = string.Empty;
@@ -981,9 +986,10 @@ else
                 _lastPlayed = _recentMatches.FirstOrDefault()?.PlayedAt;
 
                 var userId = await CurrentUser.GetUserIdAsync();
-                var isAdmin = await TeamAccess.IsAdminAsync(_team);
+                var isCaptain = await TeamAccess.IsCaptainAsync(_team);
                 _isMyPlayer = userId != null && _player.UserId == userId;
-                _canEdit = isAdmin || _isMyPlayer;
+                _isCaptainPlayer = _player.UserId != null && _player.UserId == _team.CaptainUserId;
+                _canEdit = isCaptain || _isMyPlayer;
             }
             else
             {
@@ -992,6 +998,7 @@ else
                 _recentMatches = [];
                 _totalMatchCount = 0;
                 _isMyPlayer = false;
+                _isCaptainPlayer = false;
                 _canEdit = false;
             }
         }

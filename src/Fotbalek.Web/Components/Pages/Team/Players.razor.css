@@ -64,7 +64,7 @@
 .player-card .rank-badge.silver { background: #e9ecef; color: #495057; }
 .player-card .rank-badge.bronze { background: #f8e2c8; color: #7c4a00; }
 
-.player-card .admin-action {
+.player-card .captain-action {
     position: absolute;
     top: .35rem;
     right: .35rem;
@@ -80,8 +80,8 @@
     transition: opacity .15s ease;
 }
 
-.player-card:hover .admin-action,
-.player-card:focus-within .admin-action {
+.player-card:hover .captain-action,
+.player-card:focus-within .captain-action {
     opacity: 1;
 }
 

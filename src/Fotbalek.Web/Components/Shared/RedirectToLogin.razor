@@ -3,7 +3,18 @@
 @code {
     protected override void OnInitialized()
     {
-        var returnUrl = new Uri(Navigation.Uri).PathAndQuery;
+        var uri = new Uri(Navigation.Uri);
+        var path = uri.AbsolutePath;
+
+        // Admin pages get the admin sign-in; no returnUrl — after login just land on /admin.
+        if (path.Equals("/admin", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/admin/", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("/admin/login", forceLoad: true);
+            return;
+        }
+
+        var returnUrl = uri.PathAndQuery;
         Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
     }
 }

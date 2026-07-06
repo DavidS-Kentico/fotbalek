@@ -51,7 +51,7 @@ public class TeamAccessService(
         if (!isMember) return null;
 
         // Lazy close: seasons past their end date are closed by the first page load — a system
-        // action triggered by any member, not an admin action.
+        // action triggered by any member, not a captain action.
         await seasonService.CloseDueSeasonsAsync(team.Id);
 
         _cachedTeam = team;
@@ -60,37 +60,27 @@ public class TeamAccessService(
         return team;
     }
 
-    public async Task<bool> IsAdminAsync()
+    public async Task<bool> IsCaptainAsync()
     {
         var team = await GetCurrentTeamAsync();
         var userId = await currentUser.GetUserIdAsync();
-        return team != null && userId != null && team.AdminUserId == userId;
+        return team != null && userId != null && team.CaptainUserId == userId;
     }
 
-    public async Task<bool> IsAdminAsync(Team team)
+    public async Task<bool> IsCaptainAsync(Team team)
     {
         var userId = await currentUser.GetUserIdAsync();
-        return userId != null && team.AdminUserId == userId;
+        return userId != null && team.CaptainUserId == userId;
     }
 
     public string? GetTeamCodeFromUrl()
     {
         var uri = new Uri(navigation.Uri);
-        var path = uri.AbsolutePath.TrimStart('/');
-        var segments = path.Split('/');
-        if (segments.Length == 0) return null;
-        var first = segments[0];
-        // Reserved root routes that shouldn't be treated as team codes
-        if (string.IsNullOrEmpty(first) ||
-            first.Equals("login", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("register", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("profile", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("teams", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("create", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("join", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("account", StringComparison.OrdinalIgnoreCase) ||
-            first.Equals("not-found", StringComparison.OrdinalIgnoreCase))
+        var segments = uri.AbsolutePath.TrimStart('/').Split('/');
+        // Team pages live under /team/{codename}; anything else is not a team URL.
+        if (segments.Length < 2 || !segments[0].Equals("team", StringComparison.OrdinalIgnoreCase))
             return null;
-        return first;
+        var code = segments[1];
+        return string.IsNullOrEmpty(code) ? null : code;
     }
 }

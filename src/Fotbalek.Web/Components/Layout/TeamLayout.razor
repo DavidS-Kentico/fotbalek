@@ -16,7 +16,7 @@
     {
         <header class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
             <div class="container">
-                <a class="navbar-brand d-flex align-items-center text-success fw-bold" href="/@_team.CodeName">
+                <a class="navbar-brand d-flex align-items-center text-success fw-bold" href="/team/@_team.CodeName">
                     <i class="bi bi-trophy-fill me-2"></i>
                     @_team.Name
                 </a>
@@ -28,32 +28,32 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}")" Match="NavLinkMatch.All">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}")" Match="NavLinkMatch.All">
                                 <i class="bi bi-house me-1"></i> Dashboard
                             </NavLink>
                         </li>
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/rankings")">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/rankings")">
                                 <i class="bi bi-bar-chart me-1"></i> Rankings
                             </NavLink>
                         </li>
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/stats")">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/stats")">
                                 <i class="bi bi-graph-up me-1"></i> Stats
                             </NavLink>
                         </li>
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/matches")">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/matches")">
                                 <i class="bi bi-list-ul me-1"></i> History
                             </NavLink>
                         </li>
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/players")">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/players")">
                                 <i class="bi bi-people me-1"></i> Players
                             </NavLink>
                         </li>
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/{_team.CodeName}/seasons")">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/seasons")">
                                 <i class="bi bi-award me-1"></i> Seasons
                             </NavLink>
                         </li>
@@ -68,7 +68,7 @@
                             <div class="presence-stack d-flex align-items-center me-2" title="@($"{onlinePlayers.Count} online")">
                                 @foreach (var p in onlinePlayers.Take(5))
                                 {
-                                    <a href="/@_team.CodeName/players/@p.Id" class="presence-avatar">
+                                    <a href="/team/@_team.CodeName/players/@p.Id" class="presence-avatar">
                                         <Avatar AvatarId="@p.AvatarId" Size="sm" Title="@p.Name" />
                                         <span class="presence-dot"></span>
                                     </a>
@@ -79,7 +79,7 @@
                                 }
                             </div>
                         }
-                        <a href="@($"/{_team.CodeName}/match/new")" class="btn btn-success">
+                        <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-success">
                             <i class="bi bi-plus-lg me-1"></i> New Match
                         </a>
                         <button class="btn btn-outline-secondary" @onclick="ShowShareModal" title="Share Team URL">
@@ -97,35 +97,40 @@
                                     <i class="bi bi-person-circle"></i>
                                 }
                                 <span>@DisplayName</span>
-                                @if (_isAdmin)
+                                @if (_isCaptain)
                                 {
-                                    <span class="badge bg-warning text-dark">Admin</span>
+                                    <span class="badge bg-warning text-dark">Captain</span>
                                 }
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 @if (_myPlayer != null)
                                 {
                                     <li>
-                                        <a class="dropdown-item" href="/@_team.CodeName/players/@_myPlayer.Id">
+                                        <a class="dropdown-item" href="/team/@_team.CodeName/players/@_myPlayer.Id">
                                             <i class="bi bi-person-badge me-2"></i>My player
                                         </a>
                                     </li>
                                 }
-                                @if (_isAdmin)
+                                @if (_isCaptain)
                                 {
                                     <li>
-                                        <a class="dropdown-item" href="/@_team.CodeName/settings">
+                                        <a class="dropdown-item" href="/team/@_team.CodeName/settings">
                                             <i class="bi bi-gear me-2"></i>Team settings
                                         </a>
                                     </li>
                                 }
-                                @if (_myPlayer != null || _isAdmin)
+                                @if (_myPlayer != null || _isCaptain)
                                 {
                                     <li><hr class="dropdown-divider" /></li>
                                 }
                                 <li>
                                     <a class="dropdown-item" href="/">
                                         <i class="bi bi-house-door me-2"></i>Overview
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/account">
+                                        <i class="bi bi-person-circle me-2"></i>My account
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider" /></li>
@@ -157,17 +162,17 @@
             </div>
         </header>
 
-        @if (_team.AdminUserId == null)
+        @if (_team.CaptainUserId == null)
         {
             <div class="alert alert-warning rounded-0 mb-0">
                 <div class="container d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-exclamation-triangle me-2"></i>This team has no admin yet.</span>
-                    <button class="btn btn-sm btn-warning" @onclick="ClaimAdmin" disabled="@_claimingAdmin">
-                        @if (_claimingAdmin)
+                    <span><i class="bi bi-exclamation-triangle me-2"></i>This team has no captain yet.</span>
+                    <button class="btn btn-sm btn-warning" @onclick="ClaimCaptain" disabled="@_claimingCaptain">
+                        @if (_claimingCaptain)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        Become admin
+                        Become captain
                     </button>
                 </div>
             </div>
@@ -240,8 +245,8 @@
     private AppUser? _user;
     private Player? _myPlayer;
     private bool _loading = true;
-    private bool _isAdmin;
-    private bool _claimingAdmin;
+    private bool _isCaptain;
+    private bool _claimingCaptain;
     private bool _showShareModal;
     private bool _copied;
     private bool _copiedBasic;
@@ -279,7 +284,7 @@
     private string GetTeamUrl()
     {
         var baseUrl = Navigation.BaseUri.TrimEnd('/');
-        return $"{baseUrl}/{_team?.CodeName}";
+        return $"{baseUrl}/team/{_team?.CodeName}";
     }
 
     private string GetShareUrl()
@@ -340,25 +345,25 @@
 
     private void SwitchTeam(string codeName)
     {
-        Navigation.NavigateTo($"/{codeName}", forceLoad: true);
+        Navigation.NavigateTo($"/team/{codeName}", forceLoad: true);
     }
 
-    private async Task ClaimAdmin()
+    private async Task ClaimCaptain()
     {
         if (_team == null || _user == null) return;
-        _claimingAdmin = true;
+        _claimingCaptain = true;
         try
         {
-            var success = await TeamService.TryClaimAdminAsync(_team.Id, _user.Id);
+            var success = await TeamService.TryClaimCaptainAsync(_team.Id, _user.Id);
             if (success)
             {
-                _team.AdminUserId = _user.Id;
-                _isAdmin = true;
+                _team.CaptainUserId = _user.Id;
+                _isCaptain = true;
             }
         }
         finally
         {
-            _claimingAdmin = false;
+            _claimingCaptain = false;
             StateHasChanged();
         }
     }
@@ -378,7 +383,7 @@
 
                 if (_user == null)
                 {
-                    var ret = teamCode != null ? $"/{teamCode}" : "/";
+                    var ret = teamCode != null ? $"/team/{teamCode}" : "/";
                     Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(ret)}", forceLoad: true);
                     return;
                 }
@@ -399,7 +404,7 @@
                     return;
                 }
 
-                _isAdmin = _team.AdminUserId == _user.Id;
+                _isCaptain = _team.CaptainUserId == _user.Id;
                 _userTeams = await MembershipService.GetTeamsForUserAsync(_user.Id);
 
                 _myPlayer = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
@@ -415,7 +420,7 @@
                 var path = new Uri(Navigation.Uri).AbsolutePath;
                 if (_myPlayer == null && !path.EndsWith("/claim", StringComparison.OrdinalIgnoreCase))
                 {
-                    Navigation.NavigateTo($"/{_team.CodeName}/claim", forceLoad: true);
+                    Navigation.NavigateTo($"/team/{_team.CodeName}/claim", forceLoad: true);
                     return;
                 }
 

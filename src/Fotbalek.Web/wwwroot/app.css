@@ -315,6 +315,28 @@ h1:focus {
     letter-spacing: 0.02em;
 }
 
+/* Captain's armband: circled "C" next to the player claimed by the team captain */
+.captain-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.7em;
+    height: 1.7em;
+    border-radius: 50%;
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #997404;
+    border: 1px solid rgba(255, 193, 7, 0.6);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: default;
+}
+
+.captain-mark-lg {
+    font-size: 0.8rem;
+}
+
 .bg-purple {
     background-color: #6f42c1 !important;
     color: white !important;

@@ -1,4 +1,4 @@
-@page "/{TeamCode}/seasons"
+@page "/team/{TeamCode}/seasons"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -17,15 +17,15 @@ else
     <div class="container py-4">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
             <h2 class="mb-0"><i class="bi bi-award me-2"></i>Seasons</h2>
-            @if (_isAdmin)
+            @if (_isCaptain)
             {
-                <a href="/@TeamCode/seasons/new" class="btn btn-success">
+                <a href="/team/@TeamCode/seasons/new" class="btn btn-success">
                     <i class="bi bi-plus-lg me-1"></i> Start new season
                 </a>
             }
         </div>
 
-        @if (_isAdmin && _seasons.Any(s => s.ClosedAt == null && s.EndsAt == null))
+        @if (_isCaptain && _seasons.Any(s => s.ClosedAt == null && s.EndsAt == null))
         {
             <div class="alert alert-light border py-2 small">
                 <i class="bi bi-info-circle me-1"></i>
@@ -39,9 +39,9 @@ else
             <EmptyState Icon="bi bi-award" IconSize="xl" Padding="py-5"
                         Title="No seasons yet"
                         Message="Seasons group matches into named periods with their own ELO ladder, champions and awards.">
-                @if (_isAdmin)
+                @if (_isCaptain)
                 {
-                    <a href="/@TeamCode/seasons/new" class="btn btn-success">Start your first season</a>
+                    <a href="/team/@TeamCode/seasons/new" class="btn btn-success">Start your first season</a>
                 }
             </EmptyState>
         }
@@ -58,7 +58,7 @@ else
                         <div class="d-flex flex-wrap align-items-center gap-3">
                             <div class="flex-grow-1 min-w-0">
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <a href="/@TeamCode/seasons/@season.Id" class="text-decoration-none">
+                                    <a href="/team/@TeamCode/seasons/@season.Id" class="text-decoration-none">
                                         <h5 class="mb-0 d-inline">@season.Name</h5>
                                     </a>
                                     @StatusBadge(season, now)
@@ -76,7 +76,7 @@ else
 
                             @if (season.IsClosed && champion != null)
                             {
-                                <a href="/@TeamCode/players/@champion.PlayerId" class="text-decoration-none d-flex align-items-center gap-2"
+                                <a href="/team/@TeamCode/players/@champion.PlayerId" class="text-decoration-none d-flex align-items-center gap-2"
                                    title="@(champion.IsAwardHolder ? "Season champion (Player award)" : "Season standings leader")">
                                     <span class="fs-4">🏆</span>
                                     <Avatar AvatarId="@champion.AvatarId" Size="sm" />
@@ -85,10 +85,10 @@ else
                             }
 
                             <div class="d-flex align-items-center gap-2">
-                                <a href="/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-success">
+                                <a href="/team/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-success">
                                     @(season.IsClosed ? "Results" : "Details")
                                 </a>
-                                @if (_isAdmin)
+                                @if (_isCaptain)
                                 {
                                     <SeasonManageActions Season="season" OnChanged="ReloadAsync" />
                                 }
@@ -106,7 +106,7 @@ else
 
     private Team? _team;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private List<Season> _seasons = [];
     private Dictionary<int, int> _matchCounts = new();
     private Dictionary<int, SeasonService.SeasonChampion> _champions = new();
@@ -119,7 +119,7 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _isCaptain = await TeamAccess.IsCaptainAsync(_team);
             await LoadAsync();
         }
         _loading = false;

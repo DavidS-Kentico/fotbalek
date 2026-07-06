@@ -1,0 +1,217 @@
+@page "/admin"
+@layout AdminLayout
+@attribute [Authorize(Policy = AdminAuth.Policy)]
+@using Fotbalek.Web.Configuration
+@inject AdminService AdminService
+@inject TimeZoneService Tz
+@inject IJSRuntime JS
+
+<PageTitle>Users - Fotbalek Admin</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>Users</h1>
+        @if (_users != null)
+        {
+            <span class="text-muted">@_users.Count total</span>
+        }
+    </div>
+
+    <AlertMessage Message="@_error" Variant="danger" />
+
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (_users != null)
+    {
+        <div class="card">
+            <div class="card-header">
+                <input type="search" class="form-control" placeholder="Search by username..."
+                       value="@_search" @oninput="e => _search = (string?)e.Value ?? string.Empty" />
+            </div>
+            <div class="card-body p-0">
+                @if (FilteredUsers.Count == 0)
+                {
+                    <EmptyState Icon="bi bi-person-x" Message="No users match the search." />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;">Id</th>
+                                    <th>Username</th>
+                                    <th>Created</th>
+                                    <th class="text-end">Teams</th>
+                                    <th class="text-end">Players</th>
+                                    <th></th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in FilteredUsers)
+                                {
+                                    <tr>
+                                        <td class="text-muted">@user.Id</td>
+                                        <td class="fw-semibold">@user.UserName</td>
+                                        <td class="text-muted">@Tz.FormatLocalDate(user.CreatedAt)</td>
+                                        <td class="text-end">@user.TeamCount</td>
+                                        <td class="text-end">@user.PlayerCount</td>
+                                        <td>
+                                            @if (user.LockoutEnd > DateTimeOffset.UtcNow)
+                                            {
+                                                <span class="badge bg-danger" title="@($"Locked until {Tz.FormatLocalDate(user.LockoutEnd!.Value)}")">
+                                                    <i class="bi bi-lock-fill me-1"></i>Locked
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenResetModal(user)">
+                                                <i class="bi bi-key me-1"></i>Reset password
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<Modal Show="_showResetModal" Title="Reset password" Icon="bi bi-key" OnClose="CloseResetModal">
+    <Body>
+        @if (_tempPassword == null)
+        {
+            <p class="mb-2">
+                Reset password for <strong>@_resetTarget?.UserName</strong>?
+                Their current password stops working immediately.
+            </p>
+            <AlertMessage Message="@_resetError" Variant="danger" />
+        }
+        else
+        {
+            <p class="mb-2">New temporary password for <strong>@_resetTarget?.UserName</strong>:</p>
+            <div class="input-group">
+                <input type="text" class="form-control font-monospace" readonly value="@_tempPassword" />
+                <button class="btn btn-success" @onclick="CopyTempPassword">
+                    <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
+                    @(_copied ? "Copied!" : "Copy")
+                </button>
+            </div>
+            <small class="text-muted mt-2 d-block">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Shown only once — send it to the user through a trusted channel.
+                They can change it afterwards on their account page.
+            </small>
+        }
+    </Body>
+    <Footer>
+        @if (_tempPassword == null)
+        {
+            <button type="button" class="btn btn-secondary" @onclick="CloseResetModal">Cancel</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmResetAsync" disabled="@_resetting">
+                @if (_resetting)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Reset password
+            </button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-secondary" @onclick="CloseResetModal">Close</button>
+        }
+    </Footer>
+</Modal>
+
+@code {
+    private List<AdminService.UserRow>? _users;
+    private bool _loading = true;
+    private string? _error;
+    private string _search = string.Empty;
+
+    private bool _showResetModal;
+    private AdminService.UserRow? _resetTarget;
+    private string? _tempPassword;
+    private string? _resetError;
+    private bool _resetting;
+    private bool _copied;
+
+    private List<AdminService.UserRow> FilteredUsers =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _users ?? []
+            : (_users ?? []).Where(u => u.UserName?.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            // Nothing under AdminLayout resolves the browser timezone — do it here before
+            // formatting any dates.
+            await Tz.EnsureResolvedAsync();
+            _users = await AdminService.GetUsersAsync();
+        }
+        catch
+        {
+            _error = "Failed to load users.";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenResetModal(AdminService.UserRow user)
+    {
+        _resetTarget = user;
+        _tempPassword = null;
+        _resetError = null;
+        _copied = false;
+        _showResetModal = true;
+    }
+
+    private void CloseResetModal()
+    {
+        _showResetModal = false;
+        _resetTarget = null;
+        _tempPassword = null;
+        _resetError = null;
+    }
+
+    private async Task ConfirmResetAsync()
+    {
+        if (_resetTarget == null || _resetting) return;
+        _resetting = true;
+        try
+        {
+            _tempPassword = await AdminService.ResetPasswordAsync(_resetTarget.Id);
+        }
+        catch
+        {
+            _resetError = "Password reset failed. Try again.";
+        }
+        finally
+        {
+            _resetting = false;
+        }
+    }
+
+    private async Task CopyTempPassword()
+    {
+        if (_tempPassword == null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _tempPassword);
+            _copied = true;
+        }
+        catch { }
+    }
+}

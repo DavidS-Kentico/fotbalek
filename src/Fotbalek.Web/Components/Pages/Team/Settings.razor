@@ -1,4 +1,4 @@
-@page "/{TeamCode}/settings"
+@page "/team/{TeamCode}/settings"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -18,11 +18,11 @@ else if (_team == null)
         <AlertMessage Message="Team not found." Variant="warning" />
     </div>
 }
-else if (!_isAdmin)
+else if (!_isCaptain)
 {
     <div class="container py-4">
-        <AlertMessage Message="Only the team admin can change settings." Variant="danger" Icon="bi bi-shield-lock" />
-        <a href="/@TeamCode" class="btn btn-outline-secondary">
+        <AlertMessage Message="Only the team captain can change settings." Variant="danger" Icon="bi bi-shield-lock" />
+        <a href="/team/@TeamCode" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to team
         </a>
     </div>
@@ -44,7 +44,7 @@ else
                         <div class="mb-3">
                             <label for="teamName" class="form-label">Display name</label>
                             <input id="teamName" class="form-control" @bind="_name" maxlength="100" />
-                            <small class="text-muted">The URL code <code>/@_team.CodeName</code> can't be changed.</small>
+                            <small class="text-muted">The URL code <code>/team/@_team.CodeName</code> can't be changed.</small>
                         </div>
                         <SpinnerButton Busy="_savingName" OnClick="SaveName">Save name</SpinnerButton>
                     </div>
@@ -80,7 +80,7 @@ else
 
     private Team? _team;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
 
     private string _name = string.Empty;
     private string? _nameError;
@@ -99,7 +99,7 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _isAdmin = await TeamAccess.IsAdminAsync(_team);
+            _isCaptain = await TeamAccess.IsCaptainAsync(_team);
             _name = _team.Name;
         }
         _loading = false;

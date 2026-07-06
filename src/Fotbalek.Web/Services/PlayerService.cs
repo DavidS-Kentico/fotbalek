@@ -63,14 +63,14 @@ public class PlayerService(IDbContextFactory<AppDbContext> dbFactory)
     }
 
     /// <summary>
-    /// Creates a placeholder player (no associated user). Requires the caller to be the team admin.
+    /// Creates a placeholder player (no associated user). Requires the caller to be the team captain.
     /// </summary>
     public async Task<Player?> CreatePlaceholderAsync(int teamId, int currentUserId, string name, int avatarId)
     {
         await using (var db = await dbFactory.CreateDbContextAsync())
         {
             var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
-            if (team == null || team.AdminUserId != currentUserId)
+            if (team == null || team.CaptainUserId != currentUserId)
                 return null;
         }
         return await CreateAsync(teamId, name, avatarId, userId: null);
@@ -114,12 +114,12 @@ public class PlayerService(IDbContextFactory<AppDbContext> dbFactory)
         if (player == null || player.TeamId != teamId)
             return false;
 
-        // Authorize: actor is team admin OR actor owns the player.
+        // Authorize: actor is team captain OR actor owns the player.
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null) return false;
-        var isAdmin = team.AdminUserId == actorUserId;
+        var isCaptain = team.CaptainUserId == actorUserId;
         var isOwner = player.UserId == actorUserId;
-        if (!isAdmin && !isOwner) return false;
+        if (!isCaptain && !isOwner) return false;
 
         if (await IsNameTakenAsync(teamId, name, excludePlayerId: playerId))
             return false;
@@ -147,9 +147,9 @@ public class PlayerService(IDbContextFactory<AppDbContext> dbFactory)
         if (player == null || player.TeamId != teamId)
             return false;
 
-        // Authorize: only the team admin may deactivate players, and never their own player.
+        // Authorize: only the team captain may deactivate players, and never their own player.
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
-        if (team == null || team.AdminUserId != actorUserId)
+        if (team == null || team.CaptainUserId != actorUserId)
             return false;
 
         if (player.UserId == actorUserId)
@@ -168,9 +168,9 @@ public class PlayerService(IDbContextFactory<AppDbContext> dbFactory)
         if (player == null || player.TeamId != teamId)
             return false;
 
-        // Authorize: only the team admin may reactivate players.
+        // Authorize: only the team captain may reactivate players.
         var team = await db.Teams.AsNoTracking().FirstOrDefaultAsync(t => t.Id == teamId);
-        if (team == null || team.AdminUserId != actorUserId)
+        if (team == null || team.CaptainUserId != actorUserId)
             return false;
 
         player.IsActive = true;

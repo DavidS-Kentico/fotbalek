@@ -1,5 +1,8 @@
 @page "/login"
 @layout MainLayout
+@using Fotbalek.Web.Configuration
+@using Microsoft.Extensions.Options
+@inject IOptions<AdminOptions> AdminOptions
 
 <PageTitle>Login - Foosball Manager</PageTitle>
 
@@ -36,13 +39,24 @@
 
             <hr />
             <p class="text-muted small mb-0 text-center">
-                Forgot your password? Contact the service administrator.
+                @if (!string.IsNullOrWhiteSpace(_contactEmail))
+                {
+                    <text>Forgot your password? <a href="mailto:@(_contactEmail)?subject=Fotbalek%20password%20reset">Contact the administrator</a> to have it reset.</text>
+                }
+                else
+                {
+                    <text>Forgot your password? Contact the service administrator.</text>
+                }
             </p>
         </div>
     </div>
 </AuthCardLayout>
 
 @code {
+    // Expose only ContactEmail — never the admin credentials. Rendered to anonymous
+    // visitors, so the configured address must be one the admins are happy to expose.
+    private string? _contactEmail;
+
     [SupplyParameterFromQuery(Name = "error")]
     public string? Error { get; set; }
 
@@ -55,6 +69,11 @@
     private string RegisterUrl => string.IsNullOrEmpty(ReturnUrl)
         ? "/register"
         : $"/register?returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+
+    protected override void OnInitialized()
+    {
+        _contactEmail = AdminOptions.Value.ContactEmail;
+    }
 
     private string ErrorMessage => Error switch
     {

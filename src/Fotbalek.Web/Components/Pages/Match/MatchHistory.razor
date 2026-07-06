@@ -1,4 +1,4 @@
-@page "/{TeamCode}/matches"
+@page "/team/{TeamCode}/matches"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -23,7 +23,7 @@ else
     <div class="container py-4 match-history-page">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="bi bi-clock-history me-2"></i>Match History</h2>
-            <a href="/@TeamCode/match/new" class="btn btn-success">
+            <a href="/team/@TeamCode/match/new" class="btn btn-success">
                 <i class="bi bi-plus-lg me-1"></i> New Match
             </a>
         </div>
@@ -201,16 +201,16 @@ else
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
-                                    <a class="dropdown-item" href="/@TeamCode/matches/@match.Id">
+                                    <a class="dropdown-item" href="/team/@TeamCode/matches/@match.Id">
                                         <i class="bi bi-eye me-2"></i>View details
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/@TeamCode/match/new?rematch=@match.Id">
+                                    <a class="dropdown-item" href="/team/@TeamCode/match/new?rematch=@match.Id">
                                         <i class="bi bi-arrow-repeat me-2"></i>Rematch
                                     </a>
                                 </li>
-                                @if (_isAdmin)
+                                @if (_isCaptain)
                                 {
                                     <li><hr class="dropdown-divider" /></li>
                                     <li>
@@ -268,7 +268,7 @@ else
                 }
                 else
                 {
-                    <a href="/@TeamCode/match/new" class="btn btn-success">Record First Match</a>
+                    <a href="/team/@TeamCode/match/new" class="btn btn-success">Record First Match</a>
                 }
             </EmptyState>
         }
@@ -316,7 +316,7 @@ else
 
     private Team? _team;
     private bool _loading = true;
-    private bool _isAdmin;
+    private bool _isCaptain;
     private List<Match> _allMatches = [];
     private List<Match> _filteredMatches = [];
     private List<Player> _players = [];
@@ -380,7 +380,7 @@ else
         {
             await Tz.EnsureResolvedAsync();
             _team = await TeamAccess.GetCurrentTeamAsync();
-            _isAdmin = await TeamAccess.IsAdminAsync();
+            _isCaptain = await TeamAccess.IsCaptainAsync();
             if (_team != null)
             {
                 _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);

@@ -1,4 +1,4 @@
-@page "/{TeamCode}/rankings"
+@page "/team/{TeamCode}/rankings"
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
@@ -6,6 +6,7 @@
 @inject StatsService StatsService
 @inject StatsEngine StatsEngine
 @inject SeasonService SeasonService
+@inject PlayerService PlayerService
 
 <PageTitle>Rankings - Foosball Manager</PageTitle>
 
@@ -62,10 +63,14 @@ else
                                             <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
                                             <td>
                                                 <div class="d-flex flex-wrap align-items-center gap-2">
-                                                    <a href="/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                    <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
                                                         <Avatar AvatarId="@row.AvatarId" Size="sm" />
                                                         <span>@row.PlayerName</span>
                                                     </a>
+                                                    @if (row.PlayerId == _captainPlayerId)
+                                                    {
+                                                        <CaptainMark />
+                                                    }
                                                     @if (isMine)
                                                     {
                                                         <span class="badge badge-you ms-1">you</span>
@@ -122,10 +127,14 @@ else
                                         </td>
                                         <td>
                                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                                <a href="/@TeamCode/players/@player.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                <a href="/team/@TeamCode/players/@player.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
                                                     <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                     <span>@player.PlayerName</span>
                                                 </a>
+                                                @if (player.PlayerId == _captainPlayerId)
+                                                {
+                                                    <CaptainMark />
+                                                }
                                                 @if (isMine)
                                                 {
                                                     <span class="badge badge-you ms-1">you</span>
@@ -165,6 +174,7 @@ else
                                       HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as GK)")"
                                       TeamCode="@TeamCode"
                                       MyPlayerId="MyPlayerId"
+                                      CaptainPlayerId="_captainPlayerId"
                                       AverageColumnLabel="Avg Conceded"
                                       AverageColumnTooltip="Average goals conceded per game"
                                       AverageColumnClass="text-secondary"
@@ -178,6 +188,7 @@ else
                                       HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as ATK)")"
                                       TeamCode="@TeamCode"
                                       MyPlayerId="MyPlayerId"
+                                      CaptainPlayerId="_captainPlayerId"
                                       AverageColumnLabel="Avg Scored"
                                       AverageColumnTooltip="Average goals scored per game"
                                       AverageColumnClass="text-danger"
@@ -224,9 +235,17 @@ else
                                             <div class="d-flex align-items-center gap-2">
                                                 <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
                                                 <span class="@(pair.Player1Id == MyPlayerId ? "fw-bold" : "")">@pair.Player1Name</span>
+                                                @if (pair.Player1Id == _captainPlayerId)
+                                                {
+                                                    <CaptainMark />
+                                                }
                                                 <span class="text-muted">&</span>
                                                 <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
                                                 <span class="@(pair.Player2Id == MyPlayerId ? "fw-bold" : "")">@pair.Player2Name</span>
+                                                @if (pair.Player2Id == _captainPlayerId)
+                                                {
+                                                    <CaptainMark />
+                                                }
                                             </div>
                                         </td>
                                         <td class="text-end">@pair.Matches</td>
@@ -274,6 +293,8 @@ else
     private List<PositionRanking> _goalkeepers = [];
     private List<PositionRanking> _attackers = [];
     private List<StatResult> _stats = [];
+    // Player claimed by the team captain, if any — marked with the armband "C".
+    private int? _captainPlayerId;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -283,6 +304,11 @@ else
             _team = await TeamAccess.GetCurrentTeamAsync();
             if (_team != null)
             {
+                if (_team.CaptainUserId is int captainUserId)
+                {
+                    _captainPlayerId = (await PlayerService.GetUserPlayerInTeamAsync(_team.Id, captainUserId))?.Id;
+                }
+
                 _seasons = await SeasonService.GetByTeamAsync(_team.Id);
                 // Default scope = the current season; all-time when none is active (idle default).
                 _selectedSeasonId = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow))?.Id;

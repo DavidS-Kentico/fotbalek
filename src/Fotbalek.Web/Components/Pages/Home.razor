@@ -40,6 +40,9 @@
                 <a href="/join" class="btn btn-outline-success">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Join Team
                 </a>
+                <a href="/account" class="btn btn-outline-secondary">
+                    <i class="bi bi-person-circle me-1"></i> Account
+                </a>
                 <form method="post" action="/account/logout" class="m-0">
                     <AntiforgeryToken />
                     <button type="submit" class="btn btn-outline-secondary">
@@ -76,7 +79,7 @@
             <div class="list-group list-group-flush">
                 @foreach (var team in _myTeams)
                 {
-                    <a href="/@team.CodeName" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <a href="/team/@team.CodeName" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-shield-fill text-success me-2"></i>@team.Name</span>
                         <small class="text-muted">@@@team.CodeName</small>
                     </a>

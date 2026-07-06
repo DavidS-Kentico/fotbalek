@@ -96,7 +96,7 @@
                 if (team != null && team.CodeName.Equals(TeamCode, StringComparison.OrdinalIgnoreCase))
                 {
                     await MembershipService.JoinAsync(userId.Value, team.Id);
-                    Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
+                    Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
                     return;
                 }
 
@@ -142,7 +142,7 @@
             }
 
             await MembershipService.JoinAsync(userId.Value, team.Id);
-            Navigation.NavigateTo($"/{team.CodeName}/claim", forceLoad: true);
+            Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)
         {
