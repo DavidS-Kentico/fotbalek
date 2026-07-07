@@ -82,7 +82,7 @@
                         }
                         @if (GameRooms.GetForTeam(_team.Id) is { } liveRoom)
                         {
-                            var seated = liveRoom.GetState().Seats.Count(s => s.UserId != null);
+                            var seated = liveRoom.GetState().Seats.Count(s => s.Occupied);
                             <a href="/team/@_team.CodeName/game" class="btn btn-outline-danger d-flex align-items-center gap-2"
                                title="@(seated < 4 ? "Live game — join or watch" : "Live game — watch")">
                                 <span class="live-dot"></span> @seated/4 · @(seated < 4 ? "Join" : "Watch")

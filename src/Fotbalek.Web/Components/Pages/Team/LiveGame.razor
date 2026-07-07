@@ -136,11 +136,43 @@ else if (_team != null && _user != null)
                                                 }
                                             </span>
                                         }
+                                        else if (seat.IsBot)
+                                        {
+                                            <div>
+                                                <Avatar AvatarId="@(seat.AvatarId ?? BotAvatarId)" Size="sm" />
+                                                Computer
+                                                <span class="badge text-bg-secondary ms-1">@BotLevelName(seat.BotLevel)</span>
+                                            </div>
+                                            <div class="d-flex gap-1 mt-1">
+                                                <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
+                                                    <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Sit here")
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveBot(seat.Seat)" title="Remove computer">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        }
+                                        else if (_addBotSeat == seat.Seat)
+                                        {
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                <span class="small text-muted me-1">Skill:</span>
+                                                @foreach (var level in new[] { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard })
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AddBot(seat.Seat, level)">@BotLevelName((int)level)</button>
+                                                }
+                                                <button class="btn btn-sm btn-link text-muted p-0 ms-1" @onclick="() => _addBotSeat = null">Cancel</button>
+                                            </div>
+                                        }
                                         else
                                         {
-                                            <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
-                                                <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Take seat")
-                                            </button>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
+                                                    <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Take seat")
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _addBotSeat = seat.Seat" title="Add a computer player">
+                                                    <i class="bi bi-robot me-1"></i>Computer
+                                                </button>
+                                            </div>
                                         }
                                     </div>
                                 </li>
@@ -208,6 +240,12 @@ else if (_team != null && _user != null)
     private bool _showEndModal;
     private bool _subscribed;
 
+    /// <summary>Seat whose inline difficulty picker is open, or null. UI-only.</summary>
+    private int? _addBotSeat;
+
+    /// <summary>Robot avatar id (mirrors <c>GameRoom</c>); fallback when a bot seat's avatar is absent.</summary>
+    private const int BotAvatarId = 21;
+
     private ElementReference _canvas;
     private IJSObjectReference? _jsModule;
     private bool _jsInitialized;
@@ -226,8 +264,10 @@ else if (_team != null && _user != null)
         {
             if (_state == null)
                 return null;
-            var sideAOccupied = _state.Seats.Any(s => s.Seat <= 1 && s.UserId != null);
-            var sideBOccupied = _state.Seats.Any(s => s.Seat >= 2 && s.UserId != null);
+            // Occupancy counts bots too, so a human-vs-bot pause still reads as a reconnect hold;
+            // the disconnected filter below stays human-only (a bot is always Connected).
+            var sideAOccupied = _state.Seats.Any(s => s.Seat <= 1 && s.Occupied);
+            var sideBOccupied = _state.Seats.Any(s => s.Seat >= 2 && s.Occupied);
             if (!sideAOccupied || !sideBOccupied)
                 return null;
             return _state.Seats
@@ -318,7 +358,28 @@ else if (_team != null && _user != null)
         RefreshRoom();
     }
 
-    private void TakeSeat(int seat) => _room?.TakeSeat(_user!.Id, seat, MyDisplayName, MyAvatarId);
+    private void TakeSeat(int seat)
+    {
+        _addBotSeat = null;
+        _room?.TakeSeat(_user!.Id, seat, MyDisplayName, MyAvatarId);
+    }
+
+    private void AddBot(int seat, BotDifficulty difficulty)
+    {
+        _addBotSeat = null;
+        _room?.AddBot(seat, difficulty);
+    }
+
+    private void RemoveBot(int seat) => _room?.RemoveBot(seat);
+
+    private static string BotLevelName(int level) => (BotDifficulty)level switch
+    {
+        BotDifficulty.Easy => "Easy",
+        BotDifficulty.Medium => "Medium",
+        BotDifficulty.Hard => "Hard",
+        _ => "",
+    };
+
     private void LeaveSeat() => _room?.LeaveSeat(_user!.Id);
     private void ResetBall() => _room?.ResetBall(_user!.Id);
     private void ResetScore() => _room?.ResetScore(_user!.Id);

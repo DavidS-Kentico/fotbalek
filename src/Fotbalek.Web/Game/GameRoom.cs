@@ -32,7 +32,19 @@ public sealed class GameRoom
         /// <summary>Sim-time deadline of the 30 s grace hold; set while the occupant has zero
         /// live hub connections — however it got there (§3.5).</summary>
         public double? GraceUntil;
+
+        /// <summary>Non-null when a computer holds the seat (never together with <see cref="UserId"/>).
+        /// A bot has no hub connection: it counts as always-connected and always-ready, and its rods
+        /// are driven by <see cref="GameBot"/> each tick instead of held-key input.</summary>
+        public BotDifficulty? Bot;
+        public BotBrain? Brain;
+
+        public bool Occupied => UserId != null || Bot != null;
     }
+
+    /// <summary>Display avatar for a bot seat — a robot emoji mapped in <c>Avatar.razor</c>,
+    /// outside the 1..20 range the human avatar picker offers.</summary>
+    private const int BotAvatarId = 21;
 
     private sealed class UserSession
     {
@@ -157,6 +169,9 @@ public sealed class GameRoom
                 return true;
             if (target.UserId != null)
                 return false;
+            // A bot-held seat can be taken over directly — the human evicts the computer (§3.6).
+            target.Bot = null;
+            target.Brain = null;
 
             if (FindSeatLocked(userId) is { } current)
             {
@@ -183,7 +198,7 @@ public sealed class GameRoom
                 return true;
             foreach (var seat in _seats)
             {
-                if (seat.UserId != null)
+                if (seat.Occupied)
                     continue;
                 seat.UserId = userId;
                 seat.Name = name;
@@ -205,6 +220,43 @@ public sealed class GameRoom
                 VacateLocked(seat);
                 _lobbyDirty = true;
             }
+        }
+    }
+
+    /// <summary>Seats a computer player in a free seat. Any team member in the room may do this
+    /// (mirrors take-seat, §3.6); occupied seats — human or bot — are rejected.</summary>
+    public bool AddBot(int seatIndex, BotDifficulty difficulty)
+    {
+        if (seatIndex is < 0 or >= SeatMap.SeatCount)
+            return false;
+        lock (_gate)
+        {
+            if (_closed)
+                return false;
+            var target = _seats[seatIndex];
+            if (target.Occupied)
+                return false;
+            target.Bot = difficulty;
+            target.Brain = new BotBrain();
+            target.GraceUntil = null;
+            _lobbyDirty = true;
+            return true;
+        }
+    }
+
+    /// <summary>Removes a computer from its seat, freeing it. No-op on a human or empty seat.</summary>
+    public void RemoveBot(int seatIndex)
+    {
+        if (seatIndex is < 0 or >= SeatMap.SeatCount)
+            return;
+        lock (_gate)
+        {
+            var seat = _seats[seatIndex];
+            if (seat.Bot == null)
+                return;
+            seat.Bot = null;
+            seat.Brain = null;
+            _lobbyDirty = true;
         }
     }
 
@@ -500,7 +552,7 @@ public sealed class GameRoom
         for (var side = 0; side < 2; side++)
         {
             var seats = SeatsOfSideLocked(side);
-            var occupied = seats.Where(i => _seats[i].UserId != null).ToArray();
+            var occupied = seats.Where(i => _seats[i].Occupied).ToArray();
 
             foreach (var rod in SeatMap.SideRods(side))
             {
@@ -513,7 +565,20 @@ public sealed class GameRoom
             var alone = occupied.Length == 1;
             foreach (var seatIndex in occupied)
             {
-                var userId = _seats[seatIndex].UserId!.Value;
+                var seat = _seats[seatIndex];
+                if (seat.Bot is { } difficulty)
+                {
+                    // Computer seat: each owned rod steers itself toward the ball (§2.3 handles
+                    // the kick). Same hand→rod map as a human, so the 1v1 four-rod pairing is free.
+                    for (var hand = 0; hand < 2; hand++)
+                    {
+                        foreach (var rod in SeatMap.RodsFor(seatIndex, hand, alone))
+                            _sim.RodDir[rod] = GameBot.DecideRod(_sim, rod, difficulty, _time, _rng, seat.Brain!);
+                    }
+                    continue;
+                }
+
+                var userId = seat.UserId!.Value;
                 if (!IsConnectedLocked(userId) || !_heldInput.TryGetValue(userId, out var hands))
                     continue;
                 for (var hand = 0; hand < 2; hand++)
@@ -539,8 +604,8 @@ public sealed class GameRoom
             _phase = GamePhase.GameOver;
             // Winners by name, captured at the moment the winning goal lands (§2.4).
             _winners = SeatsOfSideLocked(scoringSide)
-                .Where(i => _seats[i].UserId != null)
-                .Select(i => new WinnerDto(_seats[i].Name, _seats[i].AvatarId))
+                .Where(i => _seats[i].Occupied)
+                .Select(i => { var (name, avatar) = DisplayOf(_seats[i]); return new WinnerDto(name, avatar); })
                 .ToList();
             ParkBallLocked(Pending.None);
         }
@@ -620,6 +685,8 @@ public sealed class GameRoom
             _heldInput.Remove(userId);
         seat.UserId = null;
         seat.GraceUntil = null;
+        seat.Bot = null;
+        seat.Brain = null;
     }
 
     private SeatState? FindSeatLocked(int userId) =>
@@ -628,16 +695,23 @@ public sealed class GameRoom
     private bool IsConnectedLocked(int userId) =>
         _users.TryGetValue(userId, out var session) && session.Connections.Count > 0;
 
+    /// <summary>Display name + avatar for a seat's occupant — the claimed player for a human, or
+    /// the generic robot identity for a bot.</summary>
+    private static (string Name, int AvatarId) DisplayOf(SeatState seat) =>
+        seat.Bot != null ? ("Computer", BotAvatarId) : (seat.Name, seat.AvatarId);
+
     private static int[] SeatsOfSideLocked(int side) =>
         side == 0 ? [SeatMap.ADefense, SeatMap.AAttack] : [SeatMap.BDefense, SeatMap.BAttack];
 
     private bool SideOccupiedLocked(int side) =>
-        SeatsOfSideLocked(side).Any(i => _seats[i].UserId != null);
+        SeatsOfSideLocked(side).Any(i => _seats[i].Occupied);
 
-    /// <summary>Ball in play needs at least one *connected* seated player on the side — a
-    /// grace-held seat keeps its owner but doesn't count (§3.4).</summary>
+    /// <summary>Ball in play needs at least one *ready* occupant on the side: a connected human,
+    /// or a bot (which is always connected/ready). A grace-held human keeps their seat but doesn't
+    /// count (§3.4).</summary>
     private bool SideReadyLocked(int side) =>
-        SeatsOfSideLocked(side).Any(i => _seats[i].UserId is int u && IsConnectedLocked(u));
+        SeatsOfSideLocked(side).Any(i =>
+            _seats[i].Bot != null || (_seats[i].UserId is int u && IsConnectedLocked(u)));
 
     // ---- Wire payloads -----------------------------------------------------------------------
 
@@ -661,9 +735,11 @@ public sealed class GameRoom
         _seats.Select((s, i) => new SeatDto(
             i,
             s.UserId,
-            s.UserId != null ? s.Name : null,
-            s.UserId != null ? s.AvatarId : null,
-            s.UserId is int u && IsConnectedLocked(u))).ToList(),
+            s.Occupied ? DisplayOf(s).Name : null,
+            s.Occupied ? DisplayOf(s).AvatarId : null,
+            s.Bot != null || (s.UserId is int u && IsConnectedLocked(u)),
+            s.Bot != null,
+            (int)(s.Bot ?? 0))).ToList(),
         _users
             .Where(kv => kv.Value.Connections.Count > 0 && FindSeatLocked(kv.Key) == null)
             .Select(kv => new ViewerDto(kv.Key, kv.Value.Name, kv.Value.AvatarId))

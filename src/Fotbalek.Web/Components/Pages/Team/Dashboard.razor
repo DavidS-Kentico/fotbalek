@@ -83,7 +83,7 @@ else if (_team != null)
         @if (GameRooms.GetForTeam(_team.Id) is { } liveRoom)
         {
             var liveState = liveRoom.GetState();
-            var seatedPlayers = liveState.Seats.Where(s => s.UserId != null).ToList();
+            var seatedPlayers = liveState.Seats.Where(s => s.Occupied).ToList();
             var freeSeats = 4 - seatedPlayers.Count;
             <div class="card border-danger mb-4">
                 <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3">

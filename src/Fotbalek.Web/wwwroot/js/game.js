@@ -233,7 +233,7 @@ function applyRoomState(state) {
     }
     const side = mySeat.seat <= 1 ? 0 : 1;
     const occupiedOnSide = state.seats
-        .filter(s => (s.seat <= 1 ? 0 : 1) === side && s.userId !== null).length;
+        .filter(s => (s.seat <= 1 ? 0 : 1) === side && (s.userId !== null || s.isBot)).length;
     const alone = occupiedOnSide === 1;
     myRods = {
         hands: [0, 1].map(h => alone ? PAIR_RODS[side][h] : [OWN_RODS[mySeat.seat][h]]),

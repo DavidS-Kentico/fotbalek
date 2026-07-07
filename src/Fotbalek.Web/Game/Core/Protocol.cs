@@ -26,7 +26,14 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("k")] int[] Kick,
     [property: JsonPropertyName("kt")] long KickTick);
 
-public sealed record SeatDto(int Seat, int? UserId, string? Name, int? AvatarId, bool Connected);
+/// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
+/// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>
+/// wire value, meaningful only when <see cref="IsBot"/>.</summary>
+public sealed record SeatDto(
+    int Seat, int? UserId, string? Name, int? AvatarId, bool Connected, bool IsBot = false, int BotLevel = 0)
+{
+    public bool Occupied => UserId != null || IsBot;
+}
 
 public sealed record ViewerDto(int UserId, string Name, int AvatarId);
 
