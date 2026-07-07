@@ -567,8 +567,8 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         ctx.stroke();
 
         for (let f = 0; f < rod.figures; f++) {
-            const y = rodOffsets[i] * rod.travel + f * rod.spacing;
-            drawFigure(rod.x, y, rod.side, own, footValue(i, f, renderTime));
+            const y = rod.yBase + rodOffsets[i] * rod.travel + f * rod.spacing;
+            drawFigure(rod.x, y, rod.side, own, footValue(i, f, renderTime), rod.radius);
         }
     }
 
@@ -591,6 +591,11 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
     ctx.textBaseline = 'top';
     ctx.fillText(`${snap.s[0]} : ${snap.s[1]}`, W / 2, 12);
 
+    // Match clock, under the score.
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.fillText(formatClock(snap.mt), W / 2, 56);
+
     // GOAL flash (transient, canvas-drawn — §5.1).
     if (flash) {
         const remaining = flash.until - nowMs;
@@ -611,14 +616,16 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
 }
 
 /** Top-down foosball man: shoulders along the rod, head on top; while kicking, the foot
- *  sweeps out perpendicular to the rod, toward the goal his team attacks. */
-function drawFigure(x, y, side, own, foot) {
+ *  sweeps out perpendicular to the rod, toward the goal his team attacks. The body scales with
+ *  the figure's collision radius so a fatter goalie also looks fatter (honest hitbox). */
+function drawFigure(x, y, side, own, foot, radius) {
     const attackDir = side === 0 ? 1 : -1;
+    const s = radius / config.figureRadius; // outfield man = 1, the bigger goalie > 1
 
     if (Math.abs(foot) > 0.05) {
         const fx = x + attackDir * foot * FOOT_EXTENT;
         ctx.beginPath();
-        ctx.ellipse(fx, y, 8, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(fx, y, 8 * s, 6 * s, 0, 0, Math.PI * 2);
         ctx.fillStyle = SIDE_DARK[side];
         ctx.fill();
         ctx.lineWidth = 1.5;
@@ -626,7 +633,7 @@ function drawFigure(x, y, side, own, foot) {
         ctx.stroke();
     }
 
-    roundRect(x - 10, y - 17, 20, 34, 9);
+    roundRect(x - 10 * s, y - 17 * s, 20 * s, 34 * s, 9 * s);
     ctx.fillStyle = SIDE_COLORS[side];
     ctx.fill();
     ctx.lineWidth = own ? 3 : 2;
@@ -634,12 +641,19 @@ function drawFigure(x, y, side, own, foot) {
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 6.5 * s, 0, Math.PI * 2);
     ctx.fillStyle = SIDE_DARK[side];
     ctx.fill();
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(0,0,0,0.25)';
     ctx.stroke();
+}
+
+/** Whole seconds → m:ss. */
+function formatClock(totalSeconds) {
+    const total = Math.max(0, totalSeconds | 0);
+    const sec = total % 60;
+    return `${(total / 60) | 0}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
 function roundRect(x, y, w, h, r) {

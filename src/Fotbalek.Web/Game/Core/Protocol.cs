@@ -24,7 +24,8 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("st")] int State,
     [property: JsonPropertyName("r")] int ResetCounter,
     [property: JsonPropertyName("k")] int[] Kick,
-    [property: JsonPropertyName("kt")] long KickTick);
+    [property: JsonPropertyName("kt")] long KickTick,
+    [property: JsonPropertyName("mt")] int MatchSeconds);
 
 /// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
 /// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>
@@ -52,9 +53,14 @@ public sealed record RoomStateDto(
     bool Closed,
     IReadOnlyList<SeatDto> Seats,
     IReadOnlyList<ViewerDto> Viewers,
-    IReadOnlyList<WinnerDto> Winners);
+    IReadOnlyList<WinnerDto> Winners,
+    GameOptionsDto Options);
 
-public sealed record RodConfigDto(double X, int Side, int Figures, double Spacing, double Travel);
+/// <summary>Per-room, player-adjustable rules. Extensible — one flag today.</summary>
+public sealed record GameOptionsDto(bool DisallowQuickGoals);
+
+public sealed record RodConfigDto(
+    double X, int Side, int Figures, double Spacing, double Travel, double YBase, double Radius);
 
 /// <summary>Static table geometry / physics constants the renderer and own-rod predictor need,
 /// returned by <c>JoinRoom</c> so they live in exactly one place — the server (§4.3).</summary>
@@ -77,7 +83,7 @@ public sealed record GameConfigDto(
         GameConstants.RodSpeed,
         GameConstants.TickRate,
         GameConstants.Rods
-            .Select(r => new RodConfigDto(r.X, r.Side, r.FigureCount, r.FigureSpacing, r.Travel))
+            .Select(r => new RodConfigDto(r.X, r.Side, r.FigureCount, r.FigureSpacing, r.Travel, r.YBase, r.Radius))
             .ToList());
 }
 

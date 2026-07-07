@@ -199,6 +199,20 @@ else if (_team != null && _user != null)
 
                     @if (IsSeated)
                     {
+                        <div class="card mb-3">
+                            <div class="card-header py-2"><strong>Game options</strong></div>
+                            <div class="card-body py-2">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="opt-quick-goals"
+                                           checked="@_state.Options.DisallowQuickGoals" @onchange="OnToggleQuickGoals" />
+                                    <label class="form-check-label" for="opt-quick-goals">
+                                        No quick goals
+                                        <span class="d-block text-muted small">Ignore goals in the first 1.5&nbsp;s after kickoff</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button class="btn btn-sm btn-outline-secondary" @onclick="ResetBall">
                                 <i class="bi bi-record-circle me-1"></i> Reset ball
@@ -384,6 +398,7 @@ else if (_team != null && _user != null)
     private void ResetBall() => _room?.ResetBall(_user!.Id);
     private void ResetScore() => _room?.ResetScore(_user!.Id);
     private void Rematch() => _room?.Rematch(_user!.Id);
+    private void OnToggleQuickGoals(ChangeEventArgs e) => _room?.SetGameOptions(_user!.Id, e.Value is true);
 
     private void EndGame()
     {

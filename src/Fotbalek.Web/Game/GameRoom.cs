@@ -80,6 +80,18 @@ public sealed class GameRoom
     private double _resumeVY;
     private double _slowSince = -1;
     private double _lastTouch;
+
+    /// <summary>Seconds of play in the current match — accumulates while playing, resets on a fresh
+    /// match (rematch / reset score / new game). Shown as the match clock (§5.1).</summary>
+    private double _matchElapsed;
+
+    /// <summary>Sim time the current round's ball went live; goals within
+    /// <see cref="GameConstants.QuickGoalGraceSeconds"/> of it don't count when
+    /// <see cref="GameOptionsDto.DisallowQuickGoals"/> is on. Negative-infinity = grace disabled for
+    /// this round (a reconnect resume, which is not a fresh kickoff).</summary>
+    private double _roundLiveSince = double.NegativeInfinity;
+
+    private bool _disallowQuickGoals = true;
     private double? _emptySince = 0; // the room is born empty
     private bool _lobbyDirty;
     private bool _destroyRequested;
@@ -268,8 +280,23 @@ public sealed class GameRoom
                 return;
             _scoreA = 0;
             _scoreB = 0;
+            _matchElapsed = 0; // reset-score is a fresh match → the clock restarts too (§5.1)
             if (_phase == GamePhase.GameOver)
                 RestartLocked();
+            _lobbyDirty = true;
+        }
+    }
+
+    /// <summary>Toggles the quick-goal rule. Any seated player may change room options (§3.6).</summary>
+    public void SetGameOptions(int userId, bool disallowQuickGoals)
+    {
+        lock (_gate)
+        {
+            if (_closed || FindSeatLocked(userId) == null)
+                return;
+            if (_disallowQuickGoals == disallowQuickGoals)
+                return;
+            _disallowQuickGoals = disallowQuickGoals;
             _lobbyDirty = true;
         }
     }
@@ -481,6 +508,9 @@ public sealed class GameRoom
                 break; // ball intentionally frozen; waits for Rematch / Reset score / End game.
         }
 
+        if (_phase == GamePhase.Playing)
+            _matchElapsed += dt;
+
         ApplyRodInputLocked();
 
         var result = GamePhysics.Step(_sim, dt);
@@ -592,6 +622,15 @@ public sealed class GameRoom
 
     private void HandleGoalLocked(int scoringSide)
     {
+        // Quick-goal rule: a goal in the opening moments of a round is a "let" — no score, redo the
+        // kickoff neutrally so nobody can cash in before the defense can react (§2.4).
+        if (_disallowQuickGoals && _time - _roundLiveSince < GameConstants.QuickGoalGraceSeconds)
+        {
+            ParkBallLocked(Pending.KickRandom);
+            _pauseUntil = _time + GameConstants.KickoffPauseSeconds;
+            return;
+        }
+
         if (scoringSide == 0)
             _scoreA++;
         else
@@ -620,6 +659,9 @@ public sealed class GameRoom
     private void ApplyPendingKickLocked()
     {
         var angle = (_rng.NextDouble() * 2 - 1) * Math.PI / 8; // ±22.5°
+        // A fresh kickoff opens a quick-goal grace window; a reconnect resume just continues the
+        // round in flight, so it opts out (a shot already on target must still count).
+        _roundLiveSince = _pending == Pending.Resume ? double.NegativeInfinity : _time;
         switch (_pending)
         {
             case Pending.Resume:
@@ -676,6 +718,7 @@ public sealed class GameRoom
     {
         _winners = [];
         _phase = GamePhase.Waiting;
+        _matchElapsed = 0;
         ParkBallLocked(Pending.KickRandom);
     }
 
@@ -724,7 +767,8 @@ public sealed class GameRoom
         (int)_phase,
         _sim.ResetCounter,
         [_sim.LastKickRod, _sim.LastKickFigure],
-        _sim.LastKickTick);
+        _sim.LastKickTick,
+        (int)_matchElapsed);
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,
@@ -745,7 +789,8 @@ public sealed class GameRoom
             .Select(kv => new ViewerDto(kv.Key, kv.Value.Name, kv.Value.AvatarId))
             .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
             .ToList(),
-        _winners);
+        _winners,
+        new GameOptionsDto(_disallowQuickGoals));
 
     private async Task BroadcastStateAsync()
     {

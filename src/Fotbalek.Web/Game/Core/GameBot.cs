@@ -86,14 +86,13 @@ public static class GameBot
         aimY = Math.Clamp(aimY, 0, GameConstants.TableHeight);
 
         // Choose the figure whose reachable band gets closest to aimY, then the offset that puts it
-        // there. With the full-height spacing rule (§2.1) some figure always reaches any y.
+        // there. Geometry (spacing, travel, goal-centered goalie) is owned by RodDef.
         var best = 0.5;
         var bestErr = double.MaxValue;
         for (var f = 0; f < rod.FigureCount; f++)
         {
-            var off = Math.Clamp((aimY - f * rod.FigureSpacing) / rod.Travel, 0, 1);
-            var reachedY = off * rod.Travel + f * rod.FigureSpacing;
-            var err = Math.Abs(reachedY - aimY);
+            var off = rod.OffsetForFigureY(aimY, f);
+            var err = Math.Abs(rod.FigureY(off, f) - aimY);
             if (err < bestErr)
             {
                 bestErr = err;

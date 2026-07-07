@@ -108,29 +108,33 @@ public static class GamePhysics
         }
     }
 
+    private static double Contact(RodDef rod) => GameConstants.BallRadius + rod.Radius;
+
     private static bool HandleFigures(SimState s, ref double nx, ref double ny)
     {
-        const double contact = GameConstants.BallRadius + GameConstants.FigureRadius;
-
         // The kicker's collider stays ignored until the ball separates from it (§2.3).
         if (s.IgnoreRod >= 0)
         {
             var rod = GameConstants.Rods[s.IgnoreRod];
             var figY = rod.FigureY(s.RodOffset[s.IgnoreRod], s.IgnoreFigure);
-            if (Dist2(nx - rod.X, ny - figY) > (contact + 1) * (contact + 1))
+            var sep = Contact(rod) + 1;
+            if (Dist2(nx - rod.X, ny - figY) > sep * sep)
             {
                 s.IgnoreRod = -1;
                 s.IgnoreFigure = -1;
             }
         }
 
-        // Nearest figure in contact range wins (§2.3).
-        var bestD2 = contact * contact;
+        // Deepest-overlapping figure in contact range wins (§2.3). Contact range is per-rod (the
+        // goalie is fatter), so we rank by penetration depth — with a uniform radius that's just
+        // "nearest", but it stays correct when radii differ.
+        var bestPen = 0.0;
         int bestRod = -1, bestFig = -1;
-        double bestFigY = 0;
+        double bestFigY = 0, bestContact = 0, bestDist = 0;
         for (var i = 0; i < 8; i++)
         {
             var rod = GameConstants.Rods[i];
+            var contact = Contact(rod);
             var dx = nx - rod.X;
             if (Math.Abs(dx) > contact)
                 continue;
@@ -140,12 +144,17 @@ public static class GamePhysics
                     continue;
                 var figY = rod.FigureY(s.RodOffset[i], f);
                 var d2 = Dist2(dx, ny - figY);
-                if (d2 < bestD2)
+                if (d2 >= contact * contact)
+                    continue;
+                var pen = contact - Math.Sqrt(d2);
+                if (pen > bestPen)
                 {
-                    bestD2 = d2;
+                    bestPen = pen;
                     bestRod = i;
                     bestFig = f;
                     bestFigY = figY;
+                    bestContact = contact;
+                    bestDist = contact - pen;
                 }
             }
         }
@@ -159,7 +168,7 @@ public static class GamePhysics
             // Auto-kick toward the opponent's goal; vertical deflection = contact offset
             // plus a fraction of the rod's momentum ("english", §2.3).
             var dir = best.Side == 0 ? 1 : -1;
-            var offset = Math.Clamp((ny - bestFigY) / contact, -1, 1);
+            var offset = Math.Clamp((ny - bestFigY) / bestContact, -1, 1);
             s.BallVX = GameConstants.KickSpeed * dir;
             s.BallVY = offset * GameConstants.MaxDeflection
                        + GameConstants.RodMomentumTransfer * s.RodVel[bestRod];
@@ -174,7 +183,7 @@ public static class GamePhysics
 
         // Cooldown active → passive collider: reflect the relative velocity about the contact
         // normal in the (vertically moving) figure's frame, then push the ball out.
-        var dist = Math.Sqrt(bestD2);
+        var dist = bestDist;
         double nxn, nyn;
         if (dist < 1e-6)
         {
@@ -198,8 +207,8 @@ public static class GamePhysics
         }
         s.BallVX = relVX;
         s.BallVY = relVY + s.RodVel[bestRod];
-        nx = best.X + nxn * (contact + 0.5);
-        ny = bestFigY + nyn * (contact + 0.5);
+        nx = best.X + nxn * (bestContact + 0.5);
+        ny = bestFigY + nyn * (bestContact + 0.5);
         return true;
     }
 
