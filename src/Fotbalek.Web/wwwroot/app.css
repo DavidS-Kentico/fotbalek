@@ -450,50 +450,131 @@ h1:focus {
     font-size: 1rem;
 }
 
-.presence-stack {
+/* ===== Team navbar (three-zone app bar) ===== */
+/* Stays pinned while scrolling long pages (rankings, stats, match history) so
+   navigation and the New-match CTA are always one reach away. */
+.team-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+/* Button labels never wrap onto a second line. */
+.team-navbar .btn {
+    white-space: nowrap;
+}
+
+/* Every control in the bar shares one height for a crisp baseline. */
+.team-navbar .navbar-actions .btn,
+.team-navbar .team-switcher-btn {
+    height: 38px;
+}
+/* The account chip carries an avatar; shrink it so the chip matches the row
+   height instead of stretching the whole bar taller than its neighbours. */
+.team-navbar .account-btn .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+}
+
+/* Team (workspace) switcher */
+.team-navbar .team-switcher-btn {
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+    color: #198754;
+    font-weight: 700;
+    max-width: 240px;
+}
+.team-navbar .team-switcher-btn:hover,
+.team-navbar .team-switcher-btn:focus {
+    background-color: #f8f9fa;
+}
+.team-navbar .team-switcher-name {
+    max-width: 160px;
+    display: inline-block;
+    vertical-align: bottom;
+}
+/* On phones, collapse the switcher to just the crest so the action row stays
+   on a single line; the full name still shows in the dropdown. */
+@media (max-width: 575.98px) {
+    .team-navbar .team-switcher-name {
+        display: none;
+    }
+}
+.team-navbar .team-switcher .dropdown-menu {
+    min-width: 240px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.team-navbar .team-switcher .dropdown-item .text-truncate {
+    max-width: 170px;
+}
+
+/* Section links + grouped dropdown toggles */
+.team-navbar .navbar-nav .nav-link {
+    font-weight: 500;
+}
+.team-navbar .navbar-nav .nav-link.active,
+.team-navbar .navbar-nav .nav-item.dropdown.show > .nav-link {
+    color: #198754;
+}
+
+/* Square icon-only buttons (e.g. start live game) line up with the CTA height */
+.team-navbar .btn-icon {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 38px;
+    padding-left: 0;
+    padding-right: 0;
 }
 
-.presence-stack .presence-avatar {
+/* Online-players chip + popover */
+.team-navbar .presence-chip {
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+}
+.team-navbar .presence-chip:hover {
+    background-color: #eceef0;
+}
+.presence-menu {
+    min-width: 230px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+.presence-menu .presence-avatar-wrap {
     position: relative;
-    display: inline-block;
-    margin-left: -8px;
-    text-decoration: none;
-    transition: transform 120ms ease;
+    display: inline-flex;
+    flex: 0 0 auto;
 }
-
-.presence-stack .presence-avatar:first-child {
-    margin-left: 0;
-}
-
-.presence-stack .presence-avatar:hover {
-    transform: translateY(-2px);
-    z-index: 1;
-}
-
-.presence-stack .presence-avatar .avatar {
-    border: 2px solid #dee2e6;
-    box-shadow: 0 0 0 2px #fff;
-    background-color: #fff;
-}
-
-.presence-stack .presence-dot {
+.presence-menu .presence-dot {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     background-color: #28a745;
     border: 2px solid #fff;
 }
 
-.presence-stack .presence-more {
-    margin-left: 6px;
-    font-size: 0.8rem;
-    color: #6c757d;
-    font-weight: 500;
+/* Contextual live-game pill */
+.team-navbar .live-pill {
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+/* Collapsed (mobile) sections drawer */
+@media (max-width: 991.98px) {
+    .team-navbar .team-sections {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.075);
+    }
 }
 
 /* ===== New Match Page ===== */
