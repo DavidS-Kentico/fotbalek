@@ -7,6 +7,10 @@ const MAX_EXTRAPOLATION_MS = 100; // cap ball extrapolation past the newest snap
 const NUDGE_RATE = 4;             // /s — correction of predicted own rods by time-aligned error
 const PAD = 30;                   // logical padding around the playfield (goal pockets, handles)
 
+// Latency instrumentation (§12) — active only while seated and the game is actually playing.
+const RTT_PING_INTERVAL_MS = 2000; // how often to probe hub round-trip time
+const STATS_WINDOW_MS = 10000;     // window over which samples are summarized and reported
+
 // Mirrors SeatMap.cs: [seat][hand] → rod, and the 1v1 pairs [side][hand] → rods (§2.2).
 // Hands are screen-relative — hand 0 (W/S) always drives the rod(s) nearer the left edge.
 const OWN_RODS = [[0, 1], [3, 5], [6, 7], [2, 4]];
@@ -47,6 +51,24 @@ let predicted = null;   // rodIdx → offset
 let predHistory = {};   // rodIdx → [{ t, o }] — past predictions on the server timeline
 let lastFrameTime = 0;
 
+// Latency instrumentation (§12): per-window sample buffers + timers, all in ms on the client clock.
+let currentPhase = 0;      // last seen snapshot state (0 waiting / 1 playing / 2 game over)
+let statsRtt = [];         // hub round-trip samples in the current window
+let statsGap = [];         // snapshot inter-arrival samples in the current window
+let statsFrame = [];       // render frame-interval samples (device/tab jank)
+let extrapFrames = 0;      // frames this window with no future snapshot (had to extrapolate the ball)
+let sampledFrames = 0;     // total frames sampled this window (extrap fraction = extrapFrames/sampledFrames)
+let lastSnapAt = 0;        // performance.now() of the previous snapshot (0 = none yet)
+let lastPingAt = 0;        // performance.now() of the last RTT probe
+let lastStatsFlushAt = 0;  // performance.now() of the last window flush (0 = not measuring)
+let pingInFlight = false;  // avoid overlapping RTT probes
+let displayPing = null;    // smoothed RTT (ms) for the on-canvas readout; null until first probe
+
+// Player options — client-local display preferences (NOT room/game state), persisted per browser.
+// Extensible: add a key + default here and a toggle in LiveGame.razor; game.js reads them each frame.
+const PLAYER_OPTIONS_KEY = 'fotbalek.playerOptions';
+let playerOptions = { showPing: false };
+
 export async function init(canvasEl, options) {
     disposed = false;
     closed = false;
@@ -71,6 +93,18 @@ export async function init(canvasEl, options) {
     catchKeys.clear();
     sentCatch = false;
     sentSpace = false;
+    currentPhase = 0;
+    statsRtt = [];
+    statsGap = [];
+    statsFrame = [];
+    extrapFrames = 0;
+    sampledFrames = 0;
+    lastSnapAt = 0;
+    lastPingAt = 0;
+    lastStatsFlushAt = 0;
+    pingInFlight = false;
+    displayPing = null;
+    loadPlayerOptions(); // pick up this browser's persisted toggles (kept across re-inits)
 
     // Vendored UMD build (mirrors vendored Bootstrap — no bundler, no CDN); it attaches
     // itself to the global scope, dynamic import just executes it once.
@@ -89,7 +123,7 @@ export async function init(canvasEl, options) {
 
     connection.on('snapshot', onSnapshot);
     connection.on('roomState', onRoomState);
-    connection.onreconnecting(() => showOverlay('Reconnecting…', false));
+    connection.onreconnecting(() => { displayPing = null; showOverlay('Reconnecting…', false); });
     connection.onreconnected(async () => {
         // A reconnected connection is brand new to the server — group membership does not
         // survive it; re-join and re-send held-key state (§3.5). Score and kick baselines
@@ -99,6 +133,12 @@ export async function init(canvasEl, options) {
         clockOffset = null;
         lastScore = null;
         lastKickTick = -1;
+        lastSnapAt = 0;   // don't count the reconnect gap as snapshot jitter (§12)
+        statsRtt = [];
+        statsGap = [];
+        statsFrame = [];
+        extrapFrames = 0;
+        sampledFrames = 0;
         const joined = await joinRoom();
         if (joined) {
             resendInput();
@@ -175,6 +215,17 @@ function onSnapshot(snap) {
     if (!snap || !config) {
         return;
     }
+
+    // Snapshot inter-arrival gap (§12) — measured as the client sees it, so it captures network jitter
+    // (and any server pacing stalls). Recorded only while actively playing; phase is set first so the
+    // measuring() gate below reflects this very snapshot.
+    const arrival = performance.now();
+    currentPhase = snap.st;
+    if (measuring() && lastSnapAt > 0) {
+        statsGap.push(arrival - lastSnapAt);
+    }
+    lastSnapAt = arrival;
+
     const serverTime = snap.t * (1000 / config.tickRate);
     const sample = serverTime - performance.now();
     clockOffset = clockOffset === null ? sample : clockOffset + (sample - clockOffset) * 0.1;
@@ -421,7 +472,8 @@ function sampleWorld(nowMs) {
             renderTime,
         };
     }
-    // Past the newest snapshot — extrapolate the ball briefly from its velocity (§4.3).
+    // Past the newest snapshot — extrapolate the ball briefly from its velocity (§4.3). Flagged so the
+    // frame loop can track how often the interpolation buffer runs dry (§12).
     const newest = snapshots[snapshots.length - 1];
     const dt = Math.min(Math.max(0, renderTime - newest.t * tickMs), MAX_EXTRAPOLATION_MS) / 1000;
     return {
@@ -429,6 +481,7 @@ function sampleWorld(nowMs) {
         rods: newest.o,
         snap: newest,
         renderTime,
+        extrapolated: true,
     };
 }
 
@@ -528,6 +581,115 @@ function sampleHistory(rodIdx, t) {
     return h[0].o;
 }
 
+// ---- Latency instrumentation (§12) -----------------------------------------------------------
+
+/** Capture only while this client is a seated player AND the game is actively playing, on a live
+ *  connection — matches the "collect data only when playing" requirement and keeps volume tiny. */
+function measuring() {
+    return !!myRods && currentPhase === 1 && !!connection && !closed && !disposed;
+}
+
+/** Driven from the rAF loop: paces the RTT probe and the window flush. When measurement stops
+ *  (game over, left seat, disconnect) any partial window is flushed so nothing is silently dropped. */
+function maybeMeasure(nowMs) {
+    if (!connection || closed || disposed) {
+        return;
+    }
+    // Probe RTT whenever it's needed — for telemetry (while playing) OR just to feed the ping readout
+    // (any time the player has it toggled on, including as a viewer or while waiting).
+    if ((measuring() || playerOptions.showPing) && !pingInFlight && nowMs - lastPingAt >= RTT_PING_INTERVAL_MS) {
+        doPing(nowMs);
+    }
+    if (measuring()) {
+        if (!lastStatsFlushAt) {
+            lastStatsFlushAt = nowMs; // start the first window now, so it's a full STATS_WINDOW_MS
+        }
+        if (nowMs - lastStatsFlushAt >= STATS_WINDOW_MS) {
+            flushStats();
+            lastStatsFlushAt = nowMs;
+        }
+    } else if (statsRtt.length || statsGap.length || statsFrame.length || sampledFrames) {
+        flushStats();
+        lastStatsFlushAt = 0;
+    }
+}
+
+/** No-op hub round trip; the promise resolves once the server acks, so the elapsed time is the real
+ *  application-level RTT through SignalR. Feeds the smoothed on-canvas readout always, and the
+ *  telemetry window only while playing (so telemetry stays "playing-only"). Failures ignored. */
+function doPing(nowMs) {
+    pingInFlight = true;
+    lastPingAt = nowMs;
+    const t0 = performance.now();
+    connection.invoke('Ping')
+        .then(() => {
+            const rtt = performance.now() - t0;
+            displayPing = displayPing === null ? rtt : displayPing * 0.7 + rtt * 0.3; // EMA — steady readout
+            if (measuring()) {
+                statsRtt.push(rtt);
+            }
+        })
+        .catch(() => { })
+        .finally(() => { pingInFlight = false; });
+}
+
+/** Summarize the current window client-side (Azure Monitor can't derive percentiles from histograms)
+ *  and ship one compact report, then reset the buffers. */
+function flushStats() {
+    if (statsRtt.length === 0 && statsGap.length === 0 && statsFrame.length === 0 && sampledFrames === 0) {
+        return;
+    }
+    const payload = {
+        rtt: summarizeStats(statsRtt),
+        gap: summarizeStats(statsGap),
+        frame: summarizeStats(statsFrame),
+        extrapFrames: extrapFrames,
+        sampledFrames: sampledFrames,
+    };
+    statsRtt = [];
+    statsGap = [];
+    statsFrame = [];
+    extrapFrames = 0;
+    sampledFrames = 0;
+    connection?.invoke('ReportStats', payload).catch(() => { });
+}
+
+/** count / min / mean / p50 / p95 / max over a sample array (nearest-rank percentiles). */
+function summarizeStats(arr) {
+    const n = arr.length;
+    if (n === 0) {
+        return { count: 0, min: 0, mean: 0, p50: 0, p95: 0, max: 0 };
+    }
+    const sorted = [...arr].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    const pct = p => sorted[Math.min(n - 1, Math.max(0, Math.ceil(p * n) - 1))];
+    return { count: n, min: sorted[0], mean: sum / n, p50: pct(0.5), p95: pct(0.95), max: sorted[n - 1] };
+}
+
+// ---- Player options (client-local, §12) ------------------------------------------------------
+
+function loadPlayerOptions() {
+    try {
+        const raw = localStorage.getItem(PLAYER_OPTIONS_KEY);
+        if (raw) {
+            playerOptions = { ...playerOptions, ...JSON.parse(raw) };
+        }
+    } catch { /* private mode / disabled storage — fall back to defaults */ }
+}
+
+/** Read one option (typed as bool) — used by the Blazor panel to render the toggle's initial state. */
+export function getPlayerOption(key) {
+    return !!playerOptions[key];
+}
+
+/** Set + persist one option. Called from the Blazor toggle via interop (Blazor→JS only, §4.4). */
+export function setPlayerOption(key, value) {
+    playerOptions[key] = value;
+    try {
+        localStorage.setItem(PLAYER_OPTIONS_KEY, JSON.stringify(playerOptions));
+    } catch { /* ignore */ }
+}
+
 // ---- Rendering -------------------------------------------------------------------------------
 
 let lastLayoutKey = '';
@@ -564,9 +726,17 @@ function frame(nowMs) {
         return;
     }
     rafHandle = requestAnimationFrame(frame);
+    const rawFrameMs = lastFrameTime ? nowMs - lastFrameTime : 0;
     const dtSec = Math.min(0.1, (nowMs - lastFrameTime) / 1000 || 0.016);
     lastFrameTime = nowMs;
 
+    // Render frame interval (§12) — only while measuring and visible; skip resume spikes (>1 s) from a
+    // backgrounded tab so throttled frames don't masquerade as device jank.
+    if (measuring() && !document.hidden && rawFrameMs > 0 && rawFrameMs < 1000) {
+        statsFrame.push(rawFrameMs);
+    }
+
+    maybeMeasure(nowMs);
     maybeResize();
     if (!config || canvas.width === 0) {
         return;
@@ -574,6 +744,12 @@ function frame(nowMs) {
     const world = sampleWorld(nowMs);
     if (!world) {
         return;
+    }
+    if (measuring()) {
+        sampledFrames++;
+        if (world.extrapolated) {
+            extrapFrames++;
+        }
     }
     const rods = predictOwnRods(world.rods, dtSec, world.renderTime);
     draw(world.ball, rods, world.snap, nowMs, world.renderTime);
@@ -706,6 +882,21 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
     ctx.fillStyle = 'rgba(255,255,255,0.65)';
     ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.fillText(formatClock(snap.mt), W / 2, 56);
+
+    // Ping readout (player option §12) — top-left, colored by quality. This is connection RTT: your own
+    // rods are client-predicted, so it's not your control lag, but it's the best "is my link ok" signal.
+    if (playerOptions.showPing && displayPing !== null) {
+        const ms = Math.round(displayPing);
+        ctx.save();
+        ctx.fillStyle = ms < 60 ? '#51cf66' : ms < 120 ? '#fcc419' : '#ff6b6b';
+        ctx.font = 'bold 22px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 3;
+        ctx.fillText(`● ${ms} ms`, 10, 10);
+        ctx.restore();
+    }
 
     // GOAL flash (transient, canvas-drawn — §5.1).
     if (flash) {

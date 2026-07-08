@@ -93,3 +93,20 @@ public sealed record GameConfigDto(
 
 /// <summary>Everything a late joiner or reconnecting client needs to initialize.</summary>
 public sealed record JoinRoomResult(GameConfigDto Config, RoomStateDto State, SnapshotDto Snapshot);
+
+/// <summary>Distribution of one client-measured metric over a ~10 s window (§12). Percentiles are
+/// computed client-side (Azure Monitor can't derive them from histograms). Diagnostic only — never
+/// trusted for game logic.</summary>
+public sealed record StatSummaryDto(int Count, double Min, double Mean, double P50, double P95, double Max);
+
+/// <summary>A client's windowed latency report, sent via <c>ReportStats</c> while seated and playing
+/// (§12). <see cref="Rtt"/> = hub round-trip time; <see cref="Gap"/> = snapshot inter-arrival time;
+/// <see cref="Frame"/> = render frame interval (device/tab jank); <see cref="ExtrapFrames"/> of
+/// <see cref="SampledFrames"/> = frames the client had no future snapshot and had to extrapolate the
+/// ball (interpolation-buffer health — a rising fraction means the buffer is too tight for the jitter).</summary>
+public sealed record ClientStatsDto(
+    StatSummaryDto Rtt,
+    StatSummaryDto Gap,
+    StatSummaryDto Frame,
+    int ExtrapFrames,
+    int SampledFrames);

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Fotbalek.Web.Components;
 using Fotbalek.Web.Configuration;
 using Fotbalek.Web.Data;
@@ -144,6 +145,21 @@ builder.Services.AddFoosballStats();
 // Live game (in-memory foosball mini-game): rooms + dedicated hub for the JS canvas client.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameRoomManager>();
+
+// Telemetry export (§12): ship OpenTelemetry — including the structured game-latency logs emitted by
+// GameTelemetry — to the existing Application Insights resource via the Azure Monitor distro.
+// Gated behind a flag AND a present connection string so local dev and undecided deploys are untouched.
+// IMPORTANT: this in-process distro competes with App Service *codeless* auto-instrumentation. When you
+// turn this on, also set the app setting `ApplicationInsightsAgent_EXTENSION_VERSION=disabled` in Azure
+// so the two don't fight over the same sources (Microsoft's guidance for code-based instrumentation).
+// The distro also collects requests/dependencies/logs, so nothing is lost by the switch.
+var enableOtel = builder.Configuration.GetValue<bool>("Telemetry:UseAzureMonitorOpenTelemetry");
+var appInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+if (enableOtel && !string.IsNullOrWhiteSpace(appInsightsConnectionString))
+{
+    builder.Services.AddOpenTelemetry()
+        .UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString);
+}
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

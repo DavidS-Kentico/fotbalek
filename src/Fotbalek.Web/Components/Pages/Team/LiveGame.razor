@@ -244,6 +244,25 @@ else if (_team != null && _user != null)
                         </div>
                     </div>
 
+                    <div class="card mb-3">
+                        <div class="card-header py-2 lg-card-head">
+                            <i class="bi bi-person-gear"></i> Player options
+                        </div>
+                        <div class="card-body">
+                            <div class="lg-setting">
+                                <div class="lg-setting__text">
+                                    <div class="lg-setting__label">Show ping</div>
+                                    <div class="lg-setting__desc">Show your connection latency on the table</div>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="opt-show-ping"
+                                           aria-label="Show ping"
+                                           checked="@_showPing" @onchange="OnTogglePing" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     @if (IsSeated)
                     {
                         <div class="card mb-3">
@@ -311,6 +330,10 @@ else if (_team != null && _user != null)
     /// <summary>Seat whose inline difficulty picker is open, or null. UI-only.</summary>
     private int? _addBotSeat;
 
+    /// <summary>Client-local "show ping" player option, mirrored from game.js localStorage for the
+    /// toggle's checked state. Not room state — never sent to the server.</summary>
+    private bool _showPing;
+
     /// <summary>Robot avatar id (mirrors <c>GameRoom</c>); fallback when a bot seat's avatar is absent.</summary>
     private const int BotAvatarId = 21;
 
@@ -376,6 +399,15 @@ else if (_team != null && _user != null)
                 roomId = _room.RoomId.ToString(),
                 userId = _user!.Id,
             });
+            // Mirror the persisted "show ping" preference so the toggle renders in the right state.
+            try
+            {
+                _showPing = await _jsModule.InvokeAsync<bool>("getPlayerOption", "showPing");
+                StateHasChanged();
+            }
+            catch (JSException)
+            {
+            }
         }
     }
 
@@ -460,6 +492,25 @@ else if (_team != null && _user != null)
     private void ResetScore() => _room?.ResetScore(_user!.Id);
     private void Rematch() => _room?.Rematch(_user!.Id);
     private void OnToggleQuickGoals(ChangeEventArgs e) => _room?.SetGameOptions(_user!.Id, e.Value is true);
+
+    /// <summary>Client-local display preference — persisted in the browser via game.js, never server state.</summary>
+    private async Task OnTogglePing(ChangeEventArgs e)
+    {
+        _showPing = e.Value is true;
+        if (_jsModule != null && _jsInitialized)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("setPlayerOption", "showPing", _showPing);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
 
     private void EndGame()
     {

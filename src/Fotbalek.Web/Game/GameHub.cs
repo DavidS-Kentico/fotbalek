@@ -1,6 +1,7 @@
 using Fotbalek.Web.Game.Core;
 using Fotbalek.Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Connections.Features;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Fotbalek.Web.Game;
@@ -15,7 +16,8 @@ namespace Fotbalek.Web.Game;
 public class GameHub(
     GameRoomManager rooms,
     TeamMembershipService membership,
-    PlayerService players) : Hub
+    PlayerService players,
+    ILogger<GameHub> logger) : Hub
 {
     private const string RoomKey = "room";
 
@@ -43,7 +45,14 @@ public class GameHub(
         await Groups.AddToGroupAsync(Context.ConnectionId, room.GroupName);
         var result = room.Connect(userId, Context.ConnectionId, name, avatarId);
         if (result != null)
+        {
             Context.Items[RoomKey] = room;
+            // Record the negotiated transport once per connection (§12). A silent fallback to SSE /
+            // long polling (proxy / App Service misconfig) would wreck latency — this makes it visible
+            // instead of showing up as unexplained RTT.
+            var transport = Context.Features.Get<IHttpTransportFeature>()?.TransportType.ToString() ?? "unknown";
+            GameTelemetry.Transport(logger, room.TeamId, userId, transport);
+        }
         return result;
     }
 
@@ -84,6 +93,25 @@ public class GameHub(
             && int.TryParse(Context.UserIdentifier, out var userId))
         {
             room.SetSpace(userId, held);
+        }
+    }
+
+    /// <summary>No-op round-trip probe used only for client RTT measurement (§12). The client times the
+    /// invoke; the server does nothing, so this measures the real application-level latency the game
+    /// experiences through SignalR with negligible added work.</summary>
+    public void Ping()
+    {
+    }
+
+    /// <summary>Receives a client's windowed latency summary (RTT + snapshot inter-arrival) while playing
+    /// and records it as server-side telemetry (§12). Logic-free adapter; ignored outside a room.</summary>
+    public void ReportStats(ClientStatsDto stats)
+    {
+        if (Context.Items.TryGetValue(RoomKey, out var value)
+            && value is GameRoom room
+            && int.TryParse(Context.UserIdentifier, out var userId))
+        {
+            room.RecordClientStats(userId, stats);
         }
     }
 

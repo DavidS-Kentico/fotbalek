@@ -424,6 +424,30 @@ public sealed class GameRoom
         }
     }
 
+    /// <summary>Records a seated player's windowed latency report as structured telemetry (§12). The
+    /// caller's seat is resolved server-side (the client-sent numbers are display/diagnostic only, never
+    /// trusted); dropped if the reporter isn't seated.</summary>
+    public void RecordClientStats(int userId, ClientStatsDto stats)
+    {
+        if (stats?.Rtt is null || stats.Gap is null || stats.Frame is null)
+            return;
+        int seat;
+        lock (_gate)
+        {
+            seat = Array.FindIndex(_seats, s => s.UserId == userId);
+        }
+        if (seat < 0)
+            return;
+        var r = stats.Rtt;
+        var g = stats.Gap;
+        var f = stats.Frame;
+        GameTelemetry.ClientLatency(_logger, TeamId, RoomId, seat,
+            r.Mean, r.P50, r.P95, r.Max, r.Count,
+            g.Mean, g.P95, g.Max, g.Count,
+            f.Mean, f.P95, f.Max,
+            stats.ExtrapFrames, stats.SampledFrames);
+    }
+
     /// <summary>Final broadcast (closed flag set) and loop shutdown. Called by the manager.</summary>
     internal async Task ShutdownAsync()
     {
@@ -457,17 +481,30 @@ public sealed class GameRoom
             var sw = Stopwatch.StartNew();
             double last = 0;
             double acc = 0;
+
+            // Tick-cadence telemetry (§12): actual iteration gap vs the 16.7 ms target, summarized per
+            // ~10 s of *playing* and logged. Reveals scheduler/GC/CPU stalls (e.g. a contended Basic-tier
+            // instance) that make snapshot pacing jittery. Loop-local — no lock, no cross-tick state.
+            const double tickFlushSeconds = 10.0;
+            var tickWindow = new SampleWindow(700);
+            var sendWindow = new SampleWindow(250); // snapshot broadcast durations — server-side backpressure
+            var tickWindowStart = 0.0;
+            var tickStalls = 0;
+
             while (await timer.WaitForNextTickAsync(_cts.Token))
             {
                 // PeriodicTimer ticks aren't exact 16.7 ms — measure elapsed time and run a
                 // fixed-step accumulator (§4.2), capped so a scheduler stall can't spiral.
                 var now = sw.Elapsed.TotalSeconds;
-                acc = Math.Min(acc + (now - last), 0.25);
+                var gap = now - last;
+                acc = Math.Min(acc + gap, 0.25);
                 last = now;
 
                 SnapshotDto? snapshot = null;
                 var lobbyDirty = false;
                 bool destroy;
+                bool playingNow;
+                int playersNow;
                 lock (_gate)
                 {
                     while (acc >= GameConstants.FixedDt)
@@ -486,10 +523,41 @@ public sealed class GameRoom
                         _lobbyDirty = false;
                     }
                     destroy = _destroyRequested;
+                    playingNow = _phase == GamePhase.Playing;
+                    playersNow = _seats.Count(s => s.Occupied);
+                }
+
+                // Sample cadence only while playing (matches "capture data only when playing"); logged
+                // before the awaited sends so a send fault can't drop the window.
+                if (playingNow)
+                {
+                    if (tickWindow.Count == 0)
+                        tickWindowStart = now;
+                    tickWindow.Add(gap * 1000.0);
+                    if (gap > 2 * GameConstants.FixedDt)
+                        tickStalls++;
+                    if (now - tickWindowStart >= tickFlushSeconds)
+                    {
+                        var st = tickWindow.Summarize();
+                        var ss = sendWindow.Summarize();
+                        GameTelemetry.TickCadence(_logger, TeamId, RoomId,
+                            st.Mean, st.P95, st.Max, st.Count, tickStalls,
+                            ss.Mean, ss.P95, ss.Max, playersNow);
+                        tickWindow.Clear();
+                        sendWindow.Clear();
+                        tickStalls = 0;
+                    }
                 }
 
                 if (snapshot != null)
+                {
+                    // Time the broadcast (§12): separates a server-side send stall / slow-client
+                    // backpressure from a sim-loop stall — both would otherwise look like "server lag".
+                    var sendStart = sw.Elapsed;
                     await _hub.Clients.Group(GroupName).SendAsync("snapshot", snapshot, _cts.Token);
+                    if (playingNow)
+                        sendWindow.Add((sw.Elapsed - sendStart).TotalMilliseconds);
+                }
                 if (lobbyDirty)
                     await BroadcastStateAsync();
                 if (destroy)

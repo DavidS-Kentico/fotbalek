@@ -667,3 +667,106 @@ renders. The `(§skill)` markers throughout the code point here.
   trap on defense → back-pass to the (armed) keeper → release the cannon up-field.
 - **Bots** don't use any of this — they only steer rods toward the ball and rely on the auto-kick
   (`GameBot`), so the skills are a human-only edge.
+
+---
+
+## 12. Latency instrumentation (§12)
+
+Added to measure the real end-to-end latency budget before spending effort tuning it (remote players,
+Azure Basic single instance). **Captured only while a game is actively `playing`** — the server tick
+loop gates on `_phase == Playing`; the client gates on seated (`myRods`) + `playing`. Code map:
+`Game/Core/SampleWindow.cs` (percentile summarizer), `Game/GameTelemetry.cs` (`[LoggerMessage]`
+events), `GameHub.Ping`/`ReportStats`, `GameRoom.RecordClientStats` + the tick-cadence block in
+`RunLoopAsync`, and the `// §12` block in `wwwroot/js/game.js`.
+
+**Signals — one per row of the latency budget**, summarized over ~10 s windows (percentiles computed
+at the edge because Azure Monitor flattens OTel histograms to avg/min/max/count only). The client's
+per-window report (`ReportStats(ClientStatsDto)`) bundles the four client signals; the server logs
+tick + connection separately:
+
+- **Client RTT** (`signal=client`, `rtt*`) — the JS client times a no-op `Ping` hub round trip every
+  2 s (real application-level latency through SignalR). → network / region.
+- **Client snapshot gap** (`gap*`) — inter-arrival time between snapshots as the client sees them
+  (jitter → sizes the interpolation buffer). → stream jitter / snapshot rate.
+- **Client frame interval** (`frame*`) — render frame spacing; ~16.7 ms is a healthy 60 fps, higher
+  means a slow device or throttled tab. Recorded only while visible; resume spikes (>1 s) skipped.
+  → client-side render jank.
+- **Client extrapolation rate** (`extrapFrames`/`sampledFrames`) — fraction of frames with no future
+  snapshot to interpolate toward, so the ball had to be extrapolated. A rising fraction means the
+  buffer is too tight for the jitter → directly informs any future adaptive-interp-delay tuning.
+- **Server tick cadence** (`signal=tick`, `tick*` + `stalls`) — actual loop iteration gap vs the
+  16.67 ms target, plus a `stalls` count (gap > 2× target). → scheduler/GC/CPU stalls on a contended
+  instance.
+- **Server broadcast time** (`send*`) — how long the group snapshot send takes; separates server-side
+  send/backpressure from a sim-loop stall (both otherwise look like "server lag").
+- **Connection transport** (`signal=conn`, `transport=`) — the negotiated SignalR transport
+  (`WebSockets` / `ServerSentEvents` / `LongPolling`), logged once per connection. A silent fallback
+  to SSE / long polling wrecks latency — this turns "mystery high RTT" into a named cause.
+
+**Wire → App Insights.** Emitted as structured `ILogger` events (rendered message starts with
+`GameLatency`, `signal=client|tick`); exported to the existing Application Insights via the
+**Azure Monitor OpenTelemetry distro** (`Azure.Monitor.OpenTelemetry.AspNetCore`). Locally they just
+print to the console. Custom telemetry is diagnostic only — the server never trusts the client numbers.
+
+**Enabling in Azure (deliberate flip — off by default):**
+1. App setting `Telemetry__UseAzureMonitorOpenTelemetry = true`.
+2. App setting `ApplicationInsightsAgent_EXTENSION_VERSION = disabled` — the in-process distro
+   **replaces** App Service codeless auto-instrumentation (they compete for the same sources; MS
+   guidance). The distro still collects requests/dependencies/logs, so nothing is lost.
+3. `APPLICATIONINSIGHTS_CONNECTION_STRING` must be present (it already is under codeless).
+
+**Analyzing (KQL over `traces`).** customDimensions keys are the `[LoggerMessage]` template names
+(`Seat`, `RttMean/P50/P95/Max/N`, `GapMean/P95/Max/N`, `FrameMean/P95/Max`, `ExtrapFrames`,
+`SampledFrames`, `TickMean/P95/Max`, `Stalls`, `SendMean/P95/Max`, `Players`, `Transport`, `UserId`):
+
+```kusto
+// Per-seat client picture — is it network (rtt), stream jitter (gap), device (frame), or buffer (extrap)?
+traces
+| where message startswith "GameLatency signal=client"
+| extend d = customDimensions
+| extend seat = toint(d.Seat)
+| summarize avgRttMs = avg(todouble(d.RttMean)),   worstRttP95Ms = max(todouble(d.RttP95)),
+            avgGapMs = avg(todouble(d.GapMean)),   worstGapP95Ms = max(todouble(d.GapP95)),
+            avgFrameMs = avg(todouble(d.FrameMean)), worstFrameP95Ms = max(todouble(d.FrameP95)),
+            extrapPct = 100.0 * sum(toint(d.ExtrapFrames)) / sum(toint(d.SampledFrames))
+        by seat, bin(timestamp, 1h)
+| order by bin_timestamp asc, seat asc
+
+// Server health — sim-loop stalls vs broadcast/backpressure (both otherwise look like "server lag").
+traces
+| where message startswith "GameLatency signal=tick"
+| extend d = customDimensions
+| summarize avgTickP95Ms = avg(todouble(d.TickP95)), worstTickMaxMs = max(todouble(d.TickMax)),
+            totalStalls = sum(toint(d.Stalls)),
+            avgSendP95Ms = avg(todouble(d.SendP95)), worstSendMaxMs = max(todouble(d.SendMax))
+        by bin(timestamp, 1h)
+| order by bin_timestamp asc
+
+// Transport sanity — anyone NOT on WebSockets? (SSE / long polling = the latency is the transport)
+traces
+| where message startswith "GameLatency signal=conn"
+| extend d = customDimensions
+| summarize connections = count() by transport = tostring(d.Transport), team = tostring(d.TeamId)
+```
+
+Verified end-to-end (2026-07-08) via a local bot-assisted play session: all three events emit with
+correct dimensions; `gapMean≈50 ms / gapN≈200` matched the 20 Hz snapshot rate exactly, `rttN=5`
+matched the 2 s ping spacing, `frameMean≈16.7 ms / sampledFrames=600` matched 60 fps over the window,
+`extrapFrames=0` and `sendMean≈0.04 ms` and `stalls=0` locally, and `transport=WebSockets`.
+
+### Player-facing ping readout & player options
+
+Separate from the server-side telemetry above, players can see **their own** live ping. A **Player
+options** card in the lobby sidebar (visible to seated players and viewers alike) toggles **Show ping**,
+which draws a colour-coded `● N ms` in the top-left of the canvas (green <60 / amber <120 / red ≥120).
+It's the smoothed (EMA) RTT from the same `Ping` probe — which runs whenever the option is on *or*
+telemetry is measuring, so viewers and waiting players get it too; telemetry recording stays
+playing-only. Caveat by design: own rods are client-predicted, so this is **connection RTT, not control
+lag** — the ~175 ms interpolation/quantization floor is not in this number.
+
+**Player options are client-local, not room state** (contrast §game-options, which are
+server-authoritative and shared): persisted per browser in `localStorage` (`fotbalek.playerOptions`),
+owned by `game.js`, surfaced through the Blazor toggle via **Blazor→JS interop only** (`setPlayerOption`
+/ `getPlayerOption` — never JS→Blazor, keeping the §4.4 rule). To add a future player option: add a key
++ default to `playerOptions` in `game.js`, read it in the render/loop, and add a toggle row in
+`LiveGame.razor` bound the same way as **Show ping**.
