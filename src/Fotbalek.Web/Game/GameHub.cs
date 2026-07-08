@@ -60,6 +60,32 @@ public class GameHub(
         }
     }
 
+    /// <summary>Catch-key state change: <paramref name="held"/> true while a catch key (either Shift)
+    /// is down. Arms all the caller's rods so the ball traps on whichever of their figures it reaches;
+    /// release fires it. Hand-agnostic — one flag, resolved server-side from the seat.</summary>
+    public void Catch(bool held)
+    {
+        if (Context.Items.TryGetValue(RoomKey, out var value)
+            && value is GameRoom room
+            && int.TryParse(Context.UserIdentifier, out var userId))
+        {
+            room.SetCatch(userId, held);
+        }
+    }
+
+    /// <summary>Lane pass (SPACE): hands a trapped ball to the adjacent man on the same rod, in the
+    /// slide direction. No args — the server resolves the trapped rod and validates the caller drives
+    /// it, so it can't be spoofed.</summary>
+    public void Pass()
+    {
+        if (Context.Items.TryGetValue(RoomKey, out var value)
+            && value is GameRoom room
+            && int.TryParse(Context.UserIdentifier, out var userId))
+        {
+            room.RequestPass(userId);
+        }
+    }
+
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         if (Context.Items.TryGetValue(RoomKey, out var value) && value is GameRoom room)

@@ -39,6 +39,8 @@ let lastKickTick = -1;
 // Input & own-rod prediction.
 const held = [{ up: false, down: false }, { up: false, down: false }];
 const sentDir = [0, 0];
+const catchKeys = new Set(); // currently-pressed catch keys (any Shift / alternate)
+let sentCatch = false;
 let myRods = null;      // { hands: [rodIdxs, rodIdxs] } when seated, else null
 let predicted = null;   // rodIdx → offset
 let predHistory = {};   // rodIdx → [{ t, o }] — past predictions on the server timeline
@@ -65,6 +67,8 @@ export async function init(canvasEl, options) {
         held[hand].up = held[hand].down = false;
         sentDir[hand] = 0;
     }
+    catchKeys.clear();
+    sentCatch = false;
 
     // Vendored UMD build (mirrors vendored Bootstrap — no bundler, no CDN); it attaches
     // itself to the global scope, dynamic import just executes it once.
@@ -259,22 +263,53 @@ const KEY_MAP = {
     ArrowDown: { hand: 1, dir: 'down' },
 };
 
+// Hold to catch/trap the ball on any of your figures — one action, not per-hand. Either Shift works
+// (pick whichever frees the hand you want to dribble with); F and / are sticky-keys-free alternates.
+const CATCH_KEYS = new Set(['ShiftLeft', 'ShiftRight', 'KeyF', 'Slash']);
+
 function onKeyDown(e) {
+    if (!myRods || isTyping(e)) {
+        return;
+    }
+    if (e.code === 'Space') {
+        e.preventDefault(); // don't scroll, and don't trigger a focused button
+        if (!e.repeat) { // one hop per press — holding SPACE doesn't auto-repeat passes
+            connection?.send('Pass').catch(() => { });
+        }
+        return;
+    }
+    if (CATCH_KEYS.has(e.code)) {
+        e.preventDefault();
+        if (!e.repeat) { // held state is tracked, not repeated keydowns
+            catchKeys.add(e.code);
+            syncCatch();
+        }
+        return;
+    }
     const map = KEY_MAP[e.code];
-    if (!map || !myRods || isTyping(e)) {
+    if (!map) {
         return;
     }
     e.preventDefault(); // keep arrows from scrolling, including key-repeat events
     if (e.repeat) {
-        return; // held state is tracked, not repeated keydowns
+        return;
     }
     held[map.hand][map.dir] = true;
     syncHand(map.hand);
 }
 
 function onKeyUp(e) {
+    if (!myRods || isTyping(e)) {
+        return;
+    }
+    if (CATCH_KEYS.has(e.code)) {
+        e.preventDefault();
+        catchKeys.delete(e.code);
+        syncCatch();
+        return;
+    }
     const map = KEY_MAP[e.code];
-    if (!map || !myRods || isTyping(e)) {
+    if (!map) {
         return;
     }
     e.preventDefault();
@@ -296,11 +331,22 @@ function syncHand(hand) {
     connection?.send('HandInput', hand, dir).catch(() => { });
 }
 
+function syncCatch() {
+    const isHeld = catchKeys.size > 0;
+    if (isHeld === sentCatch) {
+        return;
+    }
+    sentCatch = isHeld;
+    connection?.send('Catch', isHeld).catch(() => { });
+}
+
 function releaseAllKeys() {
     for (const hand of [0, 1]) {
         held[hand].up = held[hand].down = false;
         syncHand(hand); // a backgrounded tab must not leave a rod gliding into the wall
     }
+    catchKeys.clear();
+    syncCatch(); // …nor holding a ball trapped
 }
 
 function onVisibilityChange() {
@@ -314,6 +360,9 @@ function resendInput() {
         if (sentDir[hand] !== 0) {
             connection?.send('HandInput', hand, sentDir[hand]).catch(() => { });
         }
+    }
+    if (sentCatch) {
+        connection?.send('Catch', true).catch(() => { });
     }
 }
 
@@ -553,23 +602,44 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         ctx.stroke();
     }
 
-    // Rods and figures.
+    // Rods and figures. While you hold catch, all your rods are "armed" (they'll trap the ball) and
+    // glow green — immediate feedback that you're in catch mode and where the ball can be caught.
     const ownRodSet = new Set(myRods ? myRods.hands.flat() : []);
+    const armedRodSet = new Set(myRods && catchKeys.size > 0 ? myRods.hands.flat() : []);
     for (let i = 0; i < config.rods.length; i++) {
         const rod = config.rods[i];
         const own = ownRodSet.has(i);
+        const armed = armedRodSet.has(i);
 
-        ctx.strokeStyle = own ? 'rgba(233,236,239,0.95)' : 'rgba(173,181,189,0.6)';
-        ctx.lineWidth = own ? 7 : 5;
+        if (armed) {
+            ctx.shadowColor = 'rgba(80,255,130,0.9)';
+            ctx.shadowBlur = 14;
+        }
+        ctx.strokeStyle = armed ? 'rgba(120,255,150,0.98)' : (own ? 'rgba(233,236,239,0.95)' : 'rgba(173,181,189,0.6)');
+        ctx.lineWidth = armed ? 8 : (own ? 7 : 5);
         ctx.beginPath();
         ctx.moveTo(rod.x, -PAD + 6);
         ctx.lineTo(rod.x, H + PAD - 6);
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         for (let f = 0; f < rod.figures; f++) {
             const y = rod.yBase + rodOffsets[i] * rod.travel + f * rod.spacing;
             drawFigure(rod.x, y, rod.side, own, footValue(i, f, renderTime), rod.radius);
         }
+    }
+
+    // Trap hold timer: a ring that's full when the ball is caught and drains over the hold window
+    // (refills on each pass), turning red as it's about to auto-fire. snap.ch = fraction remaining.
+    if (snap.tr >= 0 && snap.ch > 0) {
+        const side = config.rods[snap.tr].side;
+        ctx.beginPath();
+        ctx.arc(ball[0], ball[1], config.ballRadius + 9, -Math.PI / 2, -Math.PI / 2 + snap.ch * Math.PI * 2);
+        ctx.strokeStyle = snap.ch <= 0.25 ? '#ff5252' : SIDE_COLORS[side];
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.lineCap = 'butt';
     }
 
     // Ball.

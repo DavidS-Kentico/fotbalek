@@ -52,16 +52,44 @@ public static class GameConstants
     public const int TicksPerSnapshot = 3; // 20 Hz
 
     public const double RodSpeed = 650;
-    // Base speed of a plain shot. Kept well below MaxBallSpeed so a single touch is reactable; the
-    // cap is reached only by stacking english (MaxDeflection) and rod momentum, i.e. by skill.
+    // Base speed of a plain shot — what a *still* figure imparts when the ball just rolls into it.
+    // A figure that is moving when it strikes adds up to KickPowerBonus×KickSpeed on top (see
+    // GamePhysics.FireShot), so a committed "hit it on the move" shot flies harder than a passive
+    // deflection: power is a skill lever, not a constant. Kept below MaxBallSpeed so a full shot
+    // stays (barely) reactable.
     public const double KickSpeed = 700;
     public const double MaxDeflection = 500;
-    public const double RodMomentumTransfer = 0.35;
-    public const double KickCooldownSeconds = 0.2;
+
+    /// <summary>Extra horizontal shot speed as a fraction of <see cref="KickSpeed"/>, granted at full
+    /// rod speed (auto-kick) or full charge (trap-shot). 0 = every shot the same fixed speed (the old
+    /// behavior); at 0.4 a fully committed strike is 40% faster than a dead block.</summary>
+    public const double KickPowerBonus = 0.4;
+
+    /// <summary>Fraction of the rod's vertical velocity added to the ball on a kick ("english").
+    /// Higher = sliding the rod as it strikes curves the shot more — the main aim-by-motion lever.</summary>
+    public const double RodMomentumTransfer = 0.55;
+
+    public const double KickCooldownSeconds = 0.13;
     public const double MaxBallSpeed = 1400;
     public const double FrictionPerSecond = 0.3;
     public const double WallRestitution = 0.85;
     public const double KickoffSpeed = 250;
+
+    /// <summary>Trap-shot charge time: hold the kick key to catch the ball on a figure; shot power
+    /// ramps from a soft pass at 0 to a full cannon over this long, then holds at full. Aiming is by
+    /// the slide direction at release (pull/push), so a quick tap places, a full hold blasts.</summary>
+    public const double MaxChargeSeconds = 0.6;
+
+    /// <summary>Trap hold window: a trapped ball auto-fires after this long even while the key stays
+    /// held, so nobody can freeze the game by hoarding it — the untouched-15s stall guard can't see a
+    /// held ball (it reads as continuously touched). Long enough to catch, reposition (SPACE) and
+    /// aim, short enough that stalling isn't a tactic.</summary>
+    public const double TrapTimeoutSeconds = 2.0;
+
+    /// <summary>How fast a trapped ball follows its figure (units/s). Above <see cref="RodSpeed"/> so
+    /// dribbling tracks tightly, but finite so a lane pass (SPACE) visibly slides the ball one man
+    /// along the rod instead of teleporting.</summary>
+    public const double TrapFollowSpeed = 900;
 
     /// <summary>Goalie collision radius — a touch larger than the outfield <see cref="FigureRadius"/>
     /// so the last line is a little more forgiving to hit.</summary>

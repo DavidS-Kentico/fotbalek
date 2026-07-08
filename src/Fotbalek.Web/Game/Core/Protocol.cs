@@ -25,7 +25,10 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("r")] int ResetCounter,
     [property: JsonPropertyName("k")] int[] Kick,
     [property: JsonPropertyName("kt")] long KickTick,
-    [property: JsonPropertyName("mt")] int MatchSeconds);
+    [property: JsonPropertyName("mt")] int MatchSeconds,
+    [property: JsonPropertyName("tr")] int TrapRod,
+    [property: JsonPropertyName("tf")] int TrapFigure,
+    [property: JsonPropertyName("ch")] double HoldRemaining);
 
 /// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
 /// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>

@@ -30,6 +30,11 @@ public sealed class SimState
     /// following <see cref="RodDir"/> — used while its whole side is unseated (§2.2).</summary>
     public readonly bool[] RodGlide = new bool[8];
 
+    /// <summary>Held-kick state per rod: true while the seat's kick key for that rod is down. Set by
+    /// the room each tick alongside <see cref="RodDir"/>. A held kick traps the ball on the figure it
+    /// contacts (charging a shot) instead of the figure auto-kicking it.</summary>
+    public readonly bool[] RodKick = new bool[8];
+
     /// <summary>Remaining kick cooldown per figure, seconds; indexed [rod][figure].</summary>
     public readonly double[][] KickCooldown =
         GameConstants.Rods.Select(r => new double[r.FigureCount]).ToArray();
@@ -38,6 +43,26 @@ public sealed class SimState
     /// separate so a kick from behind passes through cleanly (§2.3). -1 = none.</summary>
     public int IgnoreRod = -1;
     public int IgnoreFigure = -1;
+
+    /// <summary>Ball currently trapped (held) on this rod/figure while its owner charges a shot;
+    /// -1 = not trapped. While trapped the ball rides the figure and normal integration is suspended
+    /// (<see cref="GamePhysics"/>). Cleared whenever the ball is parked.</summary>
+    public int TrappedRod = -1;
+    public int TrappedFigure = -1;
+
+    /// <summary>Seconds the current trap has been charging; scales shot power, capped at
+    /// <see cref="GameConstants.MaxChargeSeconds"/>. Reset to 0 when a trap ends.</summary>
+    public double ChargeSeconds;
+
+    /// <summary>Set for one tick when the trapping player taps pass (SPACE): the trapped ball hops to
+    /// the adjacent figure on the same rod in the slide direction (§skill). Consumed by
+    /// <see cref="GamePhysics"/>; cleared when the trap ends.</summary>
+    public bool PassRequested;
+
+    /// <summary>Eased y of a trapped ball. It follows the target figure quickly enough that dribbling
+    /// tracks tightly, but a lane pass slides the ball one man along instead of teleporting. Set to the
+    /// figure's y when a trap begins.</summary>
+    public double TrapY;
 
     /// <summary>Most recent auto-kick, carried in snapshots so the client can play the
     /// figure's swing animation in sync with the tick timeline (§4.3). -1 = none yet.</summary>

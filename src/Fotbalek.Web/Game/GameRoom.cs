@@ -65,6 +65,12 @@ public sealed class GameRoom
     /// per seat) so it carries over on a seat swap; cleared when the seat is vacated (§4.2).</summary>
     private readonly Dictionary<int, int[]> _heldInput = [];
 
+    /// <summary>Catch state per user: true while the user holds a catch key (either Shift). One flag,
+    /// not per-hand — catching has no side, so a held catch arms *all* the user's rods and the ball
+    /// traps on whichever of their figures it reaches. Same seat-swap carry-over / vacate cleanup as
+    /// <see cref="_heldInput"/>.</summary>
+    private readonly Dictionary<int, bool> _catchHeld = [];
+
     private enum Pending { None, KickRandom, KickTowardA, KickTowardB, Resume }
 
     private readonly SimState _sim = new();
@@ -355,6 +361,48 @@ public sealed class GameRoom
         }
     }
 
+    /// <summary>Catch-key state change; ignored from non-seated users. A held catch arms all the
+    /// user's rods, so the ball traps on whichever of their figures it reaches (§skill).</summary>
+    public void SetCatch(int userId, bool held)
+    {
+        lock (_gate)
+        {
+            if (_closed || FindSeatLocked(userId) == null)
+                return;
+            _catchHeld[userId] = held;
+        }
+    }
+
+    /// <summary>Lane pass (SPACE): hands a trapped ball to the adjacent man on the same rod, in the
+    /// slide direction (§skill). Only the player driving the trapping rod may pass; no-op if the ball
+    /// isn't trapped. The hop itself (direction, bounds) is resolved in <see cref="GamePhysics"/>.</summary>
+    public void RequestPass(int userId)
+    {
+        lock (_gate)
+        {
+            if (_closed || _sim.TrappedRod < 0)
+                return;
+            if (FindSeatLocked(userId) is not { } seat || !ControlsRodLocked(seat, _sim.TrappedRod))
+                return;
+            _sim.PassRequested = true;
+        }
+    }
+
+    /// <summary>Whether <paramref name="seat"/>'s occupant currently drives <paramref name="rod"/> —
+    /// mirrors the hand→rod mapping in <see cref="ApplyRodInputLocked"/> (including the 1v1 pairing).</summary>
+    private bool ControlsRodLocked(SeatState seat, int rod)
+    {
+        var seatIndex = Array.IndexOf(_seats, seat);
+        if (seatIndex < 0)
+            return false;
+        var side = SeatMap.SideOf(seatIndex);
+        var alone = SeatsOfSideLocked(side).Count(i => _seats[i].Occupied) == 1;
+        for (var hand = 0; hand < 2; hand++)
+            if (Array.IndexOf(SeatMap.RodsFor(seatIndex, hand, alone), rod) >= 0)
+                return true;
+        return false;
+    }
+
     public RoomStateDto GetState()
     {
         lock (_gate)
@@ -521,17 +569,20 @@ public sealed class GameRoom
 
         if (_phase == GamePhase.Playing && !_sim.BallFrozen)
         {
-            // Anti-stall (§2.5): slow for ~5 s or untouched for ~15 s → re-center.
-            if (_sim.BallSpeed < GameConstants.StallSpeedThreshold)
-            {
-                if (_slowSince < 0)
-                    _slowSince = _time;
-                else if (_time - _slowSince >= GameConstants.StallSpeedSeconds)
-                    ResetBallLocked();
-            }
-            else
+            // Anti-stall (§2.5): slow for ~5 s or untouched for ~15 s → re-center. A trapped ball is
+            // held deliberately (speed 0) and has its own auto-fire timeout, so it must NOT count as
+            // stalled — otherwise dribbling/passing for a few seconds force-resets the ball to center.
+            if (_sim.TrappedRod >= 0 || _sim.BallSpeed >= GameConstants.StallSpeedThreshold)
             {
                 _slowSince = -1;
+            }
+            else if (_slowSince < 0)
+            {
+                _slowSince = _time;
+            }
+            else if (_time - _slowSince >= GameConstants.StallSpeedSeconds)
+            {
+                ResetBallLocked();
             }
             if (_time - _lastTouch >= GameConstants.StallUntouchedSeconds)
                 ResetBallLocked();
@@ -587,6 +638,7 @@ public sealed class GameRoom
             foreach (var rod in SeatMap.SideRods(side))
             {
                 _sim.RodDir[rod] = 0;
+                _sim.RodKick[rod] = false;
                 _sim.RodGlide[rod] = occupied.Length == 0;
             }
             if (occupied.Length == 0)
@@ -609,12 +661,19 @@ public sealed class GameRoom
                 }
 
                 var userId = seat.UserId!.Value;
-                if (!IsConnectedLocked(userId) || !_heldInput.TryGetValue(userId, out var hands))
+                if (!IsConnectedLocked(userId))
                     continue;
+                _heldInput.TryGetValue(userId, out var hands);
+                // One catch flag arms every rod this user drives — catch on any of your own figures.
+                var catching = _catchHeld.TryGetValue(userId, out var c) && c;
                 for (var hand = 0; hand < 2; hand++)
                 {
                     foreach (var rod in SeatMap.RodsFor(seatIndex, hand, alone))
-                        _sim.RodDir[rod] = hands[hand];
+                    {
+                        if (hands != null)
+                            _sim.RodDir[rod] = hands[hand];
+                        _sim.RodKick[rod] = catching;
+                    }
                 }
             }
         }
@@ -703,6 +762,10 @@ public sealed class GameRoom
         _sim.BallFrozen = true;
         _sim.IgnoreRod = -1;
         _sim.IgnoreFigure = -1;
+        _sim.TrappedRod = -1;
+        _sim.TrappedFigure = -1;
+        _sim.ChargeSeconds = 0;
+        _sim.PassRequested = false;
         _pending = pending;
     }
 
@@ -725,7 +788,10 @@ public sealed class GameRoom
     private void VacateLocked(SeatState seat)
     {
         if (seat.UserId is int userId)
+        {
             _heldInput.Remove(userId);
+            _catchHeld.Remove(userId);
+        }
         seat.UserId = null;
         seat.GraceUntil = null;
         seat.Bot = null;
@@ -768,7 +834,12 @@ public sealed class GameRoom
         _sim.ResetCounter,
         [_sim.LastKickRod, _sim.LastKickFigure],
         _sim.LastKickTick,
-        (int)_matchElapsed);
+        (int)_matchElapsed,
+        _sim.TrappedRod,
+        _sim.TrappedFigure,
+        // Hold-timer ring: 1 when just caught, draining to 0 at the auto-fire timeout (resets to 1 on
+        // each pass, since ChargeSeconds resets). Shows how long the ball can still be held.
+        Math.Round(Math.Clamp(1 - _sim.ChargeSeconds / GameConstants.TrapTimeoutSeconds, 0, 1), 2));
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,
