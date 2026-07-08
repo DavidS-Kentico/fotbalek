@@ -71,6 +71,11 @@ public sealed class GameRoom
     /// <see cref="_heldInput"/>.</summary>
     private readonly Dictionary<int, bool> _catchHeld = [];
 
+    /// <summary>Held-SPACE state per user: true while the user holds SPACE. Feeds <see cref="SimState.RodSpace"/>
+    /// each tick so the goalie charges while it's down. Same seat-swap carry-over / vacate cleanup as
+    /// <see cref="_heldInput"/>.</summary>
+    private readonly Dictionary<int, bool> _spaceHeld = [];
+
     private enum Pending { None, KickRandom, KickTowardA, KickTowardB, Resume }
 
     private readonly SimState _sim = new();
@@ -373,18 +378,26 @@ public sealed class GameRoom
         }
     }
 
-    /// <summary>Lane pass (SPACE): hands a trapped ball to the adjacent man on the same rod, in the
-    /// slide direction (§skill). Only the player driving the trapping rod may pass; no-op if the ball
-    /// isn't trapped. The hop itself (direction, bounds) is resolved in <see cref="GamePhysics"/>.</summary>
-    public void RequestPass(int userId)
+    /// <summary>SPACE state change; ignored from non-seated users. Held per user to drive
+    /// <see cref="SimState.RodSpace"/> (the goalie's charge). The edge also drives the trapped-ball
+    /// action, resolved server-side so it can't be spoofed (§skill): on the *press* edge an outfield
+    /// trap does its lane/back pass; on the *release* edge a goalie trap launches its charged shot. The
+    /// action itself (lane vs back vs launch) is resolved in <see cref="GamePhysics"/>.</summary>
+    public void SetSpace(int userId, bool held)
     {
         lock (_gate)
         {
-            if (_closed || _sim.TrappedRod < 0)
+            if (_closed || FindSeatLocked(userId) is not { } seat)
                 return;
-            if (FindSeatLocked(userId) is not { } seat || !ControlsRodLocked(seat, _sim.TrappedRod))
+            var was = _spaceHeld.TryGetValue(userId, out var h) && h;
+            _spaceHeld[userId] = held;
+            if (was == held || _sim.TrappedRod < 0 || !ControlsRodLocked(seat, _sim.TrappedRod))
                 return;
-            _sim.PassRequested = true;
+            var isGoalie = GameConstants.Rods[_sim.TrappedRod].Role == "GK";
+            // Goalie: hold to charge, release to launch → fire on the release edge. Outfield: tap to
+            // pass → act on the press edge (GamePhysics picks lane vs back).
+            if (isGoalie ? !held : held)
+                _sim.PassRequested = true;
         }
     }
 
@@ -639,6 +652,7 @@ public sealed class GameRoom
             {
                 _sim.RodDir[rod] = 0;
                 _sim.RodKick[rod] = false;
+                _sim.RodSpace[rod] = false;
                 _sim.RodGlide[rod] = occupied.Length == 0;
             }
             if (occupied.Length == 0)
@@ -666,6 +680,7 @@ public sealed class GameRoom
                 _heldInput.TryGetValue(userId, out var hands);
                 // One catch flag arms every rod this user drives — catch on any of your own figures.
                 var catching = _catchHeld.TryGetValue(userId, out var c) && c;
+                var spaceDown = _spaceHeld.TryGetValue(userId, out var sp) && sp;
                 for (var hand = 0; hand < 2; hand++)
                 {
                     foreach (var rod in SeatMap.RodsFor(seatIndex, hand, alone))
@@ -673,6 +688,7 @@ public sealed class GameRoom
                         if (hands != null)
                             _sim.RodDir[rod] = hands[hand];
                         _sim.RodKick[rod] = catching;
+                        _sim.RodSpace[rod] = spaceDown;
                     }
                 }
             }
@@ -765,6 +781,7 @@ public sealed class GameRoom
         _sim.TrappedRod = -1;
         _sim.TrappedFigure = -1;
         _sim.ChargeSeconds = 0;
+        _sim.HoldSeconds = 0;
         _sim.PassRequested = false;
         _pending = pending;
     }
@@ -791,6 +808,7 @@ public sealed class GameRoom
         {
             _heldInput.Remove(userId);
             _catchHeld.Remove(userId);
+            _spaceHeld.Remove(userId);
         }
         seat.UserId = null;
         seat.GraceUntil = null;
@@ -838,8 +856,17 @@ public sealed class GameRoom
         _sim.TrappedRod,
         _sim.TrappedFigure,
         // Hold-timer ring: 1 when just caught, draining to 0 at the auto-fire timeout (resets to 1 on
-        // each pass, since ChargeSeconds resets). Shows how long the ball can still be held.
-        Math.Round(Math.Clamp(1 - _sim.ChargeSeconds / GameConstants.TrapTimeoutSeconds, 0, 1), 2));
+        // each pass). Uses HoldSeconds — the always-ticking backstop clock — so it drains even when the
+        // goalie is holding without charging. The goalie's window is longer, so it drains slower.
+        Math.Round(Math.Clamp(
+            1 - _sim.HoldSeconds / (_sim.TrappedRod >= 0
+                ? GameConstants.TrapTimeout(_sim.TrappedRod)
+                : GameConstants.TrapTimeoutSeconds), 0, 1), 2),
+        // Shot-power ring: 0 (regular strength) filling to 1 (near-max cannon) as the charge builds
+        // over the trapped rod's charge window — the goalie's strength meter, driven by holding SPACE (§skill).
+        _sim.TrappedRod >= 0
+            ? Math.Round(Math.Clamp(_sim.ChargeSeconds / GameConstants.MaxCharge(_sim.TrappedRod), 0, 1), 2)
+            : 0);
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,

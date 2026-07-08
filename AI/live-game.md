@@ -444,7 +444,7 @@ Single page for players and viewers — what you see depends on whether you hold
 Sanity check on the numbers: stepping fully through a figure between two ticks takes
 more relative motion per tick than the contact-circle diameter (2 × (14 + 16) = 60
 units). Worst case — ball at max speed meeting a rod sliding the other way — is
-(1400 + 650) / 60 ≈ 34 units/tick, a ~1.75× margin (the ball alone is ~23). Off-center
+(1700 + 650) / 60 ≈ 39 units/tick, a ~1.5× margin (the ball alone is ~28). Off-center
 grazes have shorter chords and can occasionally be stepped past, but a missed graze is a
 near-miss, not a pass-through. If max ball speed is ever raised past ~2500, add
 substepping. Wall bounces and goal detection test the prev→new movement segment, not
@@ -625,3 +625,45 @@ Small details settled while building v1 — all within the spirit of the spec:
   incl. 1v1 pairs, seat grace/resume/leave flows, physics (kick, momentum, walls, goals,
   no tunneling at max speeds), idle cleanup and End game — via a browser session plus a
   two-user `GameRoom` harness driving the real tick loop.
+
+---
+
+## 11. Ball-control skills (§skill)
+
+Added after the first playtests to give trapping/passing depth beyond the auto-kick. All of it is
+server-authoritative in `GamePhysics`; the client just captures keys (`Catch`/`Space` hub calls) and
+renders. The `(§skill)` markers throughout the code point here.
+
+- **Catch/trap — hold `Shift`.** Arms *every* rod the caller drives (one hand-agnostic flag, not
+  per-hand), so the ball traps on whichever of your figures it reaches and charges while held.
+  Releasing fires it toward the opponent goal, power scaled by charge time (soft tap → placing pass,
+  full hold → cannon). A green glow marks armed rods; a draining ring around a trapped ball shows the
+  remaining hold window before it auto-fires.
+- **Lane pass — `Space` while sliding.** Hops a trapped ball to the adjacent man on the *same* rod in
+  the slide direction. Stays trapped (a controlled hop between your own figures, not an interceptable
+  toss); the hold timer resets, buying a fresh setup window on the new man.
+- **Goalie cannon.** Power comes from *charge*, not a flat bonus, and the keeper charges it **by
+  holding `Space`** — hold to build, release to launch (so its strength is deliberate, not automatic).
+  An **uncaught** goalie touch is plain-strength (the ordinary auto-kick). A **caught** shot ramps from
+  regular `KickSpeed` (a quick tap → a normal clearance) up to `KickSpeed × (1 + GoalieCaughtPowerBonus)`
+  (1.35 → ~1645 u/s, just under the raised `MaxBallSpeed` 1700 cap — a genuine cannon) over
+  `GoalieMaxChargeSeconds` (1.5 s). Outfield rods keep their snappy auto-charge — they power up as they cradle the ball (catch
+  key held), on the 0.6 s / `KickPowerBonus` (0.4) ramp — and use `Space` only to pass.
+  - Two clocks back this, so the keeper can hold without auto-charging: `HoldSeconds` (always ticking →
+    the `GoalieTrapTimeoutSeconds` 5 s auto-fire backstop, drives the draining hold ring) and
+    `ChargeSeconds` (advances only while charging → shot power, drives the power ring). A lane pass
+    resets both.
+  - Two rings on the trapped ball read this: an inner **hold** ring that *drains* over the window
+    (side-colour, red near expiry) and, for the goalie only, an outer **power** ring that *fills*
+    green→red while `Space` is held. Snapshot fields: `ch` (hold remaining), `pw` (power fraction).
+  - Input plumbing: `Space` is a held key (down/up) — `RodSpace` per rod feeds the goalie charge; the
+    room turns the press edge into an outfield pass and the release edge into the goalie launch.
+- **Back-pass — `Space` when a rod sits behind you** (toward your own goal), i.e. not sliding into a
+  lane pass. Ejects the ball as a soft `BackPassSpeed` (550) toss toward the rod behind (DEF→GK,
+  MID→DEF, ATK→MID). Unlike a lane pass it *leaves* the rod and is a real ball: an armed rod behind
+  can trap it, but an **opponent rod in the lane can intercept** — and geometry decides the risk. The
+  rods interleave A/B/A/B, so DEF→GK (x225→x75) crosses no enemy rod and is safe, while ATK→MID
+  (x825→x525) passes the opponent's MID at x675 and can be picked off. The set-piece it enables:
+  trap on defense → back-pass to the (armed) keeper → release the cannon up-field.
+- **Bots** don't use any of this — they only steer rods toward the ball and rely on the auto-kick
+  (`GameBot`), so the skills are a human-only edge.

@@ -175,6 +175,7 @@ public static class GamePhysics
             s.TrappedRod = bestRod;
             s.TrappedFigure = bestFig;
             s.ChargeSeconds = 0;
+            s.HoldSeconds = 0;
             s.TrapY = bestFigY;
             s.BallVX = 0;
             s.BallVY = 0;
@@ -226,14 +227,19 @@ public static class GamePhysics
     }
 
     /// <summary>Launches the ball from figure <paramref name="fig"/> on <paramref name="rod"/> toward
-    /// the opponent goal. <paramref name="powerFrac"/> 0..1 adds horizontal power on top of the base
-    /// kick speed (rod speed for an auto-kick, charge for a trap-shot); <paramref name="offset"/>
-    /// -1..1 is the vertical contact offset. English (rod momentum) is read from the rod's live
-    /// velocity, and the kicker's collider is ignored until the ball separates (§2.3).</summary>
-    private static void FireShot(SimState s, RodDef rod, int fig, double powerFrac, double offset)
+    /// the opponent goal. <paramref name="powerFrac"/> 0..1 says how far up the power ramp this shot is
+    /// (rod speed for an auto-kick, charge for a trap-shot); <paramref name="offset"/> -1..1 is the
+    /// vertical contact offset. <paramref name="powerBonus"/> is the extra speed (as a fraction of
+    /// <see cref="GameConstants.KickSpeed"/>) granted at full <paramref name="powerFrac"/> — the
+    /// ordinary <see cref="GameConstants.KickPowerBonus"/> by default, the goalie's much bigger caught-shot
+    /// bonus for its cannon (§skill), so a goalie shot ramps from regular strength to near-max with charge.
+    /// English (rod momentum) is read from the rod's live velocity, and the kicker's collider is ignored
+    /// until the ball separates (§2.3).</summary>
+    private static void FireShot(SimState s, RodDef rod, int fig, double powerFrac, double offset,
+        double powerBonus = GameConstants.KickPowerBonus)
     {
         var dir = rod.Side == 0 ? 1 : -1;
-        var speed = GameConstants.KickSpeed * (1 + GameConstants.KickPowerBonus * powerFrac);
+        var speed = GameConstants.KickSpeed * (1 + powerBonus * powerFrac);
         s.BallVX = speed * dir;
         s.BallVY = offset * GameConstants.MaxDeflection
                    + GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
@@ -249,24 +255,48 @@ public static class GamePhysics
     /// <summary>A trapped ball: pinned to the front of its figure, riding the rod as it slides
     /// (dribble) and charging while the kick key stays held. Releasing the key — or hitting the safety
     /// timeout — fires it with power from the charge and english from the rod's motion at that instant
-    /// (a pull/push shot: flick up or down before letting go to aim).</summary>
+    /// (a pull/push shot: flick up or down before letting go to aim). A caught shot carries the rod's
+    /// kick-power multiplier — the goalie's cannon (§skill).</summary>
     private static StepResult HandleTrapped(SimState s, double dt)
     {
         var rod = GameConstants.Rods[s.TrappedRod];
+        var isGoalie = rod.Role == "GK";
 
-        // Lane pass (SPACE): hand the ball to the adjacent man on this rod, in the direction the rod
-        // is being slid — down (+1) → next man below, up (-1) → next man above. It stays trapped, so
-        // this is a controlled hop between your own figures, not an interceptable toss. The hold
-        // timer/charge reset, so each pass buys a fresh setup window on the new man.
+        // SPACE while trapped, resolved by context (§skill). For the goalie SPACE is charge-and-launch
+        // (below): pressing it starts the power charge and *releasing* it fires — the room turns the
+        // release edge into this PassRequested. For every other rod SPACE is a tap on the press edge:
+        //  • sliding toward an adjacent man on this rod → lane pass — a controlled hop between your own
+        //    figures (stays trapped, not an interceptable toss). The clocks reset, so each pass buys a
+        //    fresh setup window on the new man.
+        //  • else a rod sits behind you (toward your own goal) → back-pass: a soft toss to it that
+        //    *does* leave the rod, so a teammate rod behind can trap it but an opponent rod standing in
+        //    the lane can pick it off (geometry decides — DEF→GK is clear, ATK→MID crosses the enemy MID).
+        //  • else you are the last line (goalie) → launch the charged shot forward now.
         if (s.PassRequested)
         {
             s.PassRequested = false;
             var slide = s.RodDir[s.TrappedRod];
-            var target = s.TrappedFigure + slide;
-            if (slide != 0 && target >= 0 && target < rod.FigureCount)
+            var laneTarget = s.TrappedFigure + slide;
+            if (!isGoalie && slide != 0 && laneTarget >= 0 && laneTarget < rod.FigureCount)
             {
-                s.TrappedFigure = target;
+                s.TrappedFigure = laneTarget;
                 s.ChargeSeconds = 0;
+                s.HoldSeconds = 0;
+            }
+            else if (GameConstants.RodBehind(s.TrappedRod) >= 0)
+            {
+                FireBackPass(s, rod, s.TrappedFigure);
+                EndTrap(s);
+                return new StepResult(-1, true);
+            }
+            else
+            {
+                s.BallY = rod.FigureY(s.RodOffset[s.TrappedRod], s.TrappedFigure);
+                var launchFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxCharge(s.TrappedRod), 0, 1);
+                FireShot(s, rod, s.TrappedFigure, launchFrac, offset: 0,
+                    powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod));
+                EndTrap(s);
+                return new StepResult(-1, true);
             }
         }
 
@@ -281,30 +311,61 @@ public static class GamePhysics
         s.BallX = rod.X + dir * (Contact(rod) - 2);
         s.BallY = s.TrapY;
 
-        var held = s.RodKick[s.TrappedRod];
-        if (held)
+        // The hold clock always ticks (auto-fire backstop). Shot power charges only while the rod's
+        // charge input is held: the catch key for an outfield rod (it powers up as you cradle it), but
+        // SPACE for the goalie — so the keeper builds strength deliberately, releasing to launch (§skill).
+        // For the goalie, holding SPACE also *keeps* the ball, so dropping the catch key mid-charge
+        // doesn't fire early: it launches only when SPACE is released (below, via PassRequested).
+        var catchHeld = s.RodKick[s.TrappedRod];
+        var charging = isGoalie ? s.RodSpace[s.TrappedRod] : catchHeld;
+        var held = catchHeld || charging; // whether anything is still holding the ball trapped
+        s.HoldSeconds += dt;
+        if (charging)
             s.ChargeSeconds += dt;
 
-        // Fire on release or the safety timeout. A release *during* a pass waits until the ball has
-        // reached the man, so the shot always leaves from a figure — never from mid-slide between two
-        // of them (which looked like the ball firing while still travelling across on the pass).
+        // Fire on release of the hold (catch key, or SPACE for a charging goalie) or the safety timeout
+        // (longer for the goalie). A release *during* a pass waits until the ball has reached the man, so
+        // the shot always leaves from a figure — never mid-slide between two of them. The caught shot
+        // gets the rod's power bonus (ordinary for outfield, the goalie's charge-scaled cannon).
         var arrived = Math.Abs(s.TrapY - figY) < 1;
-        if (s.ChargeSeconds >= GameConstants.TrapTimeoutSeconds || (!held && arrived))
+        if (s.HoldSeconds >= GameConstants.TrapTimeout(s.TrappedRod) || (!held && arrived))
         {
             // Pinned at figure center, so aim is all in the release slide (english) — offset 0.
-            var powerFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxChargeSeconds, 0, 1);
+            var powerFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxCharge(s.TrappedRod), 0, 1);
             s.BallY = figY;
-            FireShot(s, rod, fig, powerFrac, offset: 0);
-            s.TrappedRod = -1;
-            s.TrappedFigure = -1;
-            s.ChargeSeconds = 0;
-            s.PassRequested = false;
+            FireShot(s, rod, fig, powerFrac, offset: 0, powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod));
+            EndTrap(s);
             return new StepResult(-1, true);
         }
 
         s.BallVX = 0;
         s.BallVY = 0;
         return new StepResult(-1, true);
+    }
+
+    /// <summary>A back-pass (§skill): the trapped ball leaves the man as a soft toss toward the
+    /// passer's own goal, aimed by the rod's slide at release (english). Unlike a lane pass it is a
+    /// *real* ball — a rod behind can trap it, but an opponent rod in its path can intercept — so it
+    /// carries risk. No power bonus, and no kick swing (a forward swing would read wrong going
+    /// backward). The passer's collider is ignored until the ball separates, so it clears the man.</summary>
+    private static void FireBackPass(SimState s, RodDef rod, int fig)
+    {
+        var backDir = rod.Side == 0 ? -1 : 1; // toward the passer's own goal
+        s.BallVX = GameConstants.BackPassSpeed * backDir;
+        s.BallVY = GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
+        ClampSpeed(s);
+        s.KickCooldown[rod.Index][fig] = GameConstants.KickCooldownSeconds;
+        s.IgnoreRod = rod.Index;
+        s.IgnoreFigure = fig;
+    }
+
+    private static void EndTrap(SimState s)
+    {
+        s.TrappedRod = -1;
+        s.TrappedFigure = -1;
+        s.ChargeSeconds = 0;
+        s.HoldSeconds = 0;
+        s.PassRequested = false;
     }
 
     private static void ClampSpeed(SimState s)

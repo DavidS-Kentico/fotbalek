@@ -73,16 +73,17 @@ public class GameHub(
         }
     }
 
-    /// <summary>Lane pass (SPACE): hands a trapped ball to the adjacent man on the same rod, in the
-    /// slide direction. No args — the server resolves the trapped rod and validates the caller drives
-    /// it, so it can't be spoofed.</summary>
-    public void Pass()
+    /// <summary>SPACE state change: <paramref name="held"/> true while SPACE is down. Held per user to
+    /// charge the goalie's shot; its edges drive the trapped-ball action (outfield pass on press, goalie
+    /// launch on release). The server resolves the trapped rod and validates the caller drives it, so it
+    /// can't be spoofed.</summary>
+    public void Space(bool held)
     {
         if (Context.Items.TryGetValue(RoomKey, out var value)
             && value is GameRoom room
             && int.TryParse(Context.UserIdentifier, out var userId))
         {
-            room.RequestPass(userId);
+            room.SetSpace(userId, held);
         }
     }
 

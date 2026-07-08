@@ -41,6 +41,7 @@ const held = [{ up: false, down: false }, { up: false, down: false }];
 const sentDir = [0, 0];
 const catchKeys = new Set(); // currently-pressed catch keys (any Shift / alternate)
 let sentCatch = false;
+let sentSpace = false; // last SPACE held-state sent (down/up edges only)
 let myRods = null;      // { hands: [rodIdxs, rodIdxs] } when seated, else null
 let predicted = null;   // rodIdx → offset
 let predHistory = {};   // rodIdx → [{ t, o }] — past predictions on the server timeline
@@ -69,6 +70,7 @@ export async function init(canvasEl, options) {
     }
     catchKeys.clear();
     sentCatch = false;
+    sentSpace = false;
 
     // Vendored UMD build (mirrors vendored Bootstrap — no bundler, no CDN); it attaches
     // itself to the global scope, dynamic import just executes it once.
@@ -273,8 +275,11 @@ function onKeyDown(e) {
     }
     if (e.code === 'Space') {
         e.preventDefault(); // don't scroll, and don't trigger a focused button
-        if (!e.repeat) { // one hop per press — holding SPACE doesn't auto-repeat passes
-            connection?.send('Pass').catch(() => { });
+        // Held state: press starts the goalie's charge (and the outfield pass); release launches the
+        // goalie shot. Edges only — key-repeat is ignored.
+        if (!e.repeat && !sentSpace) {
+            sentSpace = true;
+            connection?.send('Space', true).catch(() => { });
         }
         return;
     }
@@ -300,6 +305,14 @@ function onKeyDown(e) {
 
 function onKeyUp(e) {
     if (!myRods || isTyping(e)) {
+        return;
+    }
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (sentSpace) {
+            sentSpace = false;
+            connection?.send('Space', false).catch(() => { });
+        }
         return;
     }
     if (CATCH_KEYS.has(e.code)) {
@@ -347,6 +360,10 @@ function releaseAllKeys() {
     }
     catchKeys.clear();
     syncCatch(); // …nor holding a ball trapped
+    if (sentSpace) { // …nor leave the goalie charging / the ball unlaunched
+        sentSpace = false;
+        connection?.send('Space', false).catch(() => { });
+    }
 }
 
 function onVisibilityChange() {
@@ -363,6 +380,9 @@ function resendInput() {
     }
     if (sentCatch) {
         connection?.send('Catch', true).catch(() => { });
+    }
+    if (sentSpace) {
+        connection?.send('Space', true).catch(() => { });
     }
 }
 
@@ -640,6 +660,27 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         ctx.lineCap = 'round';
         ctx.stroke();
         ctx.lineCap = 'butt';
+    }
+
+    // Goalie shot-power meter: a second, outer ring that FILLS (green → red) as the caught shot
+    // charges from regular strength up to the near-max cannon (§skill). Goalie only — a 1-man rod;
+    // the outfield charge is too quick to read as a meter. snap.pw = power fraction 0..1.
+    if (snap.tr >= 0 && config.rods[snap.tr] && config.rods[snap.tr].figures === 1) {
+        const r = config.ballRadius + 15;
+        ctx.beginPath(); // faint full-circle track
+        ctx.arc(ball[0], ball[1], r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        if (snap.pw > 0) {
+            ctx.beginPath();
+            ctx.arc(ball[0], ball[1], r, -Math.PI / 2, -Math.PI / 2 + snap.pw * Math.PI * 2);
+            ctx.strokeStyle = `hsl(${(1 - snap.pw) * 120}, 90%, 55%)`; // 120°green (weak) → 0°red (max)
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.lineCap = 'butt';
+        }
     }
 
     // Ball.

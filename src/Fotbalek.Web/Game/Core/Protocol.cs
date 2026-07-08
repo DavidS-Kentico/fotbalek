@@ -28,7 +28,8 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("mt")] int MatchSeconds,
     [property: JsonPropertyName("tr")] int TrapRod,
     [property: JsonPropertyName("tf")] int TrapFigure,
-    [property: JsonPropertyName("ch")] double HoldRemaining);
+    [property: JsonPropertyName("ch")] double HoldRemaining,
+    [property: JsonPropertyName("pw")] double ShotPower);
 
 /// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
 /// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>

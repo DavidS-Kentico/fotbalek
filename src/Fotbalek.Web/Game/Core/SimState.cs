@@ -35,6 +35,12 @@ public sealed class SimState
     /// contacts (charging a shot) instead of the figure auto-kicking it.</summary>
     public readonly bool[] RodKick = new bool[8];
 
+    /// <summary>Held-SPACE state per rod: true while the driving seat holds SPACE. Set by the room each
+    /// tick. The goalie charges its shot only while this is held (hold to build power, release to
+    /// launch) — its power is deliberate, not automatic (§skill). Ignored by outfield rods, which
+    /// charge as they cradle the ball (see <see cref="RodKick"/>) and use SPACE only to pass.</summary>
+    public readonly bool[] RodSpace = new bool[8];
+
     /// <summary>Remaining kick cooldown per figure, seconds; indexed [rod][figure].</summary>
     public readonly double[][] KickCooldown =
         GameConstants.Rods.Select(r => new double[r.FigureCount]).ToArray();
@@ -50,9 +56,16 @@ public sealed class SimState
     public int TrappedRod = -1;
     public int TrappedFigure = -1;
 
-    /// <summary>Seconds the current trap has been charging; scales shot power, capped at
-    /// <see cref="GameConstants.MaxChargeSeconds"/>. Reset to 0 when a trap ends.</summary>
+    /// <summary>Seconds of shot power charged on the current trap — scales the shot speed (capped at
+    /// the rod's max-charge window). Advances only while the rod's charge input is held (the catch key
+    /// for outfield rods, SPACE for the goalie), so the goalie's power is player-driven. Reset when a
+    /// trap ends or a lane pass hands the ball to a new man.</summary>
     public double ChargeSeconds;
+
+    /// <summary>Seconds the ball has been trapped, regardless of charging — the auto-fire backstop that
+    /// keeps nobody hoarding it (and feeds the draining hold ring). Separate from <see cref="ChargeSeconds"/>
+    /// so a goalie who catches but doesn't charge still auto-fires. Reset with the trap / on a lane pass.</summary>
+    public double HoldSeconds;
 
     /// <summary>Set for one tick when the trapping player taps pass (SPACE): the trapped ball hops to
     /// the adjacent figure on the same rod in the slide direction (§skill). Consumed by

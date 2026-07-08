@@ -70,7 +70,10 @@ public static class GameConstants
     public const double RodMomentumTransfer = 0.55;
 
     public const double KickCooldownSeconds = 0.13;
-    public const double MaxBallSpeed = 1400;
+    // Global speed cap. Raised above the old 1400 to give the goalie's full-charge cannon real headroom
+    // (see GoalieCaughtPowerBonus). Still well under the ~2500 where the fixed step would need
+    // substepping to avoid tunneling (§4.6 sanity check).
+    public const double MaxBallSpeed = 1700;
     public const double FrictionPerSecond = 0.3;
     public const double WallRestitution = 0.85;
     public const double KickoffSpeed = 250;
@@ -85,6 +88,28 @@ public static class GameConstants
     /// held ball (it reads as continuously touched). Long enough to catch, reposition (SPACE) and
     /// aim, short enough that stalling isn't a tactic.</summary>
     public const double TrapTimeoutSeconds = 2.0;
+
+    /// <summary>Trap hold window for the goalie — longer than the outfield <see cref="TrapTimeoutSeconds"/>
+    /// so the keeper can catch, line up and launch a clearance (§skill). Still bounded, so it can't be
+    /// used to stall.</summary>
+    public const double GoalieTrapTimeoutSeconds = 5.0;
+
+    /// <summary>The goalie's *caught*-shot power bonus at full charge (§skill). A goalie trap-shot ramps
+    /// from plain <see cref="KickSpeed"/> (a quick tap → regular strength) up to
+    /// <c>KickSpeed × (1 + this)</c> at full charge; at 1.35 that's ~1645 u/s — just under the raised
+    /// <see cref="MaxBallSpeed"/> cap, so the full charge is a genuine cannon rather than a clamped 1400.
+    /// Only the caught shot gets it — an uncaught goalie auto-kick stays on the ordinary
+    /// <see cref="KickPowerBonus"/>.</summary>
+    public const double GoalieCaughtPowerBonus = 1.35;
+
+    /// <summary>How long a goalie charges to full shot power (§skill) — longer than the snappy outfield
+    /// <see cref="MaxChargeSeconds"/> so the keeper can dial the strength in and read it off the power
+    /// ring before launching. Well within the 5 s hold window.</summary>
+    public const double GoalieMaxChargeSeconds = 1.5;
+
+    /// <summary>Speed of a back-pass toss (§skill): brisk enough to reach the rod behind, slow enough
+    /// that an opponent rod standing in the lane can step in and pick it off.</summary>
+    public const double BackPassSpeed = 550;
 
     /// <summary>How fast a trapped ball follows its figure (units/s). Above <see cref="RodSpeed"/> so
     /// dribbling tracks tightly, but finite so a lane pass (SPACE) visibly slides the ball one man
@@ -138,4 +163,45 @@ public static class GameConstants
         new(6, 975, 1, 2, "DEF", SpacingOverride: DefenderSpacing),
         new(7, 1125, 1, 1, "GK", TravelOverride: GoalieTravel, Radius: GoalieRadius),
     ];
+
+    private static bool IsGoalie(int rodIndex) => Rods[rodIndex].Role == "GK";
+
+    /// <summary>The hold window before a trapped ball auto-fires, per rod — the goalie holds longer
+    /// (§skill).</summary>
+    public static double TrapTimeout(int rodIndex) =>
+        IsGoalie(rodIndex) ? GoalieTrapTimeoutSeconds : TrapTimeoutSeconds;
+
+    /// <summary>Seconds to charge a trapped shot to full power, per rod — the goalie ramps slower so
+    /// the strength is dial-able (§skill).</summary>
+    public static double MaxCharge(int rodIndex) =>
+        IsGoalie(rodIndex) ? GoalieMaxChargeSeconds : MaxChargeSeconds;
+
+    /// <summary>Power bonus of a *caught* shot at full charge, per rod — the goalie's big ramp to a
+    /// near-max cannon vs the ordinary <see cref="KickPowerBonus"/> for everyone else (§skill).</summary>
+    public static double CaughtPowerBonus(int rodIndex) =>
+        IsGoalie(rodIndex) ? GoalieCaughtPowerBonus : KickPowerBonus;
+
+    /// <summary>The same-side rod one step toward its own goal (behind <paramref name="rodIndex"/>),
+    /// or -1 if none — the goalie has nothing behind it. Target of a back-pass (§skill). Side A
+    /// defends the left goal (x=0), side B the right (x=Width), so "behind" is the nearer same-side
+    /// rod on the goal side.</summary>
+    public static int RodBehind(int rodIndex)
+    {
+        var rod = Rods[rodIndex];
+        var best = -1;
+        var bestX = rod.Side == 0 ? double.NegativeInfinity : double.PositiveInfinity;
+        foreach (var other in Rods)
+        {
+            if (other.Side != rod.Side || other.Index == rodIndex)
+                continue;
+            var isBehind = rod.Side == 0 ? other.X < rod.X : other.X > rod.X;
+            var isCloser = rod.Side == 0 ? other.X > bestX : other.X < bestX;
+            if (isBehind && isCloser)
+            {
+                bestX = other.X;
+                best = other.Index;
+            }
+        }
+        return best;
+    }
 }
