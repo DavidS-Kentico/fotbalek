@@ -996,3 +996,112 @@ h1:focus {
 
 .game-side-a { background-color: #ffc107; }
 .game-side-b { background-color: #0d6efd; }
+
+/* ===== Dark theme overrides ===== */
+/* Bootstrap 5.3 themes its own components (cards, tables, dropdowns, forms,
+   modals, buttons) automatically via [data-bs-theme=dark]. These rules cover
+   the app's hand-rolled surfaces and the few fixed-light Bootstrap utilities
+   used in markup, which would otherwise stay light. The green foosball pitch,
+   its player circles and the live-game overlays are intentionally left as-is —
+   they read the same on any theme. Light theme is untouched. */
+
+/* Fixed-light Bootstrap utilities used in markup */
+[data-bs-theme="dark"] .table-light {
+    --bs-table-bg: var(--bs-tertiary-bg);
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .badge.bg-light {
+    background-color: var(--bs-secondary-bg) !important;
+    color: var(--bs-body-color) !important;
+}
+
+/* Avatars: a dark circle instead of a bright light one. */
+[data-bs-theme="dark"] .avatar {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+/* ...except on the green foosball pitch, whose white player circles keep the
+   original light avatar so it reads on the felt. */
+[data-bs-theme="dark"] .player-circle .avatar {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+/* Current-user row highlight: Bootstrap's .table-success is a fixed light
+   green that glares on a dark page — use a subtle dark-green tint instead. */
+[data-bs-theme="dark"] .table-success {
+    --bs-table-bg: rgba(25, 135, 84, 0.22);
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: var(--bs-border-color);
+    --bs-table-hover-bg: rgba(25, 135, 84, 0.3);
+    --bs-table-hover-color: var(--bs-body-color);
+}
+
+/* Live-game overlay panel ("Waiting for opponents…", game-over) sits on the
+   green pitch; give it a dark surface so its text stays readable. */
+[data-bs-theme="dark"] .game-overlay-box {
+    background: rgba(33, 37, 41, 0.96);
+}
+
+/* Team navbar chips */
+[data-bs-theme="dark"] .team-navbar .team-switcher-btn {
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .team-navbar .team-switcher-btn:hover,
+[data-bs-theme="dark"] .team-navbar .team-switcher-btn:focus {
+    background-color: var(--bs-tertiary-bg);
+}
+[data-bs-theme="dark"] .team-navbar .presence-chip {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+}
+[data-bs-theme="dark"] .team-navbar .presence-chip:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* New-match page surfaces */
+[data-bs-theme="dark"] .match-toolbar {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .match-preview {
+    border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .win-probability-bar {
+    background: var(--bs-secondary-bg);
+}
+[data-bs-theme="dark"] .outcome-card {
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .outcome-card .outcome-label {
+    color: var(--bs-body-color);
+}
+[data-bs-theme="dark"] .outcome-card .elo-delta {
+    background: var(--bs-tertiary-bg);
+}
+/* The dark blue team value is too low-contrast on a dark card — lighten it. */
+[data-bs-theme="dark"] .elo-side.team-2 .value {
+    color: #6ea8fe;
+}
+[data-bs-theme="dark"] .score-card {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+}
+
+/* Head-to-head matrix */
+[data-bs-theme="dark"] .h2h-matrix .h2h-pct {
+    color: var(--bs-body-color);
+}
+[data-bs-theme="dark"] .h2h-matrix .h2h-empty {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-tertiary-color);
+}
+
+/* Statistics theme rows: make the divider visible on a dark surface */
+[data-bs-theme="dark"] .stats-theme-row {
+    border-bottom-color: var(--bs-border-color-translucent);
+}

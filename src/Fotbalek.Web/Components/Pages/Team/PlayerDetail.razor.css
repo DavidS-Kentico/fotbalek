@@ -252,3 +252,25 @@
 }
 
 .text-purple { color: #8b5cf6; }
+
+/* ---------- Dark theme ---------- */
+/* Lighten the low-contrast greys and swap light surfaces for theme tokens. */
+[data-bs-theme="dark"] .kpi-strip {
+    border-top-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .player-tabs {
+    border-bottom-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .player-tabs .nav-link {
+    color: var(--bs-secondary-color);
+}
+[data-bs-theme="dark"] .wr-bar {
+    background-color: var(--bs-secondary-bg);
+}
+[data-bs-theme="dark"] .activity-bars .bar-track {
+    background: var(--bs-secondary-bg);
+}
+[data-bs-theme="dark"] .badge-card {
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}

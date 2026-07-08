@@ -17,6 +17,49 @@ window.getBrowserTimeZone = function () {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
+// ===== Colour theme (light / dark / system) =====
+// Preference is stored per-browser in the `fotbalek-theme` cookie and applied
+// as data-bs-theme on <html>. The no-flash bootstrap of this lives inline in
+// App.razor; this module is the runtime the account page talks to.
+window.fotbalekTheme = (function () {
+    var COOKIE = 'fotbalek-theme';
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function read() {
+        var m = document.cookie.match(/(?:^|;\s*)fotbalek-theme=(light|dark|system)/);
+        return m ? m[1] : 'system';
+    }
+    function resolve(pref) {
+        if (pref === 'light' || pref === 'dark') return pref;
+        return media.matches ? 'dark' : 'light';
+    }
+    function apply(pref) {
+        document.documentElement.setAttribute('data-bs-theme', resolve(pref));
+    }
+    // Keep "system" tracking the OS setting while the app is open.
+    media.addEventListener('change', function () {
+        if (read() === 'system') apply('system');
+    });
+    return {
+        get: read,
+        set: function (pref) {
+            document.cookie = COOKIE + '=' + pref + ';path=/;max-age=31536000;samesite=lax';
+            apply(pref);
+        }
+    };
+})();
+
+// Theme-aware colours for Chart.js (grid lines, axis ticks, pie borders) read
+// at render time from the active data-bs-theme.
+function chartThemeColors() {
+    var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    return {
+        grid: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
+        tick: dark ? '#adb5bd' : '#666',
+        border: dark ? '#2b3035' : '#fff'
+    };
+}
+
 // Chart.js rendering functions
 window.renderEloChart = function(canvasId, labels, data) {
     const ctx = document.getElementById(canvasId);
@@ -26,6 +69,9 @@ window.renderEloChart = function(canvasId, labels, data) {
     if (ctx.chart) {
         ctx.chart.destroy();
     }
+
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
 
     ctx.chart = new Chart(ctx, {
         type: 'line',
@@ -54,7 +100,7 @@ window.renderEloChart = function(canvasId, labels, data) {
                 y: {
                     beginAtZero: false,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: chartThemeColors().grid
                     }
                 },
                 x: {
@@ -75,6 +121,9 @@ window.renderBarChart = function(canvasId, labels, data, label, color) {
     if (ctx.chart) {
         ctx.chart.destroy();
     }
+
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
 
     ctx.chart = new Chart(ctx, {
         type: 'bar',
@@ -100,7 +149,7 @@ window.renderBarChart = function(canvasId, labels, data, label, color) {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: chartThemeColors().grid
                     }
                 },
                 x: {
@@ -122,6 +171,9 @@ window.renderPieChart = function(canvasId, labels, data, colors) {
         ctx.chart.destroy();
     }
 
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
+
     ctx.chart = new Chart(ctx, {
         type: 'pie',
         data: {
@@ -130,7 +182,7 @@ window.renderPieChart = function(canvasId, labels, data, colors) {
                 data: data,
                 backgroundColor: colors,
                 borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: chartThemeColors().border
             }]
         },
         options: {
@@ -153,6 +205,9 @@ window.renderHorizontalBarChart = function(canvasId, labels, data, label, color)
     if (ctx.chart) {
         ctx.chart.destroy();
     }
+
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
 
     ctx.chart = new Chart(ctx, {
         type: 'bar',
@@ -179,7 +234,7 @@ window.renderHorizontalBarChart = function(canvasId, labels, data, label, color)
                 x: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: chartThemeColors().grid
                     }
                 },
                 y: {
@@ -199,6 +254,9 @@ window.renderMultiLineChart = function(canvasId, labels, datasets) {
     if (ctx.chart) {
         ctx.chart.destroy();
     }
+
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
 
     ctx.chart = new Chart(ctx, {
         type: 'line',
@@ -246,7 +304,7 @@ window.renderMultiLineChart = function(canvasId, labels, datasets) {
                 y: {
                     beginAtZero: false,
                     title: { display: true, text: 'ELO' },
-                    grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                    grid: { color: chartThemeColors().grid }
                 },
                 x: {
                     grid: { display: false },
@@ -265,6 +323,9 @@ window.renderLineChart = function(canvasId, labels, data, label, color) {
     if (ctx.chart) {
         ctx.chart.destroy();
     }
+
+    // Ticks, legend and titles follow the active colour theme.
+    Chart.defaults.color = chartThemeColors().tick;
 
     ctx.chart = new Chart(ctx, {
         type: 'line',
@@ -293,7 +354,7 @@ window.renderLineChart = function(canvasId, labels, data, label, color) {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: chartThemeColors().grid
                     }
                 },
                 x: {

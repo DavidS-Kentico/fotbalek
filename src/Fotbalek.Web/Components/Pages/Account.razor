@@ -3,6 +3,7 @@
 @inject CurrentUserService CurrentUser
 @inject TeamMembershipService MembershipService
 @inject TimeZoneService Tz
+@inject IJSRuntime JS
 
 <PageTitle>My account - Foosball Manager</PageTitle>
 
@@ -37,6 +38,26 @@
                         <div class="text-muted small">Member since</div>
                         <div class="fw-semibold">@Tz.FormatLocalDate(_user.CreatedAt)</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-palette me-2"></i>Appearance</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-muted small mb-3">Choose how Foosball Manager looks on this device.</div>
+                <div class="btn-group" role="group" aria-label="Colour theme">
+                    <button type="button" class="btn @ThemeButtonClass("light")" @onclick="@(() => SetTheme("light"))">
+                        <i class="bi bi-sun-fill me-1"></i>Light
+                    </button>
+                    <button type="button" class="btn @ThemeButtonClass("dark")" @onclick="@(() => SetTheme("dark"))">
+                        <i class="bi bi-moon-stars-fill me-1"></i>Dark
+                    </button>
+                    <button type="button" class="btn @ThemeButtonClass("system")" @onclick="@(() => SetTheme("system"))">
+                        <i class="bi bi-circle-half me-1"></i>System
+                    </button>
                 </div>
             </div>
         </div>
@@ -138,6 +159,16 @@
     private AppUser? _user;
     private List<TeamMembershipService.MembershipOverview> _memberships = [];
     private bool _loading = true;
+    private string _theme = "system";
+
+    private string ThemeButtonClass(string value) =>
+        _theme == value ? "btn-success" : "btn-outline-secondary";
+
+    private async Task SetTheme(string value)
+    {
+        _theme = value;
+        await JS.InvokeVoidAsync("fotbalekTheme.set", value);
+    }
 
     [SupplyParameterFromQuery(Name = "error")]
     public string? Error { get; set; }
@@ -160,6 +191,9 @@
             // Nothing under MainLayout resolves the browser timezone — do it here before
             // formatting any dates.
             await Tz.EnsureResolvedAsync();
+
+            // Reflect the saved colour-theme preference in the selector.
+            _theme = await JS.InvokeAsync<string>("fotbalekTheme.get");
 
             _user = await CurrentUser.GetUserAsync();
             if (_user != null)

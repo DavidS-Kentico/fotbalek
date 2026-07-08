@@ -556,7 +556,8 @@ else
     private static string StatPillCss(StatResult stat)
     {
         // Tint badge-eligible stats with their badge color so the page mirrors how they appear elsewhere.
-        if (stat.Badge == null) return "bg-light";
+        // bg-body-tertiary (not bg-light) so the neutral pill stays readable in dark mode.
+        if (stat.Badge == null) return "bg-body-tertiary";
 
         var css = stat.Badge.CssClass;
         if (css.Contains("bg-warning"))   return "bg-warning bg-opacity-10";
@@ -567,7 +568,7 @@ else
         if (css.Contains("bg-dark"))      return "bg-dark bg-opacity-10";
         if (css.Contains("bg-secondary")) return "bg-secondary bg-opacity-10";
         if (css.Contains("bg-purple"))    return "bg-purple-subtle";
-        return "bg-light";
+        return "bg-body-tertiary";
     }
 
     private async Task RenderCharts()
