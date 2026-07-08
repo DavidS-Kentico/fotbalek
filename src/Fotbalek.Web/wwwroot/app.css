@@ -1105,3 +1105,304 @@ h1:focus {
 [data-bs-theme="dark"] .stats-theme-row {
     border-bottom-color: var(--bs-border-color-translucent);
 }
+
+/* ============================================================
+   Live game — page chrome (redesign)
+   The canvas (game.js) stays the in-field HUD (score, clock,
+   GOAL flash); everything below is the lobby shell around it.
+   Surfaces reuse Bootstrap's themed .card, so light/dark come
+   for free; only the team-tinted accents need explicit vars.
+   ============================================================ */
+.live-game {
+    /* Team accents (app convention: A yellow, B blue). Solid values
+       drive dots/rails; the -text values stay legible as label text. */
+    --lg-a: #ffc107;
+    --lg-b: #0d6efd;
+    --lg-a-text: #997404;
+    --lg-b-text: #0d6efd;
+    --lg-accent: #198754;
+}
+[data-bs-theme="dark"] .live-game {
+    /* On a dark surface the amber/blue label text needs lifting. */
+    --lg-a-text: #ffda6a;
+    --lg-b-text: #6ea8fe;
+}
+
+/* ── Scoreboard ── */
+.lg-scorebar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+}
+.lg-scorebar__left { justify-self: start; display: flex; align-items: center; gap: 0.4rem; }
+.lg-scorebar__center { justify-self: center; }
+.lg-scorebar__right { justify-self: end; }
+
+/* Narrow screens can't hold three fixed sections on one row — let them wrap,
+   score centered, chips/end-game flowing above/below. */
+@media (max-width: 575.98px) {
+    .lg-scorebar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 0.6rem;
+    }
+    .lg-scorebar__left { flex: 1 1 auto; }
+    .lg-scorebar__right { flex: 0 0 auto; }
+    .lg-scorebar__center { flex: 1 1 100%; order: 3; display: flex; justify-content: center; }
+}
+
+.lg-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+.lg-score__team {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+}
+.lg-score__team--a { color: var(--lg-a-text); }
+.lg-score__team--b { color: var(--lg-b-text); }
+.lg-score__value {
+    font-weight: 800;
+    font-size: 1.7rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-emphasis-color);
+}
+.lg-score__sep { margin: 0 0.35rem; color: var(--bs-tertiary-color); }
+
+/* ── Chips / dots ── */
+.lg-dot {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+.lg-dot--a { background: var(--lg-a); }
+.lg-dot--b { background: var(--lg-b); }
+
+.lg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    background: var(--bs-secondary-bg);
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+}
+.lg-chip--live { color: #dc3545; }
+
+/* ── Card head (icon + title) ── */
+.lg-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+}
+.lg-card-head .bi { color: var(--bs-secondary-color); }
+.lg-card-head .lg-count { margin-left: auto; color: var(--bs-secondary-color); font-weight: 600; }
+
+/* ── Lineup ── */
+.lg-lineup { display: flex; flex-direction: column; gap: 0.9rem; }
+.lg-team-group__head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0.15rem 0.45rem;
+    color: var(--bs-secondary-color);
+}
+.lg-team-group--a .lg-team-group__head { color: var(--lg-a-text); }
+.lg-team-group--b .lg-team-group__head { color: var(--lg-b-text); }
+.lg-seats { display: flex; flex-direction: column; gap: 0.45rem; }
+
+.lg-seat {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--bs-border-color);
+    border-left: 3px solid var(--lg-seat-accent, var(--bs-border-color));
+    border-radius: 12px;
+    background: var(--bs-tertiary-bg);
+}
+.lg-team-group--a .lg-seat { --lg-seat-accent: var(--lg-a); }
+.lg-team-group--b .lg-seat { --lg-seat-accent: var(--lg-b); }
+.lg-seat.is-open { background: transparent; }
+.lg-seat.is-mine {
+    background: rgba(25, 135, 84, 0.10);
+    border-color: rgba(25, 135, 84, 0.35);
+}
+.lg-seat.is-offline { opacity: 0.55; }
+
+.lg-seat__glyph {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-tertiary-color);
+}
+.lg-seat__main { flex: 1 1 auto; min-width: 0; line-height: 1.25; }
+.lg-seat__role {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-tertiary-color);
+}
+.lg-seat__name {
+    font-weight: 600;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lg-seat__name--open { color: var(--bs-secondary-color); font-weight: 500; }
+.lg-seat__actions { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 0.3rem; }
+
+/* Inline difficulty picker occupies its own row within the tile */
+.lg-seat__picker { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; }
+.lg-seat__picker-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-tertiary-color);
+}
+
+/* ── Compact buttons ── */
+.lg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-radius: 8px;
+    padding: 0.22rem 0.55rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.lg-btn:hover { background: var(--bs-secondary-bg); }
+.lg-btn--icon { padding: 0.28rem 0.4rem; }
+.lg-btn--primary { background: #198754; border-color: #157347; color: #fff; }
+.lg-btn--primary:hover { background: #157347; border-color: #146c43; color: #fff; }
+.lg-btn--danger { color: #dc3545; }
+.lg-btn--danger:hover { background: rgba(220, 53, 69, 0.12); border-color: rgba(220, 53, 69, 0.4); color: #dc3545; }
+
+/* ── Segmented control (bot difficulty) ── */
+.lg-seg { display: inline-flex; border: 1px solid var(--bs-border-color); border-radius: 8px; overflow: hidden; }
+.lg-seg button {
+    border: 0;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.22rem 0.55rem;
+    transition: background-color 0.12s ease;
+}
+.lg-seg button + button { border-left: 1px solid var(--bs-border-color); }
+.lg-seg button:hover { background: var(--lg-accent); color: #fff; }
+
+/* ── Small tag (bot level) ── */
+.lg-tag {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    background: var(--bs-secondary-bg);
+    border-radius: 6px;
+    padding: 0.08rem 0.35rem;
+}
+
+/* ── Viewers ── */
+.lg-viewers { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.lg-viewer {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    padding: 0.12rem 0.6rem 0.12rem 0.2rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    max-width: 100%;
+}
+.lg-viewer > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-muted-note { color: var(--bs-secondary-color); font-size: 0.85rem; }
+
+/* ── Settings rows (built to grow — one .lg-setting per option) ── */
+.lg-setting { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0; }
+.lg-setting + .lg-setting { border-top: 1px solid var(--bs-border-color); }
+.lg-setting:first-child { padding-top: 0; }
+.lg-setting:last-child { padding-bottom: 0; }
+.lg-setting__text { flex: 1 1 auto; min-width: 0; }
+.lg-setting__label { font-weight: 600; font-size: 0.9rem; }
+.lg-setting__desc { color: var(--bs-secondary-color); font-size: 0.78rem; margin-top: 0.1rem; }
+.lg-setting .form-switch { flex: 0 0 auto; padding-left: 2.75em; margin: 0; min-height: auto; }
+.lg-setting .form-switch .form-check-input { width: 2.25em; height: 1.15em; margin-left: -2.75em; cursor: pointer; }
+
+/* ── Quick actions ── */
+.lg-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.lg-actions .lg-btn { flex: 1 1 auto; justify-content: center; padding: 0.42rem 0.5rem; }
+
+/* ── Controls legend (keycaps) ── */
+.lg-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem 0.5rem;
+    margin-top: 0.65rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+}
+.lg-controls .lg-sep { opacity: 0.5; }
+.lg-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.7em;
+    height: 1.7em;
+    padding: 0 0.4em;
+    border-radius: 6px;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-bottom-width: 2px;
+    color: var(--bs-body-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: inherit;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* ── Empty / ended hero ── */
+.lg-hero { text-align: center; padding: 3rem 1.5rem; }
+.lg-hero__icon { font-size: 3rem; line-height: 1; }
+.lg-hero h4 { margin-top: 0.75rem; font-weight: 700; }
+.lg-hero p { color: var(--bs-secondary-color); max-width: 34rem; margin: 0.25rem auto 1.25rem; }

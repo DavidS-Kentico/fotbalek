@@ -19,15 +19,15 @@
 }
 else if (_team != null && _user != null)
 {
-    <div class="container py-4">
+    <div class="container py-4 live-game">
         @if (_state == null)
         {
             <div class="card">
-                <div class="card-body text-center py-5">
-                    <div style="font-size: 3rem;">🎮</div>
-                    <h4 class="mt-2">@(_roomEnded ? "The game has ended" : "No live game right now")</h4>
-                    <p class="text-muted">Play foosball in the browser against your teammates — up to 4 players, everyone else can watch.</p>
-                    <button class="btn btn-success" @onclick="StartGame">
+                <div class="card-body lg-hero">
+                    <div class="lg-hero__icon">🎮</div>
+                    <h4>@(_roomEnded ? "The game has ended" : "No live game right now")</h4>
+                    <p>Play foosball in the browser against your teammates — up to 4 players, everyone else can watch.</p>
+                    <button class="btn btn-success btn-lg" @onclick="StartGame">
                         <i class="bi bi-play-fill me-1"></i> Start live game
                     </button>
                 </div>
@@ -36,18 +36,23 @@ else if (_team != null && _user != null)
         else
         {
             <div class="card mb-3">
-                <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3">
-                    <div class="fs-5 fw-bold">
-                        <span class="game-side-dot game-side-a"></span> Team A
-                        <span class="mx-2">@_state.ScoreA : @_state.ScoreB</span>
-                        Team B <span class="game-side-dot game-side-b"></span>
+                <div class="card-body py-2 lg-scorebar">
+                    <div class="lg-scorebar__left">
+                        <span class="lg-chip lg-chip--live"><span class="live-dot"></span> LIVE</span>
+                        <span class="lg-chip"><i class="bi bi-eye"></i> @_state.Viewers.Count</span>
                     </div>
-                    <span class="text-muted"><i class="bi bi-eye me-1"></i>@_state.Viewers.Count viewer@(_state.Viewers.Count == 1 ? "" : "s")</span>
-                    <div class="ms-auto">
+                    <div class="lg-scorebar__center">
+                        <div class="lg-score">
+                            <span class="lg-score__team lg-score__team--a"><span class="lg-dot lg-dot--a"></span> Team A</span>
+                            <span class="lg-score__value">@_state.ScoreA<span class="lg-score__sep">:</span>@_state.ScoreB</span>
+                            <span class="lg-score__team lg-score__team--b">Team B <span class="lg-dot lg-dot--b"></span></span>
+                        </div>
+                    </div>
+                    <div class="lg-scorebar__right">
                         @if (IsSeated)
                         {
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => _showEndModal = true">
-                                <i class="bi bi-x-circle me-1"></i> End game
+                            <button class="lg-btn lg-btn--danger" @onclick="() => _showEndModal = true">
+                                <i class="bi bi-power"></i> End game
                             </button>
                         }
                     </div>
@@ -55,7 +60,7 @@ else if (_team != null && _user != null)
             </div>
 
             <div class="row g-3">
-                <div class="col-lg-9">
+                <div class="col-lg-8">
                     <div class="game-canvas-wrap">
                         <canvas @ref="_canvas" data-room-id="@_room?.RoomId"></canvas>
 
@@ -104,126 +109,172 @@ else if (_team != null && _user != null)
                     </div>
                     @if (IsSeated)
                     {
-                        <div class="text-center text-muted small mt-2">
-                            <kbd>W</kbd>/<kbd>S</kbd> — left rod · <kbd>↑</kbd>/<kbd>↓</kbd> — right rod ·
-                            hold <kbd>Shift</kbd> to trap on any of your rods · <kbd>Space</kbd> while moving to pass · release to shoot
+                        <div class="lg-controls">
+                            <span><kbd class="lg-key">W</kbd><kbd class="lg-key">S</kbd> left rod</span>
+                            <span class="lg-sep">·</span>
+                            <span><kbd class="lg-key">↑</kbd><kbd class="lg-key">↓</kbd> right rod</span>
+                            <span class="lg-sep">·</span>
+                            <span>hold <kbd class="lg-key">Shift</kbd> to trap</span>
+                            <span class="lg-sep">·</span>
+                            <span><kbd class="lg-key">Space</kbd> while moving to pass · release to shoot</span>
                         </div>
                     }
                 </div>
 
-                <div class="col-lg-3">
+                <div class="col-lg-4">
                     <div class="card mb-3">
-                        <div class="card-header py-2"><strong>Seats</strong></div>
-                        <ul class="list-group list-group-flush">
-                            @foreach (var seat in _state.Seats)
+                        <div class="card-header py-2 lg-card-head">
+                            <i class="bi bi-people-fill"></i> Lineup
+                        </div>
+                        <div class="card-body lg-lineup">
+                            @foreach (var (side, label, dot) in new[] { (0, "Team A", "lg-dot--a"), (1, "Team B", "lg-dot--b") })
                             {
-                                var isMine = seat.UserId == _user.Id;
-                                <li class="list-group-item d-flex align-items-center gap-2 @(isMine ? "bg-success-subtle" : "")">
-                                    <span class="game-side-dot @(seat.Seat <= 1 ? "game-side-a" : "game-side-b")"></span>
-                                    <div class="flex-grow-1 min-w-0">
-                                        <div class="small text-muted">@SeatMap.SeatNames[seat.Seat]</div>
-                                        @if (seat.UserId != null)
+                                <div class="lg-team-group @(side == 0 ? "lg-team-group--a" : "lg-team-group--b")">
+                                    <div class="lg-team-group__head"><span class="lg-dot @dot"></span> @label</div>
+                                    <div class="lg-seats">
+                                        @foreach (var seat in _state.Seats.Where(s => side == 0 ? s.Seat <= 1 : s.Seat >= 2))
                                         {
-                                            <span class="@(seat.Connected ? "" : "text-muted")">
-                                                <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" />
-                                                @seat.Name
-                                                @if (!seat.Connected)
+                                            var isMine = seat.UserId == _user.Id;
+                                            var isEmpty = seat.UserId == null && !seat.IsBot;
+                                            var isOpen = isEmpty && _addBotSeat != seat.Seat;
+                                            <div class="lg-seat @(isMine ? "is-mine" : "") @(isOpen ? "is-open" : "") @(seat.UserId != null && !seat.Connected ? "is-offline" : "")">
+                                                @if (seat.UserId != null)
                                                 {
-                                                    <i class="bi bi-wifi-off ms-1" title="Reconnecting…"></i>
+                                                    <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" />
+                                                    <div class="lg-seat__main">
+                                                        <div class="lg-seat__role">@SeatRole(seat.Seat)</div>
+                                                        <div class="lg-seat__name">
+                                                            <span class="text-truncate">@seat.Name</span>
+                                                            @if (isMine)
+                                                            {
+                                                                <span class="badge-you">you</span>
+                                                            }
+                                                            @if (!seat.Connected)
+                                                            {
+                                                                <i class="bi bi-wifi-off" title="Reconnecting…"></i>
+                                                            }
+                                                        </div>
+                                                    </div>
                                                 }
-                                                @if (isMine)
+                                                else if (seat.IsBot)
                                                 {
-                                                    <span class="badge badge-you ms-1">you</span>
+                                                    <Avatar AvatarId="@(seat.AvatarId ?? BotAvatarId)" Size="sm" />
+                                                    <div class="lg-seat__main">
+                                                        <div class="lg-seat__role">@SeatRole(seat.Seat)</div>
+                                                        <div class="lg-seat__name">
+                                                            Computer <span class="lg-tag">@BotLevelName(seat.BotLevel)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="lg-seat__actions">
+                                                        <button class="lg-btn lg-btn--primary" @onclick="() => TakeSeat(seat.Seat)" title="@(IsSeated ? "Move here" : "Sit here")">
+                                                            <i class="bi bi-box-arrow-in-down"></i> @(IsSeated ? "Move" : "Sit")
+                                                        </button>
+                                                        <button class="lg-btn lg-btn--icon lg-btn--danger" @onclick="() => RemoveBot(seat.Seat)" title="Remove computer">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
                                                 }
-                                            </span>
-                                        }
-                                        else if (seat.IsBot)
-                                        {
-                                            <div>
-                                                <Avatar AvatarId="@(seat.AvatarId ?? BotAvatarId)" Size="sm" />
-                                                Computer
-                                                <span class="badge text-bg-secondary ms-1">@BotLevelName(seat.BotLevel)</span>
-                                            </div>
-                                            <div class="d-flex gap-1 mt-1">
-                                                <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
-                                                    <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Sit here")
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveBot(seat.Seat)" title="Remove computer">
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-                                            </div>
-                                        }
-                                        else if (_addBotSeat == seat.Seat)
-                                        {
-                                            <div class="d-flex flex-wrap align-items-center gap-1">
-                                                <span class="small text-muted me-1">Skill:</span>
-                                                @foreach (var level in new[] { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard })
+                                                else if (_addBotSeat == seat.Seat)
                                                 {
-                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AddBot(seat.Seat, level)">@BotLevelName((int)level)</button>
+                                                    <span class="lg-seat__glyph"><i class="bi bi-robot"></i></span>
+                                                    <div class="lg-seat__main">
+                                                        <div class="lg-seat__role">@SeatRole(seat.Seat)</div>
+                                                        <div class="lg-seat__name lg-seat__name--open">Add computer</div>
+                                                    </div>
+                                                    <div class="lg-seat__picker">
+                                                        <span class="lg-seat__picker-label">Skill</span>
+                                                        <div class="lg-seg">
+                                                            @foreach (var level in new[] { BotDifficulty.Easy, BotDifficulty.Medium, BotDifficulty.Hard })
+                                                            {
+                                                                <button @onclick="() => AddBot(seat.Seat, level)">@BotLevelName((int)level)</button>
+                                                            }
+                                                        </div>
+                                                        <button class="lg-btn lg-btn--icon" @onclick="() => _addBotSeat = null" title="Cancel">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
                                                 }
-                                                <button class="btn btn-sm btn-link text-muted p-0 ms-1" @onclick="() => _addBotSeat = null">Cancel</button>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="d-flex flex-wrap gap-1">
-                                                <button class="btn btn-sm btn-outline-success" @onclick="() => TakeSeat(seat.Seat)">
-                                                    <i class="bi bi-plus-lg me-1"></i>@(IsSeated ? "Move here" : "Take seat")
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _addBotSeat = seat.Seat" title="Add a computer player">
-                                                    <i class="bi bi-robot me-1"></i>Computer
-                                                </button>
+                                                else
+                                                {
+                                                    <span class="lg-seat__glyph"><i class="bi @SeatIcon(seat.Seat)"></i></span>
+                                                    <div class="lg-seat__main">
+                                                        <div class="lg-seat__role">@SeatRole(seat.Seat)</div>
+                                                        <div class="lg-seat__name lg-seat__name--open">Open seat</div>
+                                                    </div>
+                                                    <div class="lg-seat__actions">
+                                                        <button class="lg-btn lg-btn--primary" @onclick="() => TakeSeat(seat.Seat)">
+                                                            <i class="bi bi-box-arrow-in-down"></i> @(IsSeated ? "Move" : "Sit")
+                                                        </button>
+                                                        <button class="lg-btn lg-btn--icon" @onclick="() => _addBotSeat = seat.Seat" title="Add a computer player">
+                                                            <i class="bi bi-robot"></i>
+                                                        </button>
+                                                    </div>
+                                                }
                                             </div>
                                         }
                                     </div>
-                                </li>
+                                </div>
                             }
-                        </ul>
+                        </div>
                     </div>
 
                     <div class="card mb-3">
-                        <div class="card-header py-2"><strong>Viewers</strong> <i class="bi bi-eye ms-1"></i> @_state.Viewers.Count</div>
-                        <ul class="list-group list-group-flush">
+                        <div class="card-header py-2 lg-card-head">
+                            <i class="bi bi-eye"></i> Viewers <span class="lg-count">@_state.Viewers.Count</span>
+                        </div>
+                        <div class="card-body">
                             @if (_state.Viewers.Count == 0)
                             {
-                                <li class="list-group-item text-muted small">Nobody is watching.</li>
+                                <div class="lg-muted-note">Nobody is watching yet.</div>
                             }
-                            @foreach (var viewer in _state.Viewers)
+                            else
                             {
-                                <li class="list-group-item py-1">
-                                    <Avatar AvatarId="@viewer.AvatarId" Size="sm" />
-                                    <span class="ms-1">@viewer.Name</span>
-                                </li>
+                                <div class="lg-viewers">
+                                    @foreach (var viewer in _state.Viewers)
+                                    {
+                                        <span class="lg-viewer">
+                                            <Avatar AvatarId="@viewer.AvatarId" Size="sm" />
+                                            <span>@viewer.Name</span>
+                                        </span>
+                                    }
+                                </div>
                             }
-                        </ul>
+                        </div>
                     </div>
 
                     @if (IsSeated)
                     {
                         <div class="card mb-3">
-                            <div class="card-header py-2"><strong>Game options</strong></div>
-                            <div class="card-body py-2">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="opt-quick-goals"
-                                           checked="@_state.Options.DisallowQuickGoals" @onchange="OnToggleQuickGoals" />
-                                    <label class="form-check-label" for="opt-quick-goals">
-                                        No quick goals
-                                        <span class="d-block text-muted small">Ignore goals in the first 1.5&nbsp;s after kickoff</span>
-                                    </label>
+                            <div class="card-header py-2 lg-card-head">
+                                <i class="bi bi-sliders"></i> Match settings
+                            </div>
+                            <div class="card-body">
+                                <div class="lg-setting">
+                                    <div class="lg-setting__text">
+                                        <div class="lg-setting__label">No quick goals</div>
+                                        <div class="lg-setting__desc">Ignore goals in the first 1.5&nbsp;s after kickoff</div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="opt-quick-goals"
+                                               aria-label="No quick goals"
+                                               checked="@_state.Options.DisallowQuickGoals" @onchange="OnToggleQuickGoals" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetBall">
-                                <i class="bi bi-record-circle me-1"></i> Reset ball
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="ResetScore">
-                                <i class="bi bi-0-circle me-1"></i> Reset score
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="LeaveSeat">
-                                <i class="bi bi-box-arrow-left me-1"></i> Leave seat
-                            </button>
+                        <div class="card mb-3">
+                            <div class="card-body lg-actions">
+                                <button class="lg-btn" @onclick="ResetBall">
+                                    <i class="bi bi-record-circle"></i> Reset ball
+                                </button>
+                                <button class="lg-btn" @onclick="ResetScore">
+                                    <i class="bi bi-0-circle"></i> Reset score
+                                </button>
+                                <button class="lg-btn lg-btn--danger" @onclick="LeaveSeat">
+                                    <i class="bi bi-box-arrow-left"></i> Leave seat
+                                </button>
+                            </div>
                         </div>
                     }
                 </div>
@@ -386,6 +437,13 @@ else if (_team != null && _user != null)
     }
 
     private void RemoveBot(int seat) => _room?.RemoveBot(seat);
+
+    /// <summary>Short role label for a seat — team is shown by the lineup group,
+    /// so the tile only needs the position. Seats 0/2 defend, 1/3 attack (§2.2).</summary>
+    private static string SeatRole(int seat) => seat % 2 == 0 ? "Defense" : "Attack";
+
+    /// <summary>Bootstrap icon shown in an empty seat's placeholder circle.</summary>
+    private static string SeatIcon(int seat) => seat % 2 == 0 ? "bi-shield-fill" : "bi-bullseye";
 
     private static string BotLevelName(int level) => (BotDifficulty)level switch
     {
