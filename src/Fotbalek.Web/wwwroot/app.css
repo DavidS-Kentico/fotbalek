@@ -1087,6 +1087,12 @@ h1:focus {
 [data-bs-theme="dark"] .elo-side.team-2 .value {
     color: #6ea8fe;
 }
+/* The swap button keeps its white pitch-marking surface in both themes, so the
+   icon would otherwise inherit the light dark-mode body text and vanish against
+   the white circle — pin it to a dark colour. */
+[data-bs-theme="dark"] .swap-btn {
+    color: #212529;
+}
 [data-bs-theme="dark"] .score-card {
     background: var(--bs-tertiary-bg);
     border-color: var(--bs-border-color);
