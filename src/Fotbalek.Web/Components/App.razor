@@ -26,7 +26,10 @@
     <link rel="stylesheet" href="@Assets["Fotbalek.Web.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    @* Interactive, matching Routes: pages render their <PageTitle> only after the circuit
+       starts (TeamLayout gates @Body past prerender), and a static HeadOutlet would never
+       receive those updates — team pages ended up with no <title> at all. *@
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>

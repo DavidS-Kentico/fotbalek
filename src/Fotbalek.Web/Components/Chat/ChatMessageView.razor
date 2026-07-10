@@ -1,0 +1,272 @@
+@* One chat message: header (avatar + name + time, shown for the first of a sender group),
+   body rendered as typed segments (text / mention pills) — never as injected HTML — reaction
+   chips, a hover/tap action row (quick reactions + a ⋯ menu with author-only edit/delete),
+   an inline edit mode, or a tombstone. *@
+
+<div class="chat-msg @(IsOwn ? "chat-msg-own" : "") @(_mentionsMe ? "chat-msg-mentions-me" : "") @(ShowHeader ? "chat-msg-first" : "") @(_actionsPinned || _menuOpen ? "chat-msg-pinned" : "")"
+     @onclick="ToggleActions" @onmouseleave="OnPointerLeave">
+    @if (ShowHeader)
+    {
+        <div class="chat-msg-header">
+            <Avatar AvatarId="@Message.SenderAvatarId" Size="sm" />
+            <span class="chat-msg-sender">@Message.SenderName</span>
+            <span class="chat-msg-time">@TimeText</span>
+        </div>
+    }
+    @if (Message.IsDeleted)
+    {
+        <div class="chat-msg-tombstone">🚫 message deleted</div>
+    }
+    else if (_editing)
+    {
+        <div class="chat-msg-edit" @onclick:stopPropagation="true">
+            <textarea @ref="_editBox" class="form-control chat-msg-edit-input"
+                      rows="@EditRows" maxlength="@Constants.Chat.MaxMessageLength"
+                      @bind="_editText" @bind:event="oninput"
+                      @onkeydown="OnEditKeyDown"></textarea>
+            <div class="chat-msg-edit-actions">
+                <button type="button" class="btn btn-sm btn-success"
+                        disabled="@(string.IsNullOrWhiteSpace(_editText))"
+                        @onclick="SaveEdit">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                <span class="chat-msg-edit-hint">Esc to cancel</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="chat-msg-body">@foreach (var segment in _segments)
+            {
+                if (segment.IsMention)
+                {
+                    <span class="chat-mention @(segment.IsMe ? "chat-mention-me" : "")">@segment.Text</span>
+                }
+                else
+                {
+                    @segment.Text
+                }
+            }@if (EditedTimeText != null)
+            {
+                <span class="chat-msg-edited" title="Edited @EditedTimeText">(edited)</span>
+            }</div>
+        @if (Message.Reactions.Count > 0)
+        {
+            <div class="chat-msg-reactions">
+                @foreach (var reaction in Message.Reactions)
+                {
+                    <button type="button"
+                            class="chat-reaction-chip @(reaction.UserIds.Contains(MyUserId) ? "mine" : "")"
+                            title="@ReactionTitle(reaction)"
+                            @onclick="() => OnToggleReaction.InvokeAsync(reaction.Emoji)"
+                            @onclick:stopPropagation="true">
+                        <span>@reaction.Emoji</span><span class="chat-reaction-count">@reaction.UserIds.Count</span>
+                    </button>
+                }
+            </div>
+        }
+        <div class="chat-msg-actions">
+            @foreach (var emoji in QuickReactions)
+            {
+                <button type="button" class="chat-action-btn" title="React with @emoji"
+                        @onclick="() => OnToggleReaction.InvokeAsync(emoji)"
+                        @onclick:stopPropagation="true">@emoji</button>
+            }
+            @if (IsOwn)
+            {
+                <button type="button" class="chat-action-btn chat-action-more" title="Message options"
+                        @onclick="ToggleMenu" @onclick:stopPropagation="true">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+            }
+            @if (_menuOpen)
+            {
+                <div class="chat-msg-menu" @onclick:stopPropagation="true">
+                    <button type="button" class="chat-msg-menu-item" @onclick="StartEdit">
+                        <i class="bi bi-pencil"></i> Edit
+                    </button>
+                    <button type="button" class="chat-msg-menu-item chat-msg-menu-delete @(_confirmingDelete ? "confirming" : "")"
+                            @onclick="DeleteClicked">
+                        <i class="bi @(_confirmingDelete ? "bi-trash-fill" : "bi-trash")"></i>
+                        @(_confirmingDelete ? "Really delete?" : "Delete")
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ChatMessageDto Message { get; set; } = null!;
+    [Parameter] public bool IsOwn { get; set; }
+    [Parameter] public bool ShowHeader { get; set; }
+    [Parameter] public string TimeText { get; set; } = string.Empty;
+    /// <summary>Local-time text of the last edit; null when the message was never edited.</summary>
+    [Parameter] public string? EditedTimeText { get; set; }
+    [Parameter] public int MyUserId { get; set; }
+    [Parameter] public string? MyPlayerName { get; set; }
+    /// <summary>Roster names sorted longest-first so mention matching is longest-match.</summary>
+    [Parameter] public IReadOnlyList<string> RosterNames { get; set; } = [];
+    /// <summary>Resolves a user id to a display name (reaction chip tooltips).</summary>
+    [Parameter] public Func<int, string> ResolveUserName { get; set; } = _ => "?";
+    [Parameter] public EventCallback<string> OnToggleReaction { get; set; }
+    [Parameter] public EventCallback<string> OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private static readonly string[] QuickReactions = ["👍", "❤️", "😂", "🎉", "😮", "😢"];
+
+    private record Segment(string Text, bool IsMention, bool IsMe);
+
+    private List<Segment> _segments = [];
+    private string? _segmentedBody;
+    private bool _mentionsMe;
+    // Touch has no hover: tapping the message pins the action row open.
+    private bool _actionsPinned;
+    private bool _menuOpen;
+    private bool _confirmingDelete;
+    private bool _editing;
+    private string _editText = string.Empty;
+    private ElementReference _editBox;
+    private bool _focusEditBox;
+
+    private int EditRows => Math.Clamp(_editText.Count(c => c == '\n') + 1, 1, 6);
+
+    protected override void OnParametersSet()
+    {
+        if (Message.IsDeleted)
+        {
+            _segments = [];
+            _segmentedBody = null;
+            _mentionsMe = false;
+            _editing = false;
+            _menuOpen = false;
+            return;
+        }
+        if (_segmentedBody == Message.Body)
+            return;
+        _segmentedBody = Message.Body;
+        _segments = ComputeSegments(Message.Body);
+        _mentionsMe = _segments.Any(s => s is { IsMention: true, IsMe: true });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusEditBox)
+        {
+            _focusEditBox = false;
+            try
+            {
+                await _editBox.FocusAsync();
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    /// <summary>Splits the raw body into text/mention segments: after each '@', the roster is
+    /// tried longest-name-first (case-insensitive). No HTML is ever built from user text.</summary>
+    private List<Segment> ComputeSegments(string body)
+    {
+        var segments = new List<Segment>();
+        int lastEmit = 0, i = 0;
+        while (i < body.Length && (i = body.IndexOf('@', i)) >= 0)
+        {
+            string? matched = null;
+            foreach (var name in RosterNames)
+            {
+                if (i + 1 + name.Length <= body.Length &&
+                    string.Compare(body, i + 1, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    matched = name;
+                    break;
+                }
+            }
+            if (matched == null)
+            {
+                i++;
+                continue;
+            }
+            if (i > lastEmit)
+                segments.Add(new Segment(body[lastEmit..i], false, false));
+            var isMe = MyPlayerName != null &&
+                string.Equals(matched, MyPlayerName, StringComparison.OrdinalIgnoreCase);
+            segments.Add(new Segment(body.Substring(i, 1 + matched.Length), true, isMe));
+            i += 1 + matched.Length;
+            lastEmit = i;
+        }
+        if (lastEmit < body.Length)
+            segments.Add(new Segment(body[lastEmit..], false, false));
+        return segments;
+    }
+
+    private string ReactionTitle(ChatReactionDto reaction) =>
+        string.Join(", ", reaction.UserIds.Select(ResolveUserName));
+
+    private void ToggleActions()
+    {
+        if (_editing)
+            return;
+        _actionsPinned = !_actionsPinned;
+        if (!_actionsPinned)
+        {
+            _menuOpen = false;
+            _confirmingDelete = false;
+        }
+    }
+
+    private void OnPointerLeave()
+    {
+        // Leaving the message closes the menu and unpins, but never cancels an active edit.
+        _actionsPinned = false;
+        _menuOpen = false;
+        _confirmingDelete = false;
+    }
+
+    private void ToggleMenu()
+    {
+        _menuOpen = !_menuOpen;
+        _confirmingDelete = false;
+    }
+
+    private void StartEdit()
+    {
+        _menuOpen = false;
+        _actionsPinned = false;
+        _editing = true;
+        _editText = Message.Body;
+        _focusEditBox = true;
+    }
+
+    private void CancelEdit()
+    {
+        _editing = false;
+        _editText = string.Empty;
+    }
+
+    private void OnEditKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            CancelEdit();
+    }
+
+    private async Task SaveEdit()
+    {
+        var text = _editText.Trim();
+        _editing = false;
+        if (text.Length == 0 || text == Message.Body)
+            return;
+        await OnEdit.InvokeAsync(text);
+    }
+
+    private async Task DeleteClicked()
+    {
+        if (!_confirmingDelete)
+        {
+            _confirmingDelete = true;
+            return;
+        }
+        _confirmingDelete = false;
+        _menuOpen = false;
+        await OnDelete.InvokeAsync();
+    }
+}

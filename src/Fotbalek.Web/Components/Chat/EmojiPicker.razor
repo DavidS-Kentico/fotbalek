@@ -1,0 +1,56 @@
+@implements IAsyncDisposable
+
+@* Wraps the vendored emoji-picker-element web component (self-hosted under
+   wwwroot/lib/emoji-picker-element). The custom element is created lazily on first open via
+   chat.js, which also points it at the local emoji data and keeps its theme in sync with the
+   app's data-bs-theme. Emoji are just text — the pick lands in the composer as characters. *@
+
+<div class="chat-emoji-picker @(Open ? "" : "d-none")" @ref="_container"></div>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    /// <summary>The parent's chat.js module reference.</summary>
+    [Parameter] public IJSObjectReference? Module { get; set; }
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    private ElementReference _container;
+    private DotNetObjectReference<EmojiPicker>? _selfRef;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && !_initialized && Module != null)
+        {
+            _initialized = true;
+            _selfRef = DotNetObjectReference.Create(this);
+            try
+            {
+                await Module.InvokeVoidAsync("initEmojiPicker", _container, _selfRef);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    [JSInvokable]
+    public Task OnEmojiPicked(string emoji) => OnPick.InvokeAsync(emoji);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialized && Module != null)
+        {
+            try
+            {
+                await Module.InvokeVoidAsync("disposeEmojiPicker", _container);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
+        _selfRef?.Dispose();
+    }
+}

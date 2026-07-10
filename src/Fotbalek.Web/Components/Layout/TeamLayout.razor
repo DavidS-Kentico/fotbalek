@@ -10,7 +10,12 @@
 @inject GameRoomManager GameRooms
 @inject NavigationManager Navigation
 @inject TimeZoneService Tz
+@inject ChatUiState ChatUi
 @inject IJSRuntime JS
+
+@* Fallback title while the team loads (pages register their own <PageTitle> later in the
+   render tree, so theirs wins once @Body renders). *@
+<PageTitle>@(_team != null ? $"{_team.Name} - Foosball Manager" : "Foosball Manager")</PageTitle>
 
 <div class="min-vh-100 d-flex flex-column">
     @if (_team != null && _user != null)
@@ -27,13 +32,18 @@
                         <li><h6 class="dropdown-header">Your teams</h6></li>
                         @foreach (var team in _userTeams)
                         {
+                            var chatUnread = ChatUi.GetUnread(team.Id);
                             <li>
                                 <button type="button" class="dropdown-item d-flex align-items-center gap-2 @(team.Id == _team.Id ? "active" : "")" @onclick="() => SwitchTeam(team.CodeName)">
                                     <i class="bi bi-trophy"></i>
                                     <span class="text-truncate">@team.Name</span>
+                                    @if (chatUnread > 0)
+                                    {
+                                        <span class="badge rounded-pill text-bg-danger ms-auto">@(chatUnread > 99 ? "99+" : chatUnread.ToString())</span>
+                                    }
                                     @if (team.Id == _team.Id)
                                     {
-                                        <i class="bi bi-check-lg ms-auto"></i>
+                                        <i class="bi bi-check-lg @(chatUnread > 0 ? "" : "ms-auto")"></i>
                                     }
                                 </button>
                             </li>
@@ -209,6 +219,9 @@
 
         <AppFooter />
 
+        @* Global chat dock, hinting the current team as the default conversation. *@
+        <ChatDock DefaultTeamId="_team.Id" />
+
         <Modal Show="_showShareModal" Title="Share Team" Icon="bi bi-share" OnClose="() => _showShareModal = false">
             <Body>
                 <p class="text-muted">Share this link with your teammates so they can join without entering a password:</p>
@@ -326,6 +339,7 @@
         {
             Presence.Changed -= OnPresenceChanged;
             GameRooms.Changed -= OnPresenceChanged;
+            ChatUi.Changed -= OnPresenceChanged;
             Navigation.LocationChanged -= OnLocationChanged;
             _presenceSubscribed = false;
         }
@@ -474,6 +488,9 @@
 
                 Presence.Changed += OnPresenceChanged;
                 GameRooms.Changed += OnPresenceChanged;
+                // Chat unread badges in the team switcher render from ChatUiState's cache,
+                // maintained by the dock (a child can't re-render its parent).
+                ChatUi.Changed += OnPresenceChanged;
                 Navigation.LocationChanged += OnLocationChanged;
                 _presenceSubscribed = true;
 

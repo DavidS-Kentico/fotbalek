@@ -61,6 +61,40 @@ public static class Constants
     }
 
     /// <summary>
+    /// Team chat limits and tunables
+    /// </summary>
+    public static class Chat
+    {
+        /// <summary>Server-clamped maximum message length.</summary>
+        public const int MaxMessageLength = 2000;
+
+        /// <summary>Messages per history page (initial load and scroll-back).</summary>
+        public const int HistoryPageSize = 50;
+
+        /// <summary>In-memory soft send limit: at most this many messages…</summary>
+        public const int SendThrottleMaxMessages = 5;
+
+        /// <summary>…per this many seconds, per user.</summary>
+        public const int SendThrottleWindowSeconds = 5;
+
+        /// <summary>The composer refreshes its "typing" signal at most this often.</summary>
+        public const int TypingRefreshSeconds = 3;
+
+        /// <summary>Server auto-clears a typing entry after this long without a refresh
+        /// (guards against a dropped "stopped" signal).</summary>
+        public const int TypingExpirySeconds = 6;
+
+        /// <summary>Allows ZWJ / skin-tone emoji sequences.</summary>
+        public const int MaxReactionEmojiLength = 32;
+
+        /// <summary>In-app banner body preview truncation.</summary>
+        public const int BannerPreviewLength = 120;
+
+        /// <summary>In-app banner auto-dismiss (manual dismiss also available).</summary>
+        public const int BannerAutoDismissSeconds = 6;
+    }
+
+    /// <summary>
     /// Pagination defaults
     /// </summary>
     public static class Pagination

@@ -613,8 +613,10 @@ Small details settled while building v1 — all within the spirit of the spec:
   (the spec originally drew a 3-goalie table). Only the GK rods changed; with the
   `H/figureCount` spacing rule the single goalie gets full-height travel.
 - **Vendored sourcemap**: `signalr.min.js.map` ships alongside the client (mirrors the
-  bootstrap convention) — without it, devtools' 404 map request fell through to the
-  `LegacyTeamRedirect` catch-all route and spammed `NavigationException` on every visit.
+  bootstrap convention) so devtools' map request resolves instead of 404-ing. (Historically
+  this mattered more: a since-removed `LegacyTeamRedirect` root-level catch-all turned every
+  404 — including that map request — into a `NavigationException`. That route is gone;
+  unmatched paths now return a clean 404, but keeping the sourcemap avoids the 404 entirely.)
 - **Hands flipped to screen-relative** after the first hands-on test (§2.2, §8): `W`/`S` =
   left-on-screen rod(s), arrows = right-on-screen. Only `SeatMap` tables and their game.js
   mirror changed; the wire protocol (hand 0/1) is untouched.

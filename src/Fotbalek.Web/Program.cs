@@ -142,6 +142,12 @@ builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<CircuitHandler, PresenceCircuitHandler>();
 builder.Services.AddFoosballStats();
 
+// Team chat: DB-backed messages, in-process pub/sub (PresenceTracker pattern — no hub),
+// and per-circuit dock UI state.
+builder.Services.AddScoped<ChatService>();
+builder.Services.AddSingleton<ChatNotifier>();
+builder.Services.AddScoped<ChatUiState>();
+
 // Live game (in-memory foosball mini-game): rooms + dedicated hub for the JS canvas client.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameRoomManager>();

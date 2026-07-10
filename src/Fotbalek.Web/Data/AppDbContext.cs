@@ -22,6 +22,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
     public DbSet<SeasonPlayerResult> SeasonPlayerResults => Set<SeasonPlayerResult>();
     public DbSet<SeasonPair> SeasonPairs => Set<SeasonPair>();
     public DbSet<SeasonAward> SeasonAwards => Set<SeasonAward>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatMessageReaction> ChatMessageReactions => Set<ChatMessageReaction>();
+    public DbSet<ChatReadState> ChatReadStates => Set<ChatReadState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -227,6 +230,77 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
                 .WithMany()
                 .HasForeignKey(e => e.PartnerPlayerId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ChatMessage configuration
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Body).IsRequired().HasMaxLength(Constants.Chat.MaxMessageLength);
+            // Serves history pagination and the unread count (both filter on TeamId + Id).
+            entity.HasIndex(e => new { e.TeamId, e.Id });
+            // Serves the once-per-panel-open join-floor lookup, which filters on CreatedAt.
+            entity.HasIndex(e => new { e.TeamId, e.CreatedAt });
+
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict, matching the repo's user/player FK convention: there is no
+            // user-deletion path today, and keeping user FKs non-cascading avoids a future
+            // cascade diamond (AppUser→ChatMessage alongside Team→ChatMessage→Reaction).
+            entity.HasOne(e => e.Sender)
+                .WithMany()
+                .HasForeignKey(e => e.SenderUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ChatMessageReaction configuration
+        modelBuilder.Entity<ChatMessageReaction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // Binary collation: on the SQL Server default (CI_AS) collation,
+            // supplementary-plane characters — i.e. most emoji — have undefined collation
+            // weights and compare equal (N'😀' = N'😂'), which would make the unique index
+            // below treat any two emoji from one user as duplicates and let the toggle-off
+            // lookup match the wrong row.
+            entity.Property(e => e.Emoji)
+                .IsRequired()
+                .HasMaxLength(Constants.Chat.MaxReactionEmojiLength)
+                .UseCollation("Latin1_General_100_BIN2");
+            // One of each emoji per user per message (adding an existing one toggles off).
+            // Its (MessageId) prefix also serves the load-by-message query.
+            entity.HasIndex(e => new { e.MessageId, e.UserId, e.Emoji }).IsUnique();
+
+            entity.HasOne(e => e.Message)
+                .WithMany(m => m.Reactions)
+                .HasForeignKey(e => e.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict — consistent with ChatMessage.SenderUserId; reactions still
+            // cascade-delete via MessageId, keeping a single cascade path into this table.
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ChatReadState configuration
+        modelBuilder.Entity<ChatReadState>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.UserId, e.TeamId }).IsUnique();
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // TeamMembership configuration

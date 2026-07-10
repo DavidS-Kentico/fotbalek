@@ -1,0 +1,664 @@
+@implements IAsyncDisposable
+@inject ChatService Chat
+@inject ChatNotifier Notifier
+@inject ChatUiState UiState
+@inject PlayerService PlayerService
+@inject PresenceTracker Presence
+@inject TimeZoneService Tz
+@inject IJSRuntime JS
+
+@* One team's conversation: history with infinite scroll-back down to the member's join
+   floor, live message/reaction/typing updates via ChatNotifier, mark-as-read semantics, and
+   the composer (Enter sends on physical keyboards; the send button on touch). Recreated per
+   team via @key on the parent, so all state here belongs to a single TeamId. *@
+
+<div class="chat-conversation">
+    <div class="chat-conv-header">
+        <span class="chat-conv-mono" style="@TeamMonogramStyle">@TeamInitials</span>
+        <div class="chat-conv-heading">
+            <span class="chat-conv-title">@TeamName</span>
+            @{ var online = OnlineCount(); }
+            @if (online > 0)
+            {
+                <span class="chat-conv-online"><span class="chat-online-dot"></span>@online online</span>
+            }
+        </div>
+        <button type="button" class="chat-conv-close" aria-label="Close chat" @onclick="() => OnClose.InvokeAsync()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div class="chat-messages" @ref="_scrollEl">
+        @if (!_initialLoaded)
+        {
+            <LoadingSpinner />
+        }
+        else if (_notMember)
+        {
+            <div class="chat-floor">You're not a member of this team anymore.</div>
+        }
+        else
+        {
+            if (_reachedFloor)
+            {
+                <div class="chat-floor">
+                    @(_messages.Count == 0 ? "No messages yet — say hi! 👋" : "Beginning of the chat since you joined")
+                </div>
+            }
+            else if (_loadingOlder)
+            {
+                <div class="chat-floor"><span class="spinner-border spinner-border-sm"></span></div>
+            }
+
+            DateOnly? lastDay = null;
+            ChatMessageDto? previous = null;
+            foreach (var message in _messages)
+            {
+                var day = Tz.ToLocalDate(message.CreatedAt);
+                if (day != lastDay)
+                {
+                    <div class="chat-day-divider"><span>@DayLabel(day)</span></div>
+                    lastDay = day;
+                    previous = null;
+                }
+                var showHeader = previous == null
+                    || previous.SenderUserId != message.SenderUserId
+                    || (message.CreatedAt - previous.CreatedAt) > GroupWindow;
+                <ChatMessageView Message="message"
+                                 IsOwn="message.SenderUserId == MyUserId"
+                                 ShowHeader="showHeader"
+                                 TimeText="@Tz.ToLocalTime(message.CreatedAt).ToString("HH:mm")"
+                                 EditedTimeText="@(message.EditedAt is { } edited ? Tz.ToLocalTime(edited).ToString("MMM d, HH:mm") : null)"
+                                 MyUserId="MyUserId"
+                                 MyPlayerName="@MyPlayerName"
+                                 RosterNames="_mentionNames"
+                                 ResolveUserName="ResolveUserName"
+                                 OnToggleReaction="emoji => ToggleReaction(message.Id, emoji)"
+                                 OnEdit="newBody => EditMessage(message.Id, newBody)"
+                                 OnDelete="() => DeleteMessage(message.Id)" />
+                previous = message;
+            }
+        }
+    </div>
+
+    @if (_showNewPill)
+    {
+        <button type="button" class="chat-new-pill" @onclick="ScrollToNew">
+            New messages <i class="bi bi-arrow-down"></i>
+        </button>
+    }
+
+    <div class="chat-typing">@TypingText()</div>
+
+    @if (_sendError != null)
+    {
+        <div class="chat-send-error">@_sendError</div>
+    }
+
+    <div class="chat-composer">
+        @if (_mentionMatches.Count > 0)
+        {
+            <div class="chat-mention-popup">
+                @foreach (var player in _mentionMatches)
+                {
+                    <button type="button" class="chat-mention-option" @onclick="() => PickMention(player)">
+                        <Avatar AvatarId="@player.AvatarId" Size="sm" />
+                        <span>@player.Name</span>
+                    </button>
+                }
+            </div>
+        }
+        <EmojiPicker Open="_pickerOpen" Module="_js" OnPick="InsertEmoji" />
+        <div class="chat-composer-row">
+            <button type="button" class="chat-composer-btn" title="Emoji" @onclick="TogglePicker">
+                <i class="bi bi-emoji-smile"></i>
+            </button>
+            <textarea @ref="_composerEl" class="chat-composer-input" rows="1"
+                      placeholder="@($"Message {TeamName}…")"
+                      maxlength="@Constants.Chat.MaxMessageLength"
+                      @onfocusout="OnComposerBlur"></textarea>
+            <button type="button" class="chat-composer-btn chat-composer-send" title="Send"
+                    disabled="@string.IsNullOrWhiteSpace(_draft)" @onclick="SendClicked">
+                <i class="bi bi-send-fill"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int TeamId { get; set; }
+    [Parameter, EditorRequired] public string TeamName { get; set; } = string.Empty;
+    /// <summary>Team monogram initials shown in the conversation header (matches the rail chip).</summary>
+    [Parameter] public string? TeamInitials { get; set; }
+    /// <summary>Inline style carrying the team's monogram gradient (matches the rail chip).</summary>
+    [Parameter] public string? TeamMonogramStyle { get; set; }
+    [Parameter, EditorRequired] public int MyUserId { get; set; }
+    [Parameter] public string? MyPlayerName { get; set; }
+    /// <summary>Raised when the user closes the dock from the conversation header.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+    /// <summary>Whether reads count right now: dock open, this team selected, tab focused.</summary>
+    [Parameter] public bool IsActive { get; set; }
+    /// <summary>False on coarse-pointer (touch) devices, where Enter inserts a newline.</summary>
+    [Parameter] public bool SendOnEnter { get; set; } = true;
+
+    private static readonly TimeSpan GroupWindow = TimeSpan.FromMinutes(5);
+
+    private readonly List<ChatMessageDto> _messages = [];
+    private readonly HashSet<int> _messageIds = [];
+    private int _joinFloorId;
+    private bool _initialLoaded;
+    private bool _notMember;
+    private bool _reachedFloor;
+    private bool _loadingOlder;
+    private int _lastMarkedReadId;
+    private bool _wasActive;
+
+    private List<Player> _roster = [];
+    private Dictionary<int, Player> _playersByUserId = [];
+    private List<string> _mentionNames = [];
+
+    private IReadOnlyList<int> _typingUserIds = [];
+
+    private string _draft = string.Empty;
+    private DateTimeOffset _lastTypingSignal = DateTimeOffset.MinValue;
+    private bool _pickerOpen;
+    private string? _sendError;
+    private List<Player> _mentionMatches = [];
+    private int _mentionTokenStart;
+    private int _mentionCaret;
+
+    private bool _nearBottom = true;
+    private bool _showNewPill;
+    private bool _pendingScrollToBottom;
+    private double? _pendingPrependHeight;
+
+    private ElementReference _scrollEl;
+    private ElementReference _composerEl;
+    private IJSObjectReference? _js;
+    private DotNetObjectReference<ChatConversation>? _selfRef;
+    private bool _jsUiInitialized;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        // Subscribe before the initial page query (§4.7): a message landing in between is
+        // appended by the handler and deduped against the page by id.
+        Notifier.MessagePosted += OnMessagePosted;
+        Notifier.MessageDeleted += OnMessageDeleted;
+        Notifier.MessageEdited += OnMessageEdited;
+        Notifier.ReactionChanged += OnReactionChanged;
+        Notifier.TypingChanged += OnTypingChanged;
+        Presence.Changed += OnPresenceChanged;
+        _draft = UiState.GetDraft(TeamId);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Becoming active (dock focused with this conversation open) reads everything loaded.
+        if (IsActive && !_wasActive && _initialLoaded && _messages.Count > 0)
+            await MarkReadAsync(_messages[^1].Id);
+        _wasActive = IsActive;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            _js = await JS.InvokeAsync<IJSObjectReference>("import", "/js/chat.js");
+
+            _roster = await PlayerService.GetByTeamAsync(TeamId, includeInactive: true);
+            _playersByUserId = _roster
+                .Where(p => p.UserId.HasValue)
+                .GroupBy(p => p.UserId!.Value)
+                .ToDictionary(g => g.Key, g => g.First());
+            _mentionNames = _roster
+                .Select(p => p.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(n => n.Length)
+                .ToList();
+
+            var floor = await Chat.GetJoinFloorIdAsync(MyUserId, TeamId);
+            if (floor == null)
+            {
+                _notMember = true;
+                _initialLoaded = true;
+                StateHasChanged();
+                return;
+            }
+            _joinFloorId = floor.Value;
+
+            var page = await Chat.GetPageAsync(MyUserId, TeamId, _joinFloorId) ?? [];
+            // Live messages may have arrived while loading — they are newer, so the page
+            // (minus duplicates) goes in front.
+            var fresh = page.Where(m => _messageIds.Add(m.Id)).ToList();
+            _messages.InsertRange(0, fresh);
+            if (page.Count < Constants.Chat.HistoryPageSize)
+                _reachedFloor = true;
+
+            _initialLoaded = true;
+            _pendingScrollToBottom = true;
+            if (IsActive && _messages.Count > 0)
+                await MarkReadAsync(_messages[^1].Id);
+            StateHasChanged();
+            return;
+        }
+
+        if (_js == null)
+            return;
+
+        if (_initialLoaded && !_notMember && !_jsUiInitialized)
+        {
+            _jsUiInitialized = true;
+            await _js.InvokeVoidAsync("initScroll", _scrollEl, _selfRef);
+            await _js.InvokeVoidAsync("initComposer", _composerEl, _selfRef, SendOnEnter, _draft);
+        }
+
+        if (_pendingScrollToBottom)
+        {
+            _pendingScrollToBottom = false;
+            await _js.InvokeVoidAsync("scrollToBottom", _scrollEl);
+        }
+
+        if (_pendingPrependHeight is double previousHeight)
+        {
+            _pendingPrependHeight = null;
+            await _js.InvokeVoidAsync("restoreScrollAfterPrepend", _scrollEl, previousHeight);
+        }
+    }
+
+    // ── Live events (raised on other circuits' threads — always marshal via InvokeAsync) ──
+
+    private async void OnMessagePosted(int teamId, ChatMessageDto message)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (!_messageIds.Add(message.Id))
+                    return;
+                _messages.Add(message);
+                var own = message.SenderUserId == MyUserId;
+                if (own || _nearBottom)
+                    _pendingScrollToBottom = true;
+                else
+                    _showNewPill = true;
+                if (IsActive)
+                    await MarkReadAsync(message.Id);
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnMessageDeleted(int teamId, int messageId)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                var index = _messages.FindIndex(m => m.Id == messageId);
+                if (index < 0) return;
+                _messages[index] = _messages[index] with
+                {
+                    IsDeleted = true,
+                    Body = string.Empty,
+                    Reactions = [],
+                };
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnMessageEdited(int teamId, int messageId, string body, DateTimeOffset editedAt)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                var index = _messages.FindIndex(m => m.Id == messageId);
+                if (index < 0) return;
+                _messages[index] = _messages[index] with { Body = body, EditedAt = editedAt };
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnReactionChanged(int teamId, int messageId, List<ChatReactionDto> reactions)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                var index = _messages.FindIndex(m => m.Id == messageId);
+                if (index < 0) return;
+                _messages[index] = _messages[index] with { Reactions = reactions };
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnTypingChanged(int teamId, IReadOnlyList<int> userIds)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                _typingUserIds = userIds;
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnPresenceChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    // ── Message actions ────────────────────────────────────────────────────────────────
+
+    private async Task ToggleReaction(int messageId, string emoji) =>
+        await Chat.ToggleReactionAsync(MyUserId, TeamId, messageId, emoji);
+
+    private async Task DeleteMessage(int messageId) =>
+        await Chat.DeleteAsync(MyUserId, TeamId, messageId);
+
+    private async Task EditMessage(int messageId, string newBody) =>
+        await Chat.EditAsync(MyUserId, TeamId, messageId, newBody);
+
+    // ── Read watermark ─────────────────────────────────────────────────────────────────
+
+    private async Task MarkReadAsync(int messageId)
+    {
+        if (messageId <= _lastMarkedReadId) return;
+        _lastMarkedReadId = messageId;
+        await Chat.MarkReadAsync(MyUserId, TeamId, messageId);
+    }
+
+    // ── Scrolling / pagination (invoked from chat.js) ──────────────────────────────────
+
+    [JSInvokable]
+    public async Task OnScrolledNearTop()
+    {
+        if (_loadingOlder || _reachedFloor || !_initialLoaded || _notMember || _js == null)
+            return;
+        _loadingOlder = true;
+        StateHasChanged();
+        try
+        {
+            var previousHeight = await _js.InvokeAsync<double>("measureScrollHeight", _scrollEl);
+            var oldestId = _messages.Count > 0 ? _messages[0].Id : (int?)null;
+            var page = await Chat.GetPageAsync(MyUserId, TeamId, _joinFloorId, beforeId: oldestId) ?? [];
+            var fresh = page.Where(m => _messageIds.Add(m.Id)).ToList();
+            _messages.InsertRange(0, fresh);
+            if (page.Count < Constants.Chat.HistoryPageSize)
+                _reachedFloor = true;
+            _pendingPrependHeight = previousHeight;
+        }
+        finally
+        {
+            _loadingOlder = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnNearBottomChanged(bool nearBottom)
+    {
+        _nearBottom = nearBottom;
+        if (nearBottom && _showNewPill)
+        {
+            _showNewPill = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScrollToNew()
+    {
+        _showNewPill = false;
+        if (_js != null)
+            await _js.InvokeVoidAsync("scrollToBottom", _scrollEl);
+    }
+
+    // ── Composer (invoked from chat.js) ────────────────────────────────────────────────
+
+    [JSInvokable]
+    public async Task OnComposerInput(string value, int caret)
+    {
+        _draft = value;
+        UiState.SetDraft(TeamId, value);
+        ComputeMentionState(value, caret);
+
+        if (value.Length == 0)
+        {
+            _lastTypingSignal = DateTimeOffset.MinValue;
+            await Chat.SetTypingAsync(MyUserId, TeamId, false);
+        }
+        else if ((DateTimeOffset.UtcNow - _lastTypingSignal).TotalSeconds >= Constants.Chat.TypingRefreshSeconds)
+        {
+            _lastTypingSignal = DateTimeOffset.UtcNow;
+            await Chat.SetTypingAsync(MyUserId, TeamId, true);
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnComposerSend(string text)
+    {
+        // Enter path: chat.js already cleared the textarea.
+        _draft = string.Empty;
+        UiState.SetDraft(TeamId, string.Empty);
+        _mentionMatches = [];
+        await SendCoreAsync(text);
+    }
+
+    private async Task SendClicked()
+    {
+        var text = _draft;
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+        _draft = string.Empty;
+        UiState.SetDraft(TeamId, string.Empty);
+        _mentionMatches = [];
+        if (_js != null)
+            await _js.InvokeVoidAsync("clearComposer", _composerEl);
+        await SendCoreAsync(text);
+    }
+
+    private async Task SendCoreAsync(string text)
+    {
+        var result = await Chat.SendAsync(MyUserId, TeamId, text);
+        switch (result)
+        {
+            case ChatService.SendResult.Throttled:
+                _sendError = "You're sending messages too quickly — give it a few seconds.";
+                await RestoreDraftAsync(text);
+                _ = ClearSendErrorLaterAsync();
+                break;
+            case ChatService.SendResult.NotMember:
+                _sendError = "You're not a member of this team anymore.";
+                break;
+            default:
+                // Don't clear on success: rapid-fire sends complete out of order, and a slow
+                // earlier send finishing late would wipe a just-shown throttle error. The
+                // timer clears it instead.
+                break;
+        }
+        _lastTypingSignal = DateTimeOffset.MinValue;
+        StateHasChanged();
+    }
+
+    /// <summary>A throttled send must not eat the text — put it back into the composer.</summary>
+    private async Task RestoreDraftAsync(string text)
+    {
+        _draft = text;
+        UiState.SetDraft(TeamId, text);
+        if (_js != null)
+            await _js.InvokeVoidAsync("insertIntoComposer", _composerEl, text);
+    }
+
+    private async Task ClearSendErrorLaterAsync()
+    {
+        await Task.Delay(4000);
+        if (_disposed) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                _sendError = null;
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task OnComposerBlur()
+    {
+        _lastTypingSignal = DateTimeOffset.MinValue;
+        await Chat.SetTypingAsync(MyUserId, TeamId, false);
+    }
+
+    private void TogglePicker() => _pickerOpen = !_pickerOpen;
+
+    private async Task InsertEmoji(string emoji)
+    {
+        _pickerOpen = false;
+        if (_js != null)
+            await _js.InvokeVoidAsync("insertIntoComposer", _composerEl, emoji);
+    }
+
+    // ── @mention autocomplete ──────────────────────────────────────────────────────────
+
+    private void ComputeMentionState(string value, int caret)
+    {
+        _mentionMatches = [];
+        caret = Math.Clamp(caret, 0, value.Length);
+
+        // The token is the text from the last '@' (at start or after whitespace) up to the
+        // caret. Names may contain spaces, so the query does too; a newline ends it.
+        var at = -1;
+        for (var i = caret - 1; i >= 0; i--)
+        {
+            var c = value[i];
+            if (c == '@')
+            {
+                if (i == 0 || char.IsWhiteSpace(value[i - 1]))
+                    at = i;
+                break;
+            }
+            if (c == '\n' || caret - i > 40)
+                break;
+        }
+        if (at < 0)
+            return;
+
+        var query = value[(at + 1)..caret];
+        if (query.Contains('\n'))
+            return;
+
+        var matches = _roster
+            .Where(p => p.IsActive && p.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.Name)
+            .Take(6)
+            .ToList();
+
+        // Hide the popup once a pick completed ("@Name " typed out exactly).
+        if (matches.Count == 1 && query.EndsWith(' ') &&
+            string.Equals(query.TrimEnd(), matches[0].Name, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _mentionTokenStart = at;
+        _mentionCaret = caret;
+        _mentionMatches = matches;
+    }
+
+    private async Task PickMention(Player player)
+    {
+        var start = _mentionTokenStart;
+        var end = _mentionCaret;
+        _mentionMatches = [];
+        if (_js != null)
+            await _js.InvokeVoidAsync("replaceComposerRange", _composerEl, start, end, $"@{player.Name} ");
+    }
+
+    // ── Rendering helpers ──────────────────────────────────────────────────────────────
+
+    private string DayLabel(DateOnly day)
+    {
+        var today = Tz.Today;
+        if (day == today) return "Today";
+        if (day == today.AddDays(-1)) return "Yesterday";
+        return day.ToString("MMM d, yyyy");
+    }
+
+    private string ResolveUserName(int userId) =>
+        _playersByUserId.TryGetValue(userId, out var player) ? player.Name : "Former member";
+
+    private int OnlineCount() =>
+        _roster.Count(p => p.UserId.HasValue && Presence.IsOnline(p.UserId.Value));
+
+    private string TypingText()
+    {
+        var names = _typingUserIds
+            .Where(id => id != MyUserId)
+            .Select(ResolveUserName)
+            .OrderBy(n => n)
+            .ToList();
+        return names.Count switch
+        {
+            0 => string.Empty,
+            1 => $"{names[0]} is typing…",
+            2 => $"{names[0]} and {names[1]} are typing…",
+            _ => "Several people are typing…",
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        Notifier.MessagePosted -= OnMessagePosted;
+        Notifier.MessageDeleted -= OnMessageDeleted;
+        Notifier.MessageEdited -= OnMessageEdited;
+        Notifier.ReactionChanged -= OnReactionChanged;
+        Notifier.TypingChanged -= OnTypingChanged;
+        Presence.Changed -= OnPresenceChanged;
+
+        try
+        {
+            await Chat.SetTypingAsync(MyUserId, TeamId, false);
+        }
+        catch
+        {
+            // Circuit teardown — the server-side typing expiry covers this.
+        }
+
+        if (_js != null)
+        {
+            try
+            {
+                if (_jsUiInitialized)
+                {
+                    await _js.InvokeVoidAsync("disposeScroll", _scrollEl);
+                    await _js.InvokeVoidAsync("disposeComposer", _composerEl);
+                }
+                await _js.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (JSException) { }
+        }
+        _selfRef?.Dispose();
+    }
+}

@@ -1,0 +1,445 @@
+@implements IAsyncDisposable
+@inject CurrentUserService CurrentUser
+@inject TeamMembershipService MembershipService
+@inject ChatService Chat
+@inject ChatNotifier Notifier
+@inject ChatUiState UiState
+@inject PresenceTracker Presence
+@inject PlayerService PlayerService
+@inject TimeZoneService Tz
+@inject IJSRuntime JS
+
+@* The global chat dock: a floating launcher + panel with its own team switcher, rendered by
+   both MainLayout and TeamLayout so it is present on every authenticated page. Gated on
+   authenticated && ≥1 claimed team — it renders nothing otherwise (anonymous pages,
+   admin-only sessions, brand-new users). Lists only teams where the user has claimed a
+   Player. Also raises the in-app banners and keeps the tab-title unread prefix current. *@
+
+@if (_ready)
+{
+    <div class="chat-dock">
+        @if (UiState.IsOpen)
+        {
+            <div class="chat-panel">
+                <div class="chat-panel-body">
+                    <div class="chat-team-rail">
+                        <div class="chat-rail-head">
+                            <span>Messages</span>
+                            @if (UiState.TotalUnread > 0)
+                            {
+                                <span class="chat-badge chat-rail-total">@Cap(UiState.TotalUnread)</span>
+                            }
+                        </div>
+                        <div class="chat-rail-list">
+                            @foreach (var entry in _teams)
+                            {
+                                var unread = UiState.GetUnread(entry.Team.Id);
+                                <button type="button"
+                                        class="chat-team-item @(entry.Team.Id == UiState.SelectedTeamId ? "active" : "")"
+                                        title="@entry.Team.Name"
+                                        @onclick="() => SelectTeam(entry.Team.Id)">
+                                    <span class="chat-mono" style="@MonogramStyle(entry.Team.Id)">
+                                        @Initials(entry.Team.Name)
+                                        @if (HasOthersOnline(entry.Team.Id))
+                                        {
+                                            <span class="chat-mono-presence"></span>
+                                        }
+                                    </span>
+                                    <span class="chat-team-name">@entry.Team.Name</span>
+                                    <span class="chat-team-when">@PreviewTime(entry.Team.Id)</span>
+                                    <span class="chat-team-prev">@PreviewText(entry.Team.Id)</span>
+                                    @if (unread > 0)
+                                    {
+                                        <span class="chat-badge chat-team-unread">@Cap(unread)</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    </div>
+                    <div class="chat-conv-host">
+                        @if (SelectedEntry is { } selected)
+                        {
+                            <ChatConversation @key="selected.Team.Id"
+                                              TeamId="selected.Team.Id"
+                                              TeamName="@selected.Team.Name"
+                                              TeamInitials="@Initials(selected.Team.Name)"
+                                              TeamMonogramStyle="@MonogramStyle(selected.Team.Id)"
+                                              MyUserId="_userId"
+                                              MyPlayerName="@selected.MyPlayer.Name"
+                                              IsActive="_browserActive"
+                                              SendOnEnter="_sendOnEnter"
+                                              OnClose="CloseDock" />
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <button type="button" class="chat-launcher" title="Team chat" aria-label="Team chat" @onclick="ToggleOpen">
+            <i class="bi bi-chat-dots-fill"></i>
+            @if (UiState.TotalUnread > 0)
+            {
+                <span class="chat-badge chat-launcher-badge">@Cap(UiState.TotalUnread)</span>
+            }
+        </button>
+    </div>
+
+    <div class="chat-banners">
+        @foreach (var banner in _banners)
+        {
+            <div class="chat-banner" role="alert" @key="banner.Key" @onclick="() => OpenFromBanner(banner.TeamId)">
+                <div class="chat-banner-team">💬 @banner.TeamName</div>
+                <div class="chat-banner-text">@banner.Text</div>
+                <button type="button" class="btn-close chat-banner-close" aria-label="Dismiss"
+                        @onclick="() => DismissBanner(banner.Key)" @onclick:stopPropagation="true"></button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Set by TeamLayout: on a team page the dock defaults its selection to that
+    /// team (unless the panel is already open with a selection this circuit).</summary>
+    [Parameter] public int? DefaultTeamId { get; set; }
+
+    private record TeamEntry(Team Team, Player MyPlayer);
+    private record Banner(long Key, int TeamId, string TeamName, string Text);
+    private record DockInit(int Token, bool Active, bool Coarse);
+
+    private bool _ready;
+    private int _userId;
+    private List<TeamEntry> _teams = [];
+    private readonly Dictionary<int, List<int>> _rosterUserIdsByTeam = [];
+    private readonly Dictionary<int, ChatThreadPreview> _previews = [];
+    private bool _browserActive = true;
+    private bool _sendOnEnter = true;
+    private readonly List<Banner> _banners = [];
+    private long _bannerSeq;
+
+    private IJSObjectReference? _js;
+    private DotNetObjectReference<ChatDock>? _selfRef;
+    private int _dockToken;
+    private bool _subscribed;
+
+    private TeamEntry? SelectedEntry => _teams.FirstOrDefault(t => t.Team.Id == UiState.SelectedTeamId);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var userId = await CurrentUser.GetUserIdAsync();
+        if (userId == null)
+            return;
+        _userId = userId.Value;
+
+        var overview = await MembershipService.GetMembershipOverviewForUserAsync(_userId);
+        _teams = overview
+            .Where(o => o.MyPlayer != null)
+            .Select(o => new TeamEntry(o.Team, o.MyPlayer!))
+            .ToList();
+        if (_teams.Count == 0)
+            return;
+
+        // Claimed rosters per team for the rail's online dots.
+        foreach (var entry in _teams)
+        {
+            var roster = await PlayerService.GetByTeamAsync(entry.Team.Id);
+            _rosterUserIdsByTeam[entry.Team.Id] = roster
+                .Where(p => p.UserId.HasValue)
+                .Select(p => p.UserId!.Value)
+                .ToList();
+        }
+
+        Notifier.MessagePosted += OnMessagePosted;
+        Notifier.MessageDeleted += OnMessageDeleted;
+        Notifier.MessageEdited += OnMessageEdited;
+        Notifier.ReadStateChanged += OnReadStateChanged;
+        Presence.Changed += OnPresenceChanged;
+        UiState.Changed += OnUnreadCacheChanged;
+        _subscribed = true;
+
+        await Tz.EnsureResolvedAsync();
+        foreach (var (teamId, preview) in await Chat.GetThreadPreviewsAsync(_userId))
+            _previews[teamId] = preview;
+
+        // Team pages hint their team; it only overrides while the panel is closed so an open
+        // conversation survives in-circuit navigation (§6.1).
+        if (!UiState.IsOpen && DefaultTeamId is int hinted && _teams.Any(t => t.Team.Id == hinted))
+            UiState.SelectedTeamId = hinted;
+
+        await RefreshUnreadAsync();
+
+        UiState.SelectedTeamId ??=
+            _teams.FirstOrDefault(t => UiState.GetUnread(t.Team.Id) > 0)?.Team.Id
+            ?? _teams[0].Team.Id;
+        if (_teams.All(t => t.Team.Id != UiState.SelectedTeamId))
+            UiState.SelectedTeamId = _teams[0].Team.Id;
+
+        _selfRef = DotNetObjectReference.Create(this);
+        _js = await JS.InvokeAsync<IJSObjectReference>("import", "/js/chat.js");
+        var init = await _js.InvokeAsync<DockInit>("initDock", _selfRef);
+        _dockToken = init.Token;
+        _browserActive = init.Active;
+        _sendOnEnter = !init.Coarse;
+        await _js.InvokeVoidAsync("setUnread", UiState.TotalUnread);
+
+        _ready = true;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnBrowserActiveChanged(bool active)
+    {
+        if (_browserActive == active)
+            return;
+        _browserActive = active;
+        StateHasChanged();
+    }
+
+    // ── Live events (raised on other circuits' threads — marshal via InvokeAsync) ───────
+
+    private async void OnMessagePosted(int teamId, ChatMessageDto message)
+    {
+        var entry = _teams.FirstOrDefault(t => t.Team.Id == teamId);
+        if (entry == null)
+            return;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                // A newly posted message is always the newest — it becomes the rail preview.
+                _previews[teamId] = new ChatThreadPreview(
+                    message.Id, message.SenderUserId, message.SenderName, message.Body, message.CreatedAt);
+
+                // The message is read immediately only when this tab has the conversation
+                // open, selected and focused (§5.1) — anything else gets a banner, except
+                // the user's own messages.
+                var immediatelyRead = UiState.IsOpen && UiState.SelectedTeamId == teamId && _browserActive;
+                if (message.SenderUserId != _userId && !immediatelyRead)
+                {
+                    var preview = message.Body.Length > Constants.Chat.BannerPreviewLength
+                        ? message.Body[..Constants.Chat.BannerPreviewLength] + "…"
+                        : message.Body;
+                    var text = MentionsMe(message.Body, entry.MyPlayer.Name)
+                        ? $"{message.SenderName} mentioned you: {preview}"
+                        : $"{message.SenderName}: {preview}";
+                    var banner = new Banner(++_bannerSeq, teamId, entry.Team.Name, text);
+                    _banners.Add(banner);
+                    _ = DismissBannerLaterAsync(banner.Key);
+                }
+                await RefreshUnreadAsync();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnMessageDeleted(int teamId, int messageId)
+    {
+        if (_teams.All(t => t.Team.Id != teamId))
+            return;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                // Deleting the message currently shown in the rail preview surfaces the one
+                // before it; any other deletion leaves the preview untouched.
+                if (_previews.TryGetValue(teamId, out var current) && current.MessageId == messageId)
+                {
+                    var replacement = await Chat.GetThreadPreviewAsync(_userId, teamId);
+                    if (replacement != null)
+                        _previews[teamId] = replacement;
+                    else
+                        _previews.Remove(teamId);
+                }
+                await RefreshUnreadAsync();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnMessageEdited(int teamId, int messageId, string body, DateTimeOffset editedAt)
+    {
+        if (_teams.All(t => t.Team.Id != teamId))
+            return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                // Only the shown preview needs patching when its own message is edited.
+                if (_previews.TryGetValue(teamId, out var current) && current.MessageId == messageId)
+                {
+                    _previews[teamId] = current with { Body = body };
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnReadStateChanged(int teamId, int userId, int lastReadMessageId)
+    {
+        if (userId != _userId)
+            return;
+        try
+        {
+            await InvokeAsync(RefreshUnreadAsync);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnPresenceChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnUnreadCacheChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_js != null)
+                {
+                    try
+                    {
+                        await _js.InvokeVoidAsync("setUnread", UiState.TotalUnread);
+                    }
+                    catch (JSDisconnectedException) { }
+                }
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task RefreshUnreadAsync()
+    {
+        // Recompute, never increment — a user's own sends advance their watermark, so a
+        // count query can't drift the way a local counter would (§5.2).
+        var counts = await Chat.GetUnreadCountsAsync(_userId);
+        UiState.SetUnreadCounts(counts);
+    }
+
+    private static bool MentionsMe(string body, string playerName) =>
+        body.Contains("@" + playerName, StringComparison.OrdinalIgnoreCase);
+
+    // ── UI actions ─────────────────────────────────────────────────────────────────────
+
+    private void ToggleOpen() => UiState.IsOpen = !UiState.IsOpen;
+
+    private void CloseDock() => UiState.IsOpen = false;
+
+    private void SelectTeam(int teamId) => UiState.SelectedTeamId = teamId;
+
+    private void OpenFromBanner(int teamId)
+    {
+        UiState.IsOpen = true;
+        UiState.SelectedTeamId = teamId;
+        _banners.RemoveAll(b => b.TeamId == teamId);
+    }
+
+    private void DismissBanner(long key) => _banners.RemoveAll(b => b.Key == key);
+
+    private async Task DismissBannerLaterAsync(long key)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(Constants.Chat.BannerAutoDismissSeconds));
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (_banners.RemoveAll(b => b.Key == key) > 0)
+                    StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private bool HasOthersOnline(int teamId) =>
+        _rosterUserIdsByTeam.TryGetValue(teamId, out var userIds) &&
+        userIds.Any(id => id != _userId && Presence.IsOnline(id));
+
+    private static string Cap(int count) => count > 99 ? "99+" : count.ToString();
+
+    // ── Rail identity + preview ──────────────────────────────────────────────────────────
+
+    // Six dark-friendly gradients, chosen deterministically per team so a team keeps its
+    // colour across the rail chip and the conversation header.
+    private static readonly (string From, string To)[] MonogramColors =
+    [
+        ("#1f8f5f", "#146c47"), ("#4062c9", "#2c3f8f"), ("#b5651d", "#8a4a12"),
+        ("#7048c4", "#4f2f92"), ("#c94062", "#93283f"), ("#2aa198", "#177a72"),
+    ];
+
+    private static string MonogramStyle(int teamId)
+    {
+        var (from, to) = MonogramColors[((teamId % MonogramColors.Length) + MonogramColors.Length) % MonogramColors.Length];
+        return $"background:linear-gradient(135deg,{from},{to})";
+    }
+
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return "#";
+        if (parts.Length == 1)
+            return parts[0].Length == 1 ? parts[0].ToUpperInvariant() : parts[0][..2].ToUpperInvariant();
+        return (parts[0][..1] + parts[1][..1]).ToUpperInvariant();
+    }
+
+    private string PreviewText(int teamId)
+    {
+        if (!_previews.TryGetValue(teamId, out var p))
+            return "No messages yet";
+        var who = p.SenderUserId == _userId ? "You" : p.SenderName.Split(' ', 2)[0];
+        var body = p.Body.ReplaceLineEndings(" ");
+        if (body.Length > 60)
+            body = body[..60];
+        return $"{who}: {body}";
+    }
+
+    private string PreviewTime(int teamId)
+    {
+        if (!_previews.TryGetValue(teamId, out var p))
+            return string.Empty;
+        var local = Tz.ToLocalTime(p.CreatedAt);
+        var day = Tz.ToLocalDate(p.CreatedAt);
+        var today = Tz.Today;
+        if (day == today)
+            return local.ToString("HH:mm");
+        if (day > today.AddDays(-7))
+            return local.ToString("ddd");
+        return local.ToString("MMM d");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_subscribed)
+        {
+            Notifier.MessagePosted -= OnMessagePosted;
+            Notifier.MessageDeleted -= OnMessageDeleted;
+            Notifier.MessageEdited -= OnMessageEdited;
+            Notifier.ReadStateChanged -= OnReadStateChanged;
+            Presence.Changed -= OnPresenceChanged;
+            UiState.Changed -= OnUnreadCacheChanged;
+            _subscribed = false;
+        }
+        if (_js != null)
+        {
+            try
+            {
+                await _js.InvokeVoidAsync("disposeDock", _dockToken);
+                await _js.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (JSException) { }
+        }
+        _selfRef?.Dispose();
+    }
+}

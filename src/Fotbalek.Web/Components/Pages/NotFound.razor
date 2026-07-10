@@ -1,5 +1,6 @@
 @page "/not-found"
 @layout MainLayout
+@using Microsoft.AspNetCore.Http
 
 <PageTitle>Not Found - Foosball Manager</PageTitle>
 
@@ -19,3 +20,17 @@
         </div>
     </div>
 </div>
+
+@code {
+    // Available during static SSR / prerender. This page is rendered both by the Router's
+    // NotFoundPage (an unmatched route, which starts as a 200) and by
+    // UseStatusCodePagesWithReExecute (which has already set an error status). Only upgrade a
+    // plain 200 so a route-miss becomes a real 404 without clobbering an already-set 4xx/5xx.
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext is { Response.StatusCode: StatusCodes.Status200OK } ctx)
+            ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+    }
+}

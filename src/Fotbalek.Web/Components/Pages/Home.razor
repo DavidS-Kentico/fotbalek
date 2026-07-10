@@ -1,9 +1,11 @@
 @page "/"
 @rendermode InteractiveServer
+@implements IDisposable
 @inject CurrentUserService CurrentUser
 @inject TeamMembershipService MembershipService
 @inject LandingStatsService LandingStats
 @inject PresenceTracker Presence
+@inject ChatUiState ChatUi
 @inject IJSRuntime JS
 
 <PageTitle>Foosball Manager</PageTitle>
@@ -79,9 +81,18 @@
             <div class="list-group list-group-flush">
                 @foreach (var team in _myTeams)
                 {
+                    var chatUnread = ChatUi.GetUnread(team.Id);
                     <a href="/team/@team.CodeName" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-shield-fill text-success me-2"></i>@team.Name</span>
-                        <small class="text-muted">@@@team.CodeName</small>
+                        <span class="d-flex align-items-center gap-2">
+                            @if (chatUnread > 0)
+                            {
+                                <span class="badge rounded-pill text-bg-danger" title="Unread chat messages">
+                                    <i class="bi bi-chat-dots me-1"></i>@(chatUnread > 99 ? "99+" : chatUnread.ToString())
+                                </span>
+                            }
+                            <small class="text-muted">@@@team.CodeName</small>
+                        </span>
                     </a>
                 }
             </div>
@@ -365,6 +376,10 @@
         {
             _isAuthenticated = true;
             _myTeams = await MembershipService.GetTeamsForUserAsync(userId.Value);
+            // Per-team chat badges render from ChatUiState's cache, which the dock (also on
+            // this page) keeps current.
+            ChatUi.Changed += OnChatUnreadChanged;
+            _chatSubscribed = true;
         }
 
         _loading = false;
@@ -376,6 +391,26 @@
             var labels = _stats.Activity.Select(a => a.Day.ToString("MM-dd")).ToArray();
             var data = _stats.Activity.Select(a => a.Matches).ToArray();
             await JS.InvokeVoidAsync("renderBarChart", "landingActivityChart", labels, data, "Matches", "#198754");
+        }
+    }
+
+    private bool _chatSubscribed;
+
+    private async void OnChatUnreadChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        if (_chatSubscribed)
+        {
+            ChatUi.Changed -= OnChatUnreadChanged;
+            _chatSubscribed = false;
         }
     }
 
