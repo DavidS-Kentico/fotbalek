@@ -30,6 +30,23 @@ public static class GamePhysics
         s.BallVX *= damping;
         s.BallVY *= damping;
 
+        // Magnus (§skill): a spinning ball curves — accelerate it perpendicular to its own velocity,
+        // scaled by spin and speed, so a shot struck on the move bends in flight. The curve is baked
+        // into the broadcast positions; the client just interpolates it. Spin then bleeds off, so the
+        // bend is sharpest right after the strike and straightens out.
+        var speed = Math.Sqrt(s.BallVX * s.BallVX + s.BallVY * s.BallVY);
+        if (s.BallSpin != 0 && speed > 1e-6)
+        {
+            var accel = GameConstants.MagnusCoefficient * s.BallSpin * speed * dt;
+            var ux = s.BallVX / speed;
+            var uy = s.BallVY / speed;
+            // Perpendicular to velocity (unit velocity rotated +90°: (-uy, ux)). Nearly zero net work,
+            // and ClampSpeed keeps the tiny magnitude drift from the discrete step in check.
+            s.BallVX += -uy * accel;
+            s.BallVY += ux * accel;
+        }
+        s.BallSpin *= Math.Max(0, 1 - GameConstants.SpinDecayPerSecond * dt);
+
         var px = s.BallX;
         var py = s.BallY;
         var nx = px + s.BallVX * dt;
@@ -99,12 +116,29 @@ public static class GamePhysics
         {
             var rod = GameConstants.Rods[i];
             var prev = s.RodOffset[i];
-            var maxStep = GameConstants.RodSpeed / rod.Travel * dt;
-            var next = s.RodGlide[i]
-                ? MoveToward(prev, 0.5, maxStep)
-                : Math.Clamp(prev + s.RodDir[i] * maxStep, 0, 1);
-            // Actual velocity (0 when clamped at the travel limit) — kicks read this.
-            s.RodVel[i] = (next - prev) * rod.Travel / dt;
+            double next;
+            if (s.RodGlide[i])
+            {
+                // Unowned side eases to center at full speed (no ramp — it's cosmetic auto-centering).
+                next = MoveToward(prev, 0.5, GameConstants.RodSpeed / rod.Travel * dt);
+                s.RodVel[i] = (next - prev) * rod.Travel / dt;
+            }
+            else
+            {
+                // Accelerate the rod's speed toward the held-direction target, then integrate position.
+                // RodVel doubles as the ramp state: it equals the commanded speed while the rod moves
+                // freely and is zeroed at a travel limit (no coast into the wall), so reading it back
+                // next tick continues the ramp. Speeding up in the held direction uses the gentle
+                // RodAccel; stopping or reversing uses the snappier RodDecel — quick tap = small nudge,
+                // held = full sweep, release = a near-instant stop.
+                var target = s.RodDir[i] * GameConstants.RodSpeed;
+                var v = s.RodVel[i];
+                var speedingUp = s.RodDir[i] != 0 && (v == 0 || Math.Sign(v) == Math.Sign(target));
+                var rate = speedingUp ? GameConstants.RodAccel : GameConstants.RodDecel;
+                v = MoveToward(v, target, rate * dt);
+                next = Math.Clamp(prev + v / rod.Travel * dt, 0, 1);
+                s.RodVel[i] = next is <= 0.0 or >= 1.0 ? 0 : v;
+            }
             s.RodOffset[i] = next;
         }
     }
@@ -179,6 +213,7 @@ public static class GamePhysics
             s.TrapY = bestFigY;
             s.BallVX = 0;
             s.BallVY = 0;
+            s.BallSpin = 0; // a caught ball is dead — spin is set fresh when it's launched.
             nx = best.X + trapDir * (bestContact - 2);
             ny = bestFigY;
             return true;
@@ -243,6 +278,15 @@ public static class GamePhysics
         s.BallVX = speed * dir;
         s.BallVY = offset * GameConstants.MaxDeflection
                    + GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
+        // Curve (§skill): english from the rod's motion at contact plus the off-center clip. A still
+        // block imparts none; a committed swipe hooks the shot mid-flight (see the Magnus step). Signed
+        // by the shot direction: spin is angular, so its sense must flip with the strike direction
+        // (table mirror symmetry) or the same rod slide would hook one team's shots and straighten the
+        // other's — unlike the linear rod-momentum term above, which is direction-independent.
+        s.BallSpin = dir * Math.Clamp(
+            GameConstants.KickSpinFromRod * s.RodVel[rod.Index] / GameConstants.RodSpeed
+            + GameConstants.KickSpinFromOffset * offset,
+            -GameConstants.MaxSpin, GameConstants.MaxSpin);
         ClampSpeed(s);
         s.KickCooldown[rod.Index][fig] = GameConstants.KickCooldownSeconds;
         s.IgnoreRod = rod.Index;
@@ -282,6 +326,7 @@ public static class GamePhysics
                 s.TrappedFigure = laneTarget;
                 s.ChargeSeconds = 0;
                 s.HoldSeconds = 0;
+                s.LastPassTick = s.Tick; // lane-pass hop → client plays a pass sound (no swing)
             }
             else if (GameConstants.RodBehind(s.TrappedRod) >= 0)
             {
@@ -353,10 +398,15 @@ public static class GamePhysics
         var backDir = rod.Side == 0 ? -1 : 1; // toward the passer's own goal
         s.BallVX = GameConstants.BackPassSpeed * backDir;
         s.BallVY = GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
+        // Signed by travel direction (backDir here) so the curve is mirror-symmetric — see FireShot.
+        s.BallSpin = backDir * Math.Clamp(
+            GameConstants.KickSpinFromRod * s.RodVel[rod.Index] / GameConstants.RodSpeed,
+            -GameConstants.MaxSpin, GameConstants.MaxSpin);
         ClampSpeed(s);
         s.KickCooldown[rod.Index][fig] = GameConstants.KickCooldownSeconds;
         s.IgnoreRod = rod.Index;
         s.IgnoreFigure = fig;
+        s.LastPassTick = s.Tick; // back-pass toss → client plays a pass sound (no forward swing)
     }
 
     private static void EndTrap(SimState s)

@@ -11,6 +11,13 @@ public sealed class SimState
     public double BallVX;
     public double BallVY;
 
+    /// <summary>Ball spin ("english"), signed and roughly in -<see cref="GameConstants.MaxSpin"/>..
+    /// +<see cref="GameConstants.MaxSpin"/>. A spinning ball curves in flight: <see cref="GamePhysics"/>
+    /// applies a Magnus acceleration perpendicular to its velocity each step, and the spin bleeds off
+    /// over time. Imparted by a kick from a *moving* rod (and off-center contact); zeroed on a
+    /// caught/parked ball. Carried in snapshots so the client can show the ball visibly spinning.</summary>
+    public double BallSpin;
+
     /// <summary>While true the ball is not integrated (waiting, game over, kickoff pause).
     /// Rods keep moving so players can position while frozen.</summary>
     public bool BallFrozen = true;
@@ -18,8 +25,10 @@ public sealed class SimState
     /// <summary>Rod slide positions, 0 (top) .. 1 (bottom).</summary>
     public readonly double[] RodOffset = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
 
-    /// <summary>Actual rod velocity in units/s from the last step (0 when clamped at a wall) —
-    /// feeds the rod-momentum kick component (§2.3).</summary>
+    /// <summary>Rod velocity in units/s (0 when clamped at a wall) — feeds the rod-momentum kick
+    /// component (§2.3). Also the persistent state of the acceleration ramp (<see cref="GameConstants.RodAccel"/>):
+    /// <see cref="GamePhysics.IntegrateRods"/> reads it back each tick to continue easing the rod toward
+    /// its held-direction target speed.</summary>
     public readonly double[] RodVel = new double[8];
 
     /// <summary>Held-input direction per rod: -1 up, 0 stop, +1 down. Set by the room each tick
@@ -82,6 +91,12 @@ public sealed class SimState
     public int LastKickRod = -1;
     public int LastKickFigure = -1;
     public long LastKickTick;
+
+    /// <summary>Tick of the most recent pass (a lane-pass hop between own figures or a back-pass toss) —
+    /// carried in snapshots purely so the client can play a distinct pass sound. Separate from the kick
+    /// channel because a pass fires no forward swing: setting <see cref="LastKickTick"/> would animate
+    /// one. 0 = none yet.</summary>
+    public long LastPassTick;
 
     public long Tick;
 

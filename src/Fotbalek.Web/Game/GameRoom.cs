@@ -89,6 +89,7 @@ public sealed class GameRoom
     private Pending _pending = Pending.KickRandom;
     private double _resumeVX;
     private double _resumeVY;
+    private double _resumeSpin;
     private double _slowSince = -1;
     private double _lastTouch;
 
@@ -631,8 +632,10 @@ public sealed class GameRoom
                         _pending = Pending.Resume;
                         _resumeVX = _sim.BallVX;
                         _resumeVY = _sim.BallVY;
+                        _resumeSpin = _sim.BallSpin;
                         _sim.BallVX = 0;
                         _sim.BallVY = 0;
+                        _sim.BallSpin = 0;
                         _sim.BallFrozen = true;
                     }
                     // Frozen mid-kickoff-pause: keep the pending kick for the resume.
@@ -841,6 +844,7 @@ public sealed class GameRoom
             case Pending.Resume:
                 _sim.BallVX = _resumeVX;
                 _sim.BallVY = _resumeVY;
+                _sim.BallSpin = _resumeSpin;
                 break;
             case Pending.KickTowardA:
             case Pending.KickTowardB:
@@ -874,6 +878,7 @@ public sealed class GameRoom
             _sim.BallVY = 0;
             _sim.ResetCounter++;
         }
+        _sim.BallSpin = 0;
         _sim.BallFrozen = true;
         _sim.IgnoreRod = -1;
         _sim.IgnoreFigure = -1;
@@ -965,7 +970,11 @@ public sealed class GameRoom
         // over the trapped rod's charge window — the goalie's strength meter, driven by holding SPACE (§skill).
         _sim.TrappedRod >= 0
             ? Math.Round(Math.Clamp(_sim.ChargeSeconds / GameConstants.MaxCharge(_sim.TrappedRod), 0, 1), 2)
-            : 0);
+            : 0,
+        // Ball spin (english) — lets the client render the ball visibly spinning (§skill).
+        Math.Round(_sim.BallSpin, 3),
+        // Last pass tick — lets the client play a distinct pass sound (no swing) (§skill).
+        _sim.LastPassTick);
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,

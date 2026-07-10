@@ -52,6 +52,18 @@ public static class GameConstants
     public const int TicksPerSnapshot = 3; // 20 Hz
 
     public const double RodSpeed = 650;
+
+    /// <summary>Rod acceleration ramp (world units/s²): a held direction eases the rod up to
+    /// <see cref="RodSpeed"/> over ~<c>RodSpeed/RodAccel</c> s instead of snapping to full speed. This
+    /// makes a quick tap a small precise nudge and a sustained hold a full sweep — analog control from
+    /// digital keys, and it also makes <see cref="SimState.RodVel"/> (hence shot power/english) rise
+    /// with how long you've been sliding. Mirrored exactly by the client predictor, so keep them in sync.</summary>
+    public const double RodAccel = 6500;
+
+    /// <summary>Rod deceleration (world units/s²) when the key is released or the direction reversed —
+    /// much snappier than <see cref="RodAccel"/> so stopping and blocking stay reactive and the rod
+    /// never coasts past where you let go (a real foosball rod stops with your hand).</summary>
+    public const double RodDecel = 13000;
     // Base speed of a plain shot — what a *still* figure imparts when the ball just rolls into it.
     // A figure that is moving when it strikes adds up to KickPowerBonus×KickSpeed on top (see
     // GamePhysics.FireShot), so a committed "hit it on the move" shot flies harder than a passive
@@ -68,6 +80,29 @@ public static class GameConstants
     /// <summary>Fraction of the rod's vertical velocity added to the ball on a kick ("english").
     /// Higher = sliding the rod as it strikes curves the shot more — the main aim-by-motion lever.</summary>
     public const double RodMomentumTransfer = 0.55;
+
+    /// <summary>Magnus curve strength: the perpendicular acceleration applied to a moving ball is this
+    /// × <see cref="SimState.BallSpin"/> × its speed (units/s²). Higher = shots bend more. The main
+    /// "curve the ball" lever; 0 disables curving entirely (shots fly straight, as before).</summary>
+    public const double MagnusCoefficient = 0.30;
+
+    /// <summary>How fast ball spin bleeds off (per second, exponential). A shot curves hardest just
+    /// after the strike and straightens out — a brisk decay reads as a natural bend, not an endless
+    /// spiral.</summary>
+    public const double SpinDecayPerSecond = 1.1;
+
+    /// <summary>Spin imparted by a kick from a rod at full <see cref="RodSpeed"/> — the classic
+    /// "english" from sliding the rod as it strikes. Scales linearly with rod velocity at contact, so
+    /// a still block imparts none and a committed swipe curves hard.</summary>
+    public const double KickSpinFromRod = 1.0;
+
+    /// <summary>Extra spin from an off-center contact (offset -1..1), added to the rod-motion spin:
+    /// clipping the ball high or low bends it too, even from a still figure.</summary>
+    public const double KickSpinFromOffset = 0.30;
+
+    /// <summary>Hard cap on |<see cref="SimState.BallSpin"/>| so a stacked kick can't produce an
+    /// absurd curve.</summary>
+    public const double MaxSpin = 2.0;
 
     public const double KickCooldownSeconds = 0.13;
     // Global speed cap. Raised above the old 1400 to give the goalie's full-charge cannon real headroom
