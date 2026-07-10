@@ -60,8 +60,8 @@ public sealed record RoomStateDto(
     IReadOnlyList<WinnerDto> Winners,
     GameOptionsDto Options);
 
-/// <summary>Per-room, player-adjustable rules. Extensible — one flag today.</summary>
-public sealed record GameOptionsDto(bool DisallowQuickGoals);
+/// <summary>Per-room, player-adjustable rules (§3.6).</summary>
+public sealed record GameOptionsDto(bool DisallowQuickGoals, bool DisallowFirstTouchGoals);
 
 public sealed record RodConfigDto(
     double X, int Side, int Figures, double Spacing, double Travel, double YBase, double Radius);

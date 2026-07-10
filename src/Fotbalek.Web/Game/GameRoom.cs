@@ -102,7 +102,16 @@ public sealed class GameRoom
     /// this round (a reconnect resume, which is not a fresh kickoff).</summary>
     private double _roundLiveSince = double.NegativeInfinity;
 
+    /// <summary>Figure contacts (rising edges) since the current round went live, and whether the ball
+    /// was ever trapped/controlled this round. Drive the first-touch rule: a goal off ≤
+    /// <see cref="GameConstants.FirstTouchMaxContacts"/> uncontrolled contacts is a "let" when
+    /// <see cref="GameOptionsDto.DisallowFirstTouchGoals"/> is on. Reset on each fresh kickoff.</summary>
+    private int _roundTouchCount;
+    private bool _roundControlled;
+    private bool _touchedLastStep;
+
     private bool _disallowQuickGoals = true;
+    private bool _disallowFirstTouchGoals;
     private double? _emptySince = 0; // the room is born empty
     private bool _lobbyDirty;
     private bool _destroyRequested;
@@ -298,16 +307,17 @@ public sealed class GameRoom
         }
     }
 
-    /// <summary>Toggles the quick-goal rule. Any seated player may change room options (§3.6).</summary>
-    public void SetGameOptions(int userId, bool disallowQuickGoals)
+    /// <summary>Sets the room's goal rules. Any seated player may change room options (§3.6).</summary>
+    public void SetGameOptions(int userId, bool disallowQuickGoals, bool disallowFirstTouchGoals)
     {
         lock (_gate)
         {
             if (_closed || FindSeatLocked(userId) == null)
                 return;
-            if (_disallowQuickGoals == disallowQuickGoals)
+            if (_disallowQuickGoals == disallowQuickGoals && _disallowFirstTouchGoals == disallowFirstTouchGoals)
                 return;
             _disallowQuickGoals = disallowQuickGoals;
+            _disallowFirstTouchGoals = disallowFirstTouchGoals;
             _lobbyDirty = true;
         }
     }
@@ -644,7 +654,16 @@ public sealed class GameRoom
 
         var result = GamePhysics.Step(_sim, dt);
         if (result.Touched)
+        {
             _lastTouch = _time;
+            // Count contacts as rising edges — a trap holds contact for many ticks but is one touch;
+            // a controlled/trapped ball is never a "first touch" no matter the count (§2.4).
+            if (!_touchedLastStep)
+                _roundTouchCount++;
+            if (_sim.TrappedRod >= 0)
+                _roundControlled = true;
+        }
+        _touchedLastStep = result.Touched;
         if (result.GoalBySide >= 0)
             HandleGoalLocked(result.GoalBySide);
 
@@ -765,9 +784,17 @@ public sealed class GameRoom
 
     private void HandleGoalLocked(int scoringSide)
     {
-        // Quick-goal rule: a goal in the opening moments of a round is a "let" — no score, redo the
-        // kickoff neutrally so nobody can cash in before the defense can react (§2.4).
-        if (_disallowQuickGoals && _time - _roundLiveSince < GameConstants.QuickGoalGraceSeconds)
+        // Let rules: a goal that is too cheap is waved off — no score, redo the kickoff neutrally so
+        // nobody can cash in before the defense can react (§2.4). Both are gated to a live kickoff
+        // (a reconnect resume sets _roundLiveSince to -∞ so a shot already in flight still counts).
+        //  • Quick goal: scored within the opening grace window.
+        //  • First touch: scored off ≤ FirstTouchMaxContacts uncontrolled figure contacts (0 = served
+        //    straight in, 1 = a one-touch finish) — catches the cheap goals that outlast the grace
+        //    window. A deliberately trapped/controlled ball is exempt, so real trap-and-shoot counts.
+        var quickGoal = _disallowQuickGoals && _time - _roundLiveSince < GameConstants.QuickGoalGraceSeconds;
+        var firstTouchGoal = _disallowFirstTouchGoals && !double.IsNegativeInfinity(_roundLiveSince)
+            && !_roundControlled && _roundTouchCount <= GameConstants.FirstTouchMaxContacts;
+        if (quickGoal || firstTouchGoal)
         {
             ParkBallLocked(Pending.KickRandom);
             _pauseUntil = _time + GameConstants.KickoffPauseSeconds;
@@ -805,6 +832,10 @@ public sealed class GameRoom
         // A fresh kickoff opens a quick-goal grace window; a reconnect resume just continues the
         // round in flight, so it opts out (a shot already on target must still count).
         _roundLiveSince = _pending == Pending.Resume ? double.NegativeInfinity : _time;
+        // New round → contacts and control start fresh for the first-touch rule.
+        _roundTouchCount = 0;
+        _roundControlled = false;
+        _touchedLastStep = false;
         switch (_pending)
         {
             case Pending.Resume:
@@ -956,7 +987,7 @@ public sealed class GameRoom
             .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
             .ToList(),
         _winners,
-        new GameOptionsDto(_disallowQuickGoals));
+        new GameOptionsDto(_disallowQuickGoals, _disallowFirstTouchGoals));
 
     private async Task BroadcastStateAsync()
     {

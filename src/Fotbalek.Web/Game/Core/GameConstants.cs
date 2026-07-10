@@ -132,6 +132,13 @@ public static class GameConstants
     /// the room's <see cref="GameOptionsDto.DisallowQuickGoals"/> is on — no cheap kickoff goals.</summary>
     public const double QuickGoalGraceSeconds = 1.5;
 
+    /// <summary>Most figure contacts a round can have and still have its goal waved off as a "first
+    /// touch" (0 = served straight in, 1 = a one-touch finish) when the room's
+    /// <see cref="GameOptionsDto.DisallowFirstTouchGoals"/> is on. A ball that was deliberately
+    /// trapped/controlled is exempt regardless of the contact count (see <c>GameRoom</c>), so this
+    /// only nixes uncontrolled deflections that beat the <see cref="QuickGoalGraceSeconds"/> window.</summary>
+    public const int FirstTouchMaxContacts = 1;
+
     public const double StallSpeedThreshold = 40;
     public const double StallSpeedSeconds = 5;
     public const double StallUntouchedSeconds = 15;

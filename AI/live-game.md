@@ -133,6 +133,15 @@ on the left of the keyboard):
   resets to center with a gentle kickoff toward the team that conceded. On any other
   entry into `playing` from a center-parked ball (game start, opponents arriving after a
   waiting spell, rematch) the kickoff direction is random.
+- **Lets (optional, per-room)** — two toggles in the lobby's *Match settings* wave off cheap
+  goals: instead of scoring, the ball re-parks and the kickoff is redone neutrally. Both are
+  scoped to a *fresh* kickoff (a reconnect resume opts out, so a shot already in flight still
+  counts). **No quick goals** (default on): goal within `QuickGoalGraceSeconds` (1.5 s) of the
+  round going live. **No first-touch goals** (default off): goal off ≤ `FirstTouchMaxContacts`
+  (1) uncontrolled figure contacts — 0 = served straight in, 1 = a one-touch finish — for the
+  cheap goals that beat the grace window; a deliberately trapped/controlled ball is exempt, so
+  genuine trap-and-shoot still scores. Contacts are counted as rising edges (a multi-tick trap
+  is one touch), reset each kickoff.
 - Game plays **first to 10** (consistent with real matches in the app). On 10, a "game
   over" overlay announces the winners **by name** — e.g. "🏆 Alice & Bob win 10 : 6" (names
   and avatars of the winning seats' occupants, captured at the moment the winning goal
