@@ -94,8 +94,10 @@
     font-weight: 600;
 }
 
-/* ---------- Stat cards (Overview / Quirks) ---------- */
-.stat-card .stat-card-label {
+/* ---------- Stat cards (Overview / Quirks) ----------
+   Page-specific rich stat card (label / value / sub). Named .pd-stat-card so
+   it does NOT collide with the shared global .stat-card design-system tile. */
+.pd-stat-card .stat-card-label {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -103,13 +105,13 @@
     margin-bottom: 0.35rem;
 }
 
-.stat-card .stat-card-value {
+.pd-stat-card .stat-card-value {
     font-size: 1.55rem;
     font-weight: 600;
     line-height: 1.15;
 }
 
-.stat-card .stat-card-sub {
+.pd-stat-card .stat-card-sub {
     font-size: 0.78rem;
     color: #6c757d;
     margin-top: 0.35rem;

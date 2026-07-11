@@ -1,0 +1,97 @@
+@* Shared card surface used across the app. Renders the .panel design-system
+   surface (see app.css) with an optional header (leading icon + title +
+   right-aligned Actions) and a body. Because every card goes through this
+   component, restyling .panel* in app.css reaches every usage at once.
+
+   Params:
+     Title / Icon  — leading head text + icon (omit both, with no Header, for a headless panel)
+     Variant       — success/primary/info/warning/danger/secondary → tinted accented head
+     Flush         — body has no padding and is clipped to the corners (tables, list-groups)
+     Header        — fully custom head, replacing the icon/title/actions layout
+     Actions        — right-aligned head content (buttons, badges)
+     Class / BodyClass — extra classes on the outer panel / on the body *@
+
+<div class="@PanelClass">
+    @if (HasHead)
+    {
+        <div class="panel__head">
+            @if (Header != null)
+            {
+                @Header
+            }
+            else
+            {
+                @if (!string.IsNullOrEmpty(Icon))
+                {
+                    <i class="@Icon"></i>
+                }
+                <h2 class="panel__title">@Title</h2>
+                @if (Actions != null)
+                {
+                    <div class="panel__actions">@Actions</div>
+                }
+            }
+        </div>
+    }
+    @if (Flush)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <div class="@BodyCssClass">@ChildContent</div>
+    }
+    @if (Footer != null)
+    {
+        <div class="panel__foot">@Footer</div>
+    }
+</div>
+
+@code {
+    /// <summary>Leading title text shown in the head. Omit (with no <see cref="Header"/>) for a headless panel.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>Bootstrap-icon class for the leading title icon, e.g. "bi bi-people-fill".</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Optional accent variant (success/primary/info/warning/danger/secondary) — tints the head.</summary>
+    [Parameter] public string? Variant { get; set; }
+
+    /// <summary>When true, the body has no padding and is clipped to the rounded corners (tables, list-groups).</summary>
+    [Parameter] public bool Flush { get; set; }
+
+    /// <summary>Extra classes for the outer .panel element (e.g. "h-100", "mb-4").</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Extra classes for the .panel__body (ignored when <see cref="Flush"/> is set).</summary>
+    [Parameter] public string? BodyClass { get; set; }
+
+    /// <summary>Fully custom head content, replacing the default icon/title/actions layout.</summary>
+    [Parameter] public RenderFragment? Header { get; set; }
+
+    /// <summary>Right-aligned content in the default head (buttons, badges).</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Optional footer content, rendered below the body with a top border.</summary>
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    /// <summary>Panel body content.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool HasHead => Header != null || !string.IsNullOrEmpty(Title);
+
+    private string PanelClass
+    {
+        get
+        {
+            var cls = "panel";
+            if (!string.IsNullOrEmpty(Variant)) cls += $" panel--accent panel--{Variant}";
+            if (Flush) cls += " panel--flush";
+            if (!string.IsNullOrEmpty(Class)) cls += $" {Class}";
+            return cls;
+        }
+    }
+
+    private string BodyCssClass =>
+        string.IsNullOrEmpty(BodyClass) ? "panel__body" : $"panel__body {BodyClass}";
+}

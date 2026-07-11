@@ -1,20 +1,21 @@
-@* Card containing a Chart.js canvas with a header and a fallback when there's no data. *@
+@* Card containing a Chart.js canvas with a header and a fallback when there's no
+   data. Built on the shared Panel surface so it matches every other card in the app. *@
 
-<div class="card h-100">
-    <div class="card-header">
-        <h6 class="mb-0">
-            @if (!string.IsNullOrEmpty(Icon))
-            {
-                <i class="@Icon me-2"></i>
-            }
-            @Title
-        </h6>
-        @if (!string.IsNullOrEmpty(Subtitle))
+<Panel Class="h-100">
+    <Header>
+        @if (!string.IsNullOrEmpty(Icon))
         {
-            <small class="text-muted">@Subtitle</small>
+            <i class="@Icon"></i>
         }
-    </div>
-    <div class="card-body">
+        <div>
+            <h2 class="panel__title">@Title</h2>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <div class="text-muted small">@Subtitle</div>
+            }
+        </div>
+    </Header>
+    <ChildContent>
         @if (HasData)
         {
             <canvas id="@CanvasId" height="@Height"></canvas>
@@ -23,8 +24,8 @@
         {
             <p class="text-muted text-center mb-0">No data available</p>
         }
-    </div>
-</div>
+    </ChildContent>
+</Panel>
 
 @code {
     [Parameter, EditorRequired] public string CanvasId { get; set; } = string.Empty;

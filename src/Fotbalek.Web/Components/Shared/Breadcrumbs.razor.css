@@ -1,0 +1,11 @@
+/* Vertically centre the home icon with the text crumbs and give it a touch more
+   size so it reads as the root without a text label. */
+.crumb-home {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.crumb-home .bi {
+    font-size: 1.05rem;
+}

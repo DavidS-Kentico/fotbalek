@@ -1,20 +1,20 @@
 @* Position-specific ranking table (Goalkeepers / Attackers). *@
 
-<div class="card h-100">
-    <div class="card-header">
-        <h5 class="mb-0">
-            @if (!string.IsNullOrEmpty(Icon))
-            {
-                <i class="@Icon me-2"></i>
-            }
+<Panel Class="h-100" Flush>
+    <Header>
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon"></i>
+        }
+        <h2 class="panel__title">
             @Title
             @if (!string.IsNullOrEmpty(HeaderHint))
             {
                 <small class="text-muted fw-normal">@HeaderHint</small>
             }
-        </h5>
-    </div>
-    <div class="card-body p-0">
+        </h2>
+    </Header>
+    <ChildContent>
         @if (Players.Count > 0)
         {
             <div class="table-responsive">
@@ -61,8 +61,8 @@
         {
             <EmptyState Icon="@EmptyIcon" Message="@EmptyMessage" />
         }
-    </div>
-</div>
+    </ChildContent>
+</Panel>
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<PositionRanking> Players { get; set; } = [];

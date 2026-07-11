@@ -9,13 +9,14 @@
 <PageTitle>Users - Fotbalek Admin</PageTitle>
 
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>Users</h1>
-        @if (_users != null)
-        {
-            <span class="text-muted">@_users.Count total</span>
-        }
-    </div>
+    <PageHeader Title="Users" Icon="bi bi-people">
+        <Actions>
+            @if (_users != null)
+            {
+                <span class="text-muted">@_users.Count total</span>
+            }
+        </Actions>
+    </PageHeader>
 
     <AlertMessage Message="@_error" Variant="danger" />
 
@@ -25,20 +26,20 @@
     }
     else if (_users != null)
     {
-        <div class="card">
-            <div class="card-header">
+        <Panel Flush="true">
+            <Header>
                 <input type="search" class="form-control" placeholder="Search by username..."
                        value="@_search" @oninput="e => _search = (string?)e.Value ?? string.Empty" />
-            </div>
-            <div class="card-body p-0">
-                @if (FilteredUsers.Count == 0)
-                {
-                    <EmptyState Icon="bi bi-person-x" Message="No users match the search." />
-                }
-                else
-                {
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+            </Header>
+            <ChildContent>
+            @if (FilteredUsers.Count == 0)
+            {
+                <EmptyState Icon="bi bi-person-x" Message="No users match the search." />
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 60px;">Id</th>
@@ -78,8 +79,8 @@
                         </table>
                     </div>
                 }
-            </div>
-        </div>
+            </ChildContent>
+        </Panel>
     }
 </div>
 

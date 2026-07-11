@@ -3,10 +3,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Web.Services;
 
+/// <summary>
+/// Public landing-page statistics. Everything here is deliberately privacy-safe:
+/// only cross-team aggregates and anonymized scores are exposed — never a team's
+/// name/code or a player's identity — so a visitor can't learn which specific team
+/// is most active or who played whom.
+/// </summary>
 public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
 {
-    private const int TopTeamsLimit = 5;
-    private const int RecentMatchesLimit = 10;
+    private const int RecentScoresLimit = 12;
     private const int ActivityWindowDays = 30;
 
     public async Task<LandingStats> GetAsync()
@@ -29,49 +34,19 @@ public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
             TotalGoals = totalGoals
         };
 
-        var topTeams = await db.Teams
-            .Select(t => new LandingTeamStat
-            {
-                Name = t.Name,
-                CodeName = t.CodeName,
-                PlayerCount = t.Players.Count(p => p.IsActive),
-                MatchCount = t.Matches.Count()
-            })
-            .Where(t => t.MatchCount > 0)
-            .OrderByDescending(t => t.MatchCount)
-            .ThenByDescending(t => t.PlayerCount)
-            .Take(TopTeamsLimit)
-            .ToListAsync();
-
-        var hottestTeams = await db.Teams
-            .Select(t => new LandingTeamStat
-            {
-                Name = t.Name,
-                CodeName = t.CodeName,
-                PlayerCount = t.Players.Count(p => p.IsActive),
-                MatchCount = t.Matches.Count(m => m.PlayedAt >= weekAgo)
-            })
-            .Where(t => t.MatchCount > 0)
-            .OrderByDescending(t => t.MatchCount)
-            .ThenByDescending(t => t.PlayerCount)
-            .Take(TopTeamsLimit)
-            .ToListAsync();
-
-        // Recent matches (anonymized — only team name + score + time).
-        var recentMatches = await db.Matches
+        // Latest results — anonymized: score + time only, never a team identity.
+        var recentScores = await db.Matches
             .OrderByDescending(m => m.PlayedAt)
-            .Take(RecentMatchesLimit)
-            .Select(m => new LandingRecentMatch
+            .Take(RecentScoresLimit)
+            .Select(m => new LandingRecentScore
             {
-                TeamName = m.Team.Name,
-                TeamCodeName = m.Team.CodeName,
                 Team1Score = m.Team1Score,
                 Team2Score = m.Team2Score,
                 PlayedAt = m.PlayedAt
             })
             .ToListAsync();
 
-        // 30-day activity histogram — group server-side by day.
+        // 30-day activity histogram — grouped server-side by day.
         var rawHistogram = await db.Matches
             .Where(m => m.PlayedAt >= windowStart)
             .GroupBy(m => m.PlayedAt.Date)
@@ -89,22 +64,18 @@ public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
             });
         }
 
-        // Fun facts (public-safe — no player names).
+        // Fun facts (public-safe — aggregates only, no team or player name).
         var funFacts = new LandingFunFacts
         {
             MatchesToday = await db.Matches.CountAsync(m => m.PlayedAt >= todayStart),
             AverageGoalsPerMatch = totalMatches > 0 ? (double)totalGoals / totalMatches : 0
         };
 
+        // Biggest blowout this week — score margin only, we never surface the team.
         var blowoutThisWeek = await db.Matches
             .Where(m => m.PlayedAt >= weekAgo)
             .OrderByDescending(m => Math.Abs(m.Team1Score - m.Team2Score))
-            .Select(m => new
-            {
-                m.Team1Score,
-                m.Team2Score,
-                TeamName = m.Team.Name
-            })
+            .Select(m => new { m.Team1Score, m.Team2Score })
             .FirstOrDefaultAsync();
 
         if (blowoutThisWeek != null)
@@ -112,15 +83,12 @@ public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
             var winner = Math.Max(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score);
             var loser = Math.Min(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score);
             funFacts.BiggestBlowout = $"{winner}–{loser}";
-            funFacts.BiggestBlowoutTeam = blowoutThisWeek.TeamName;
         }
 
         return new LandingStats
         {
             Totals = totals,
-            TopTeams = topTeams,
-            HottestTeams = hottestTeams,
-            RecentMatches = recentMatches,
+            RecentScores = recentScores,
             Activity = activity,
             FunFacts = funFacts
         };
@@ -130,9 +98,7 @@ public class LandingStatsService(IDbContextFactory<AppDbContext> dbFactory)
 public class LandingStats
 {
     public LandingTotals Totals { get; set; } = new();
-    public List<LandingTeamStat> TopTeams { get; set; } = [];
-    public List<LandingTeamStat> HottestTeams { get; set; } = [];
-    public List<LandingRecentMatch> RecentMatches { get; set; } = [];
+    public List<LandingRecentScore> RecentScores { get; set; } = [];
     public List<LandingActivityPoint> Activity { get; set; } = [];
     public LandingFunFacts FunFacts { get; set; } = new();
 }
@@ -146,18 +112,9 @@ public class LandingTotals
     public int TotalGoals { get; set; }
 }
 
-public class LandingTeamStat
+/// <summary>A recent match reduced to its score and time — no team identity.</summary>
+public class LandingRecentScore
 {
-    public string Name { get; set; } = string.Empty;
-    public string CodeName { get; set; } = string.Empty;
-    public int PlayerCount { get; set; }
-    public int MatchCount { get; set; }
-}
-
-public class LandingRecentMatch
-{
-    public string TeamName { get; set; } = string.Empty;
-    public string TeamCodeName { get; set; } = string.Empty;
     public int Team1Score { get; set; }
     public int Team2Score { get; set; }
     public DateTimeOffset PlayedAt { get; set; }
@@ -174,5 +131,4 @@ public class LandingFunFacts
     public int MatchesToday { get; set; }
     public double AverageGoalsPerMatch { get; set; }
     public string? BiggestBlowout { get; set; }
-    public string? BiggestBlowoutTeam { get; set; }
 }

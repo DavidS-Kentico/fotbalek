@@ -7,11 +7,13 @@
 <PageTitle>Admin sign-in - Foosball Manager</PageTitle>
 
 <AuthCardLayout>
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Admin sign-in</h5>
+    <div class="panel auth-panel auth-panel--admin">
+        <div class="auth-panel__head">
+            <span class="auth-panel__icon"><i class="bi bi-shield-lock-fill"></i></span>
+            <h1 class="auth-panel__title">Admin sign-in</h1>
+            <p class="auth-panel__sub">Restricted area.</p>
         </div>
-        <div class="card-body p-4">
+        <div class="panel__body">
             @if (!_isConfigured)
             {
                 <AlertMessage Message="Admin access is not configured on this instance." Variant="warning" Icon="bi bi-exclamation-triangle" />
@@ -32,15 +34,14 @@
                     <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
                 </div>
 
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-dark">Sign in</button>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-dark btn-lg">Sign in</button>
                 </div>
             </form>
 
-            <hr />
-            <p class="text-muted small mb-0 text-center">
-                <a href="/">Back to Fotbalek</a>
-            </p>
+            <div class="auth-foot">
+                <p><a href="/">Back to Fotbalek</a></p>
+            </div>
         </div>
     </div>
 </AuthCardLayout>

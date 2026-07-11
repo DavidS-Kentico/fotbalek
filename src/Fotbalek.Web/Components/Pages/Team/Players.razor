@@ -20,25 +20,20 @@
 else
 {
     <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <div>
-                <h2 class="mb-0"><i class="bi bi-people me-2"></i>Players</h2>
-                <div class="text-muted small mt-1">
-                    @_activePlayers.Count active@(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")
-                </div>
-            </div>
-            @if (_isCaptain)
-            {
-                <div class="d-flex gap-2">
+        <PageHeader Title="Players" Icon="bi bi-people" Class="mb-3"
+                    Subtitle="@($"{_activePlayers.Count} active{(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")}")">
+            <Actions>
+                @if (_isCaptain)
+                {
                     <button class="btn btn-outline-success" @onclick="ShowInviteModal" title="Invite players via shareable link">
                         <i class="bi bi-person-plus me-1"></i> Invite
                     </button>
                     <button class="btn btn-success" @onclick="ShowAddModal">
                         <i class="bi bi-plus-lg me-1"></i> Add Player
                     </button>
-                </div>
-            }
-        </div>
+                }
+            </Actions>
+        </PageHeader>
 
         <AlertMessage Message="@_message" Variant="@(_messageIsError ? "danger" : "success")"
                       Dismissible="true" OnDismiss="() => _message = null" />

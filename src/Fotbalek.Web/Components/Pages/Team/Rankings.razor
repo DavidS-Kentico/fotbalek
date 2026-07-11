@@ -17,27 +17,29 @@
 else
 {
     <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-            <h2 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Rankings</h2>
-            @if (_seasons.Count > 0)
-            {
-                <SeasonSelector Seasons="_seasons" @bind-Value="_selectedSeasonId" OnChangedCallback="OnScopeChanged" />
-            }
-        </div>
+        <PageHeader Title="Rankings" Icon="bi bi-bar-chart">
+            <Actions>
+                @if (_seasons.Count > 0)
+                {
+                    <SeasonSelector Seasons="_seasons" @bind-Value="_selectedSeasonId" OnChangedCallback="OnScopeChanged" />
+                }
+            </Actions>
+        </PageHeader>
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-person me-2"></i>Player Rankings
+        <Panel Class="mb-4" Flush>
+            <Header>
+                <i class="bi bi-person"></i>
+                <h2 class="panel__title">
+                    Player Rankings
                     @if (_selectedSeason != null)
                     {
                         <small class="text-muted fw-normal">
                             @_selectedSeason.Name@(_selectedSeason.IsClosed ? " — final standings" : "") · seasonal ELO
                         </small>
                     }
-                </h5>
-            </div>
-            <div class="card-body p-0">
+                </h2>
+            </Header>
+            <ChildContent>
                 @if (_selectedSeason != null)
                 {
                     @if (_seasonStandings.Count > 0)
@@ -163,8 +165,8 @@ else
                 {
                     <EmptyState Icon="bi bi-people" Message="No players yet." />
                 }
-            </div>
-        </div>
+            </ChildContent>
+        </Panel>
 
         <div class="row">
             <div class="col-lg-6 mb-4">
@@ -197,11 +199,8 @@ else
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Best Pairs (min @Constants.TimeThresholds.MinGamesForPartnerStats matches)</h5>
-            </div>
-            <div class="card-body p-0">
+        <Panel Title="@($"Best Pairs (min {Constants.TimeThresholds.MinGamesForPartnerStats} matches)")" Icon="bi bi-people" Flush>
+            <ChildContent>
                 @if (_pairRankings.Count > 0)
                 {
                     var showAvgScore = _selectedSeason?.IsClosed != true;
@@ -273,8 +272,8 @@ else
                     <EmptyState Icon="bi bi-people"
                                 Message="@($"Not enough matches to rank pairs yet (minimum {Constants.TimeThresholds.MinGamesForPartnerStats} matches per pair).")" />
                 }
-            </div>
-        </div>
+            </ChildContent>
+        </Panel>
     </div>
 }
 

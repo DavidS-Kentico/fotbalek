@@ -4,11 +4,13 @@
 <PageTitle>Register - Foosball Manager</PageTitle>
 
 <AuthCardLayout>
-    <div class="card shadow">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Create account</h5>
+    <div class="panel auth-panel">
+        <div class="auth-panel__head">
+            <span class="auth-panel__icon"><i class="bi bi-person-plus"></i></span>
+            <h1 class="auth-panel__title">Create account</h1>
+            <p class="auth-panel__sub">Join Fotbalek in a few seconds.</p>
         </div>
-        <div class="card-body p-4">
+        <div class="panel__body">
             <AlertMessage Message="@Error" Variant="danger" />
 
             <form method="post" action="/account/register">
@@ -30,11 +32,14 @@
                     <small class="text-muted">Min 6 characters.</small>
                 </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-success">Create account</button>
-                    <a href="@LoginUrl" class="btn btn-outline-secondary">Back to login</a>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-success btn-lg">Create account</button>
                 </div>
             </form>
+
+            <div class="auth-foot">
+                <p>Already have an account? <a href="@LoginUrl">Sign in</a></p>
+            </div>
         </div>
     </div>
 </AuthCardLayout>

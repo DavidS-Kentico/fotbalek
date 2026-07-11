@@ -7,11 +7,13 @@
 <PageTitle>Login - Foosball Manager</PageTitle>
 
 <AuthCardLayout>
-    <div class="card shadow">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="bi bi-box-arrow-in-right me-2"></i>Login</h5>
+    <div class="panel auth-panel">
+        <div class="auth-panel__head">
+            <span class="auth-panel__icon"><i class="bi bi-box-arrow-in-right"></i></span>
+            <h1 class="auth-panel__title">Sign in</h1>
+            <p class="auth-panel__sub">Welcome back — let's play.</p>
         </div>
-        <div class="card-body p-4">
+        <div class="panel__body">
             <AlertMessage Message="@(string.IsNullOrEmpty(Error) ? null : ErrorMessage)" Variant="danger" />
 
             <form method="post" action="/account/login">
@@ -31,23 +33,24 @@
                     <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required />
                 </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-success">Sign in</button>
-                    <a href="@RegisterUrl" class="btn btn-outline-secondary">Create new account</a>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-success btn-lg">Sign in</button>
                 </div>
             </form>
 
-            <hr />
-            <p class="text-muted small mb-0 text-center">
-                @if (!string.IsNullOrWhiteSpace(_contactEmail))
-                {
-                    <text>Forgot your password? <a href="mailto:@(_contactEmail)?subject=Fotbalek%20password%20reset">Contact the administrator</a> to have it reset.</text>
-                }
-                else
-                {
-                    <text>Forgot your password? Contact the service administrator.</text>
-                }
-            </p>
+            <div class="auth-foot">
+                <p>New here? <a href="@RegisterUrl">Create an account</a></p>
+                <p>
+                    @if (!string.IsNullOrWhiteSpace(_contactEmail))
+                    {
+                        <text>Forgot your password? <a href="mailto:@(_contactEmail)?subject=Fotbalek%20password%20reset">Contact the administrator</a> to reset it.</text>
+                    }
+                    else
+                    {
+                        <text>Forgot your password? Contact the service administrator.</text>
+                    }
+                </p>
+            </div>
         </div>
     </div>
 </AuthCardLayout>

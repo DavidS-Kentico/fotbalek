@@ -1,14 +1,14 @@
-@* Colored summary tile used on dashboards. *@
+@* Summary stat tile — accent stripe, tinted icon chip, big number. Shared across
+   the overview, dashboard and stats pages so every summary stat looks the same.
+   Style lives in app.css (.stat-card); Variant maps to the accent colour. *@
 
-<div class="card bg-@Variant @(Variant == "warning" ? "text-dark" : "text-white") h-100">
-    <div class="card-body text-center">
-        @if (!string.IsNullOrEmpty(Icon))
-        {
-            <i class="@Icon fs-2 d-block mb-2"></i>
-        }
-        <h3 class="mb-0">@Value</h3>
-        <small>@Label</small>
-    </div>
+<div class="stat-card stat-card--@Variant h-100">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <span class="stat-card__icon"><i class="@Icon"></i></span>
+    }
+    <span class="stat-card__value">@Value</span>
+    <span class="stat-card__label">@Label</span>
 </div>
 
 @code {

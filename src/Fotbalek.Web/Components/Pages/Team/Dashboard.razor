@@ -23,8 +23,7 @@ else if (_team != null)
     <div class="container py-4">
         @if (_activeSeason != null)
         {
-            <div class="card border-success mb-4">
-                <div class="card-body py-3">
+            <Panel Class="border-success mb-4" BodyClass="py-3">
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <div class="flex-grow-1 min-w-0">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -47,8 +46,7 @@ else if (_team != null)
                             Season detail
                         </a>
                     </div>
-                </div>
-            </div>
+            </Panel>
         }
         else if (_latestClosedSeason != null && _nextScheduledSeason == null)
         {
@@ -85,42 +83,41 @@ else if (_team != null)
             var liveState = liveRoom.GetState();
             var seatedPlayers = liveState.Seats.Where(s => s.Occupied).ToList();
             var freeSeats = 4 - seatedPlayers.Count;
-            <div class="card border-danger mb-4">
-                <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3">
-                    <span class="live-dot"></span>
-                    <strong>Live game in progress</strong>
-                    <span>
-                        @foreach (var seat in seatedPlayers)
-                        {
-                            <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" Title="@seat.Name" CssClass="me-1" />
-                        }
-                    </span>
-                    <span class="text-muted small">
-                        @(freeSeats > 0 ? $"{freeSeats} seat{(freeSeats == 1 ? "" : "s")} free" : "table full")
-                        <span class="mx-1">·</span>
-                        <i class="bi bi-eye me-1"></i>@liveState.Viewers.Count watching
-                    </span>
-                    <a href="/team/@TeamCode/game" class="btn btn-sm btn-danger ms-auto">
-                        @(freeSeats > 0 ? "Join" : "Watch")
-                    </a>
-                </div>
-            </div>
+            <Panel Class="border-danger mb-4" BodyClass="py-3 d-flex flex-wrap align-items-center gap-3">
+                <span class="live-dot"></span>
+                <strong>Live game in progress</strong>
+                <span>
+                    @foreach (var seat in seatedPlayers)
+                    {
+                        <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" Title="@seat.Name" CssClass="me-1" />
+                    }
+                </span>
+                <span class="text-muted small">
+                    @(freeSeats > 0 ? $"{freeSeats} seat{(freeSeats == 1 ? "" : "s")} free" : "table full")
+                    <span class="mx-1">·</span>
+                    <i class="bi bi-eye me-1"></i>@liveState.Viewers.Count watching
+                </span>
+                <a href="/team/@TeamCode/game" class="btn btn-sm btn-danger ms-auto">
+                    @(freeSeats > 0 ? "Join" : "Watch")
+                </a>
+            </Panel>
         }
 
         <div class="row">
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-bar-chart me-2"></i>Rankings
+                <Panel Class="h-100" Flush>
+                    <Header>
+                        <i class="bi bi-bar-chart"></i>
+                        <h2 class="panel__title">
+                            Rankings
                             @if (_activeSeason != null)
                             {
                                 <small class="text-muted fw-normal">(@_activeSeason.Name)</small>
                             }
-                        </h5>
-                        <a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a>
-                    </div>
-                    <div class="card-body p-0">
+                        </h2>
+                        <div class="panel__actions"><a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a></div>
+                    </Header>
+                    <ChildContent>
                         @if (_rankingRows.Count > 0)
                         {
                             var displayRows = GetDisplayRows();
@@ -188,17 +185,14 @@ else if (_team != null)
                                 <a href="/team/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
                             </EmptyState>
                         }
-                    </div>
-                </div>
+                    </ChildContent>
+                </Panel>
             </div>
 
             <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Matches</h5>
-                        <a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a>
-                    </div>
-                    <div class="card-body">
+                <Panel Title="Recent Matches" Icon="bi bi-clock-history" Class="h-100">
+                    <Actions><a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a></Actions>
+                    <ChildContent>
                         @if (_recentMatches.Count > 0)
                         {
                             @foreach (var match in _recentMatches.Take(Constants.Pagination.DashboardRecentMatches))
@@ -219,23 +213,23 @@ else if (_team != null)
                                 }
                             </EmptyState>
                         }
-                    </div>
-                </div>
+                    </ChildContent>
+                </Panel>
             </div>
         </div>
 
         <div class="row">
             <div class="col-md-3 mb-3">
-                <StatTile Variant="success" Value="@_playerCount.ToString()" Label="Active Players" />
+                <StatTile Variant="success" Icon="bi bi-people-fill" Value="@_playerCount.ToString()" Label="Active Players" />
             </div>
             <div class="col-md-3 mb-3">
-                <StatTile Variant="primary" Value="@_matchCount.ToString()" Label="@(_activeSeason != null ? "Season Matches" : "Total Matches")" />
+                <StatTile Variant="primary" Icon="bi bi-controller" Value="@_matchCount.ToString()" Label="@(_activeSeason != null ? "Season Matches" : "Total Matches")" />
             </div>
             <div class="col-md-3 mb-3">
-                <StatTile Variant="info" Value="@_matchesThisWeek.ToString()" Label="Matches This Week" />
+                <StatTile Variant="info" Icon="bi bi-calendar-week" Value="@_matchesThisWeek.ToString()" Label="Matches This Week" />
             </div>
             <div class="col-md-3 mb-3">
-                <StatTile Variant="warning" Value="@_avgMatchScore.ToString("F1")" Label="Avg Goals/Match" />
+                <StatTile Variant="warning" Icon="bi bi-bullseye" Value="@_avgMatchScore.ToString("F1")" Label="Avg Goals/Match" />
             </div>
         </div>
     </div>

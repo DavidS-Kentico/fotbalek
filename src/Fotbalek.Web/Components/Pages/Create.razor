@@ -9,24 +9,26 @@
 <PageTitle>Create Team - Foosball Manager</PageTitle>
 
 <AuthCardLayout>
-    <div class="card shadow">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Create New Team</h5>
+    <div class="panel auth-panel">
+        <div class="auth-panel__head">
+            <span class="auth-panel__icon"><i class="bi bi-plus-circle"></i></span>
+            <h1 class="auth-panel__title">Create a team</h1>
+            <p class="auth-panel__sub">Set up a league for your office or friends.</p>
         </div>
-        <div class="card-body p-4">
+        <div class="panel__body">
             <EditForm Model="@_model" OnValidSubmit="HandleSubmit" FormName="create-team">
                 <DataAnnotationsValidator />
 
                 <AlertMessage Message="@_error" Variant="danger" />
 
                 <div class="mb-3">
-                    <label for="name" class="form-label">Team Name</label>
+                    <label for="name" class="form-label">Team name</label>
                     <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Office League" />
                     <ValidationMessage For="@(() => _model.Name)" class="text-danger" />
                 </div>
 
                 <div class="mb-3">
-                    <label for="codeName" class="form-label">Team URL Code</label>
+                    <label for="codeName" class="form-label">Team URL code</label>
                     <div class="input-group">
                         <span class="input-group-text">/</span>
                         <InputText id="codeName" @bind-Value="_model.CodeName" class="form-control" placeholder="e.g., office-league" @oninput="OnCodeNameInput" />
@@ -43,13 +45,13 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                    <label for="confirmPassword" class="form-label">Confirm password</label>
                     <InputText id="confirmPassword" @bind-Value="_model.ConfirmPassword" type="password" class="form-control" />
                     <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-danger" />
                 </div>
 
-                <div class="d-grid gap-2">
-                    <SpinnerButton Type="submit" Busy="_loading">Create Team</SpinnerButton>
+                <div class="d-grid gap-2 mt-4">
+                    <SpinnerButton Type="submit" Busy="_loading" CssClass="btn-lg">Create team</SpinnerButton>
                     <a href="/" class="btn btn-outline-secondary">Cancel</a>
                 </div>
             </EditForm>

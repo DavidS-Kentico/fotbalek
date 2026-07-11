@@ -1,0 +1,12 @@
+@* ELO rating chip — the subtle green "NNNN ELO" pill. Use wherever a player's
+   rating is shown inline next to their name (not for table cells, which show the
+   bare number). Centralises the chip style so it can be restyled in one place. *@
+
+<span class="badge bg-success-subtle text-success border border-success-subtle @Class">@Elo ELO</span>
+
+@code {
+    [Parameter, EditorRequired] public int Elo { get; set; }
+
+    /// <summary>Extra classes for the badge (e.g. sizing utilities).</summary>
+    [Parameter] public string? Class { get; set; }
+}

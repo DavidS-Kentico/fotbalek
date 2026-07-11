@@ -1,20 +1,20 @@
 @* Square win-rate matrix used for head-to-head and teammate statistics. *@
 
-<div class="card">
-    <div class="card-header">
-        <h6 class="mb-0">
-            @if (!string.IsNullOrEmpty(Icon))
-            {
-                <i class="@Icon me-2"></i>
-            }
-            @Title
-        </h6>
-        @if (!string.IsNullOrEmpty(Subtitle))
+<Panel>
+    <Header>
+        @if (!string.IsNullOrEmpty(Icon))
         {
-            <small class="text-muted">@Subtitle</small>
+            <i class="@Icon"></i>
         }
-    </div>
-    <div class="card-body">
+        <div>
+            <h2 class="panel__title">@Title</h2>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <div class="text-muted small">@Subtitle</div>
+            }
+        </div>
+    </Header>
+    <ChildContent>
         @if (Rows.Count >= 2)
         {
             <div class="table-responsive">
@@ -77,8 +77,8 @@
         {
             <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
         }
-    </div>
-</div>
+    </ChildContent>
+</Panel>
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<MatrixRow> Rows { get; set; } = [];

@@ -25,49 +25,39 @@ else if (_team != null)
 
                 <AlertMessage Message="@_error" Variant="danger" />
 
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-people me-2"></i>Claim an existing player</h5>
-                    </div>
-                    <div class="card-body">
-                        @if (_claimable.Count == 0)
-                        {
-                            <p class="text-muted mb-0">No unclaimed players in this team. Create a new one below.</p>
-                        }
-                        else
-                        {
-                            <div class="row row-cols-2 row-cols-md-3 g-2">
-                                @foreach (var p in _claimable)
-                                {
-                                    <div class="col">
-                                        <button type="button" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-start gap-2 py-2"
-                                                @onclick="() => Claim(p.Id)" disabled="@_busy">
-                                            <Avatar AvatarId="@p.AvatarId" Size="sm" />
-                                            <span>@p.Name</span>
-                                        </button>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                </div>
+                <Panel Title="Claim an existing player" Icon="bi bi-people">
+                    @if (_claimable.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No unclaimed players in this team. Create a new one below.</p>
+                    }
+                    else
+                    {
+                        <div class="row row-cols-2 row-cols-md-3 g-2">
+                            @foreach (var p in _claimable)
+                            {
+                                <div class="col">
+                                    <button type="button" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-start gap-2 py-2"
+                                            @onclick="() => Claim(p.Id)" disabled="@_busy">
+                                        <Avatar AvatarId="@p.AvatarId" Size="sm" />
+                                        <span>@p.Name</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </Panel>
 
-                <div class="card shadow-sm">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Or create a new player</h5>
+                <Panel Title="Or create a new player" Icon="bi bi-plus-circle">
+                    <div class="mb-3">
+                        <label for="newName" class="form-label">Name</label>
+                        <input id="newName" class="form-control" @bind="_newName" maxlength="50" />
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label for="newName" class="form-label">Name</label>
-                            <input id="newName" class="form-control" @bind="_newName" maxlength="50" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Avatar</label>
-                            <AvatarPicker @bind-Value="_newAvatar" />
-                        </div>
-                        <SpinnerButton Busy="_busy" OnClick="CreateNew">Create &amp; continue</SpinnerButton>
+                    <div class="mb-3">
+                        <label class="form-label">Avatar</label>
+                        <AvatarPicker @bind-Value="_newAvatar" />
                     </div>
-                </div>
+                    <SpinnerButton Busy="_busy" OnClick="CreateNew">Create &amp; continue</SpinnerButton>
+                </Panel>
             </div>
         </div>
     </div>

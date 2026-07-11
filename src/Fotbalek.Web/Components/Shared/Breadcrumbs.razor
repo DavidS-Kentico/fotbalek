@@ -1,0 +1,47 @@
+@* Location-based breadcrumb for team-scoped detail pages. Always roots at the team
+   home (Dashboard, shown as a house icon), then the section trail, then the current
+   page. Breadcrumbs reflect where a page LIVES in the hierarchy — not the path the
+   user took to reach it — so the trail is identical however you arrive.
+
+   Usage:
+     <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
+         new("Matches", $"/team/{TeamCode}/matches"),
+         new($"Match #{MatchId}"),   // last item = current page (no Href)
+     })" /> *@
+
+<nav aria-label="breadcrumb" class="@Class">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item">
+            <a href="/team/@TeamCode" class="crumb-home" aria-label="Dashboard" title="Dashboard">
+                <i class="bi bi-house-door"></i>
+            </a>
+        </li>
+        @for (var i = 0; i < Items.Count; i++)
+        {
+            var item = Items[i];
+            var isLast = i == Items.Count - 1;
+            if (isLast || string.IsNullOrEmpty(item.Href))
+            {
+                <li class="breadcrumb-item active" aria-current="page">@item.Label</li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a href="@item.Href">@item.Label</a></li>
+            }
+        }
+    </ol>
+</nav>
+
+@code {
+    /// <summary>Team code used for the home (Dashboard) root link.</summary>
+    [Parameter, EditorRequired] public string TeamCode { get; set; } = string.Empty;
+
+    /// <summary>Trail after the home root. The last item renders as the current page (unlinked).</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<BreadcrumbItem> Items { get; set; } = [];
+
+    /// <summary>Wrapper classes; controls spacing below the breadcrumb (mb-0 when inline with other controls).</summary>
+    [Parameter] public string Class { get; set; } = "mb-3";
+
+    /// <summary>A single crumb: a label plus an optional link. Omit <see cref="Href"/> for the current page.</summary>
+    public record BreadcrumbItem(string Label, string? Href = null);
+}

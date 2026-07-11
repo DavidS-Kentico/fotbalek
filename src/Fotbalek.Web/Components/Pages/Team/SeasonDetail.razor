@@ -27,15 +27,12 @@ else
     var isScheduled = _season.IsScheduledAt(now);
 
     <div class="container py-4">
-        <nav aria-label="breadcrumb" class="mb-3">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/team/@TeamCode/seasons">Seasons</a></li>
-                <li class="breadcrumb-item active">@_season.Name</li>
-            </ol>
-        </nav>
+        <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
+            new("Seasons", $"/team/{TeamCode}/seasons"),
+            new(_season.Name),
+        })" />
 
-        <div class="card mb-4 @(_season.IsActiveAt(now) ? "border-success" : "")">
-            <div class="card-body">
+        <Panel Class="@("mb-4" + (_season.IsActiveAt(now) ? " border-success" : ""))">
                 <div class="d-flex flex-wrap align-items-center gap-3">
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -74,8 +71,7 @@ else
                         <SeasonManageActions Season="_season" OnChanged="ReloadAsync" OnDeleted="OnSeasonDeleted" />
                     }
                 </div>
-            </div>
-        </div>
+        </Panel>
 
         @if (isScheduled)
         {
@@ -88,17 +84,14 @@ else
             @* ---------------- Awards ---------------- *@
             @if (_season.IsClosed && _awards.Count > 0)
             {
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Awards</h5></div>
-                    <div class="card-body">
+                <Panel Title="Awards" Icon="bi bi-trophy">
                         <div class="row g-3">
                             @AwardColumn(Constants.Seasons.AwardCategories.Player, "Top Players", "bi bi-star-fill")
                             @AwardColumn(Constants.Seasons.AwardCategories.Goalkeeper, "Top Goalkeepers", "bi bi-shield-fill")
                             @AwardColumn(Constants.Seasons.AwardCategories.Attacker, "Top Attackers", "bi bi-bullseye")
                             @AwardColumn(Constants.Seasons.AwardCategories.Pair, "Top Pairs", "bi bi-people-fill")
                         </div>
-                    </div>
-                </div>
+                </Panel>
             }
             else if (_season.IsClosed)
             {
@@ -109,12 +102,11 @@ else
             }
             else
             {
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Provisional awards</h5>
+                <Panel Title="Provisional awards" Icon="bi bi-trophy">
+                    <Actions>
                         <span class="text-muted small">preview — decided at season close</span>
-                    </div>
-                    <div class="card-body">
+                    </Actions>
+                    <ChildContent>
                         @if (_matchCount < Constants.Seasons.MinMatchesForAwards)
                         {
                             <div class="text-muted small">
@@ -138,19 +130,20 @@ else
                                 @PreviewPairColumn()
                             </div>
                         }
-                    </div>
-                </div>
+                    </ChildContent>
+                </Panel>
             }
 
             @* ---------------- Standings ---------------- *@
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-bar-chart me-2"></i>@(_season.IsClosed ? "Final standings" : "Standings")
+            <Panel Flush Class="mb-4">
+                <Header>
+                    <i class="bi bi-bar-chart"></i>
+                    <h2 class="panel__title">
+                        @(_season.IsClosed ? "Final standings" : "Standings")
                         <small class="text-muted fw-normal">(seasonal ELO@(_season.IsClosed ? ", frozen at close" : ""))</small>
-                    </h5>
-                </div>
-                <div class="card-body p-0">
+                    </h2>
+                </Header>
+                <ChildContent>
                     @if (_standings.Count > 0)
                     {
                         <div class="table-responsive">
@@ -203,8 +196,8 @@ else
                     {
                         <EmptyState Icon="bi bi-people" Message="No seasonal matches yet." />
                     }
-                </div>
-            </div>
+                </ChildContent>
+                </Panel>
 
             @* ---------------- Position tables ---------------- *@
             <div class="row">
@@ -237,11 +230,7 @@ else
             </div>
 
             @* ---------------- Pairs ---------------- *@
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Best Pairs (min @Constants.TimeThresholds.MinGamesForPartnerStats matches)</h5>
-                </div>
-                <div class="card-body p-0">
+            <Panel Flush Title="@($"Best Pairs (min {Constants.TimeThresholds.MinGamesForPartnerStats} matches)")" Icon="bi bi-people" Class="mb-4">
                     @if (_pairs.Count > 0)
                     {
                         <div class="table-responsive">
@@ -296,8 +285,7 @@ else
                         <EmptyState Icon="bi bi-people"
                                     Message="@($"No pairs with at least {Constants.TimeThresholds.MinGamesForPartnerStats} matches together.")" />
                     }
-                </div>
-            </div>
+                </Panel>
 
             <a href="/team/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-list-ul me-1"></i> View the season's matches

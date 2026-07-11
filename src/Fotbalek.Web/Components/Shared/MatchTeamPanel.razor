@@ -1,11 +1,16 @@
 @* Match-detail panel showing one team's roster with ELO changes. Leads with the ladder the match
    belongs to (seasonal for seasonal matches); the all-time change is secondary in that case. *@
 
-<div class="card @(IsWinner ? "border-success" : "")">
-    <div class="card-header bg-@HeaderVariant bg-opacity-25">
-        <h6 class="mb-0">@Title</h6>
+<div class="panel panel--accent panel--@HeaderVariant @(IsWinner ? "panel--winner" : "") h-100">
+    <div class="panel__head">
+        <i class="bi @(IsWinner ? "bi-trophy-fill" : "bi-people-fill")"></i>
+        <h3 class="panel__title">@Title</h3>
+        @if (IsWinner)
+        {
+            <span class="badge text-bg-success ms-auto"><i class="bi bi-trophy me-1"></i>Winner</span>
+        }
     </div>
-    <div class="card-body">
+    <div class="panel__body">
         @foreach (var mp in Players)
         {
             var change = IsSeasonal ? mp.SeasonEloChange ?? 0 : mp.EloChange;

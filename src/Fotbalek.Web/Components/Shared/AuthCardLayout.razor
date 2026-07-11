@@ -1,30 +1,24 @@
-@* Wrapper layout shared by Home, Login, Register, Join, and Create pages. *@
+@* Branded, centered onboarding shell shared by Login, Register, Join, Create and
+   AdminLogin. Echoes the overview hero: green wordmark + soft green glow, with a
+   modern .panel supplied as ChildContent. *@
 
-<div class="container">
-    <div class="row min-vh-100 align-items-center justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="text-center mb-4">
-                <a href="/" class="text-decoration-none">
-                    <h1 class="@TitleClass fw-bold text-success">
-                        <i class="bi bi-trophy-fill me-2"></i>
-                        Fotbalek
-                    </h1>
-                </a>
-                @if (!string.IsNullOrEmpty(Subtitle))
-                {
-                    <p class="lead text-muted">@Subtitle</p>
-                }
-            </div>
+<div class="auth-shell">
+    <div class="auth-shell__inner">
+        <a href="/" class="auth-brand">
+            <span class="auth-brand__mark">
+                <i class="bi bi-trophy-fill"></i>Fotbalek
+            </span>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <span class="auth-brand__sub">@Subtitle</span>
+            }
+        </a>
 
-            @ChildContent
-        </div>
+        @ChildContent
     </div>
 </div>
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Subtitle { get; set; }
-    [Parameter] public bool LargeTitle { get; set; }
-
-    private string TitleClass => LargeTitle ? "display-4" : "display-5";
 }

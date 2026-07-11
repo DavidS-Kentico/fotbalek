@@ -50,13 +50,10 @@ else if (_match != null)
         : "Heavy favorite";
 
     <div class="container py-4">
-        <nav aria-label="breadcrumb" class="mb-3">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/team/@TeamCode">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="/team/@TeamCode/matches">Matches</a></li>
-                <li class="breadcrumb-item active">Match #@MatchId</li>
-            </ol>
-        </nav>
+        <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
+            new("Matches", $"/team/{TeamCode}/matches"),
+            new($"Match #{MatchId}"),
+        })" />
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div class="btn-group">
@@ -88,13 +85,13 @@ else if (_match != null)
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h5 class="mb-0">
-                    <i class="bi bi-calendar3 me-2"></i>
+        <Panel Class="mb-4">
+            <Header>
+                <i class="bi bi-calendar3"></i>
+                <h2 class="panel__title">
                     <span class="match-date" data-utc="@_match.PlayedAt.ToString("o")">@_match.PlayedAt.ToString("f")</span>
-                </h5>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
+                </h2>
+                <div class="panel__actions flex-wrap">
                     @if (isSeasonal)
                     {
                         <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match — numbers below show the seasonal ladder">
@@ -111,8 +108,8 @@ else if (_match != null)
                         <span class="badge @marginCss"><i class="bi @marginIcon me-1"></i>@marginLabel</span>
                     }
                 </div>
-            </div>
-            <div class="card-body">
+            </Header>
+            <ChildContent>
                 <div class="row align-items-center text-center mb-4">
                     <div class="col-5">
                         <h6 class="text-warning fw-bold">Team 1 @(team1Won ? "(Winner)" : "")</h6>
@@ -179,17 +176,19 @@ else if (_match != null)
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer text-muted small d-flex justify-content-between flex-wrap gap-2">
-                <span>Recorded: <span class="match-date" data-utc="@_match.CreatedAt.ToString("o")">@_match.CreatedAt.ToString("f")</span></span>
-                @if (!_canDelete && _isCaptain)
-                {
-                    <span title="@_deleteBlockedReason">
-                        <i class="bi bi-lock me-1"></i>Cannot be deleted (@(_deleteBlockedReason ?? "locked"))
-                    </span>
-                }
-            </div>
-        </div>
+            </ChildContent>
+            <Footer>
+                <div class="text-muted small d-flex justify-content-between flex-wrap gap-2">
+                    <span>Recorded: <span class="match-date" data-utc="@_match.CreatedAt.ToString("o")">@_match.CreatedAt.ToString("f")</span></span>
+                    @if (!_canDelete && _isCaptain)
+                    {
+                        <span title="@_deleteBlockedReason">
+                            <i class="bi bi-lock me-1"></i>Cannot be deleted (@(_deleteBlockedReason ?? "locked"))
+                        </span>
+                    }
+                </div>
+            </Footer>
+        </Panel>
 
         <AlertMessage Message="@_deleteError" Variant="danger" Icon="bi bi-exclamation-triangle"
                       Dismissible="true" OnDismiss="() => _deleteError = null" />

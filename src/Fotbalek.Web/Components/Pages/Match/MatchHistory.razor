@@ -21,17 +21,17 @@
 else
 {
     <div class="container py-4 match-history-page">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-clock-history me-2"></i>Match History</h2>
-            <a href="/team/@TeamCode/match/new" class="btn btn-success">
-                <i class="bi bi-plus-lg me-1"></i> New Match
-            </a>
-        </div>
+        <PageHeader Title="Match History" Icon="bi bi-clock-history">
+            <Actions>
+                <a href="/team/@TeamCode/match/new" class="btn btn-success">
+                    <i class="bi bi-plus-lg me-1"></i> New Match
+                </a>
+            </Actions>
+        </PageHeader>
 
         <AlertMessage Message="@_message" Variant="success" Dismissible="true" OnDismiss="() => _message = null" />
 
-        <div class="card mb-4 match-history-filters">
-            <div class="card-body py-2">
+        <Panel Class="mb-4 match-history-filters" BodyClass="py-2">
                 <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
                     <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
                                       @bind-CustomStartDate="_customStartDate"
@@ -124,8 +124,7 @@ else
                         </button>
                     </div>
                 }
-            </div>
-        </div>
+        </Panel>
 
         @if (_filteredMatches.Count > 0)
         {
@@ -146,21 +145,19 @@ else
                     : rows.Sum(mp => mp!.EloChange);
                 var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
                 var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
-                <div class="card border-success mb-3">
-                    <div class="card-body py-2 d-flex flex-wrap align-items-center gap-3">
-                        <span class="fw-semibold text-success">
-                            <i class="bi bi-person-badge me-1"></i>@focusName
-                        </span>
-                        <span class="text-muted">|</span>
-                        <span><i class="bi bi-trophy-fill text-success me-1"></i><strong>@wins</strong> wins</span>
-                        <span><i class="bi bi-x-circle text-danger me-1"></i><strong>@losses</strong> losses</span>
-                        <span><i class="bi bi-percent me-1"></i><strong>@winRate%</strong> win rate</span>
-                        <span class="@(netElo >= 0 ? "text-success" : "text-danger")">
-                            <i class="bi @(netElo >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow") me-1"></i>
-                            <strong>@(netElo > 0 ? "+" : "")@netElo</strong> ELO
-                        </span>
-                    </div>
-                </div>
+                <Panel Class="border-success mb-3" BodyClass="py-2 d-flex flex-wrap align-items-center gap-3">
+                    <span class="fw-semibold text-success">
+                        <i class="bi bi-person-badge me-1"></i>@focusName
+                    </span>
+                    <span class="text-muted">|</span>
+                    <span><i class="bi bi-trophy-fill text-success me-1"></i><strong>@wins</strong> wins</span>
+                    <span><i class="bi bi-x-circle text-danger me-1"></i><strong>@losses</strong> losses</span>
+                    <span><i class="bi bi-percent me-1"></i><strong>@winRate%</strong> win rate</span>
+                    <span class="@(netElo >= 0 ? "text-success" : "text-danger")">
+                        <i class="bi @(netElo >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow") me-1"></i>
+                        <strong>@(netElo > 0 ? "+" : "")@netElo</strong> ELO
+                    </span>
+                </Panel>
             }
 
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -195,7 +192,7 @@ else
                            SeasonName="@match.Season?.Name">
                     <Actions>
                         <div class="dropdown">
-                            <button class="btn btn-sm btn-light border-0" type="button"
+                            <button class="btn btn-sm btn-outline-secondary border-0" type="button"
                                     data-bs-toggle="dropdown" aria-label="Match actions">
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>

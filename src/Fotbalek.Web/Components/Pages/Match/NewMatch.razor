@@ -27,7 +27,7 @@ else if (_players.Count < 4)
 else
 {
     <div class="container py-4 match-page">
-        <h2 class="text-center mb-4"><i class="bi bi-plus-circle me-2"></i>New Match</h2>
+        <PageHeader Title="New Match" Icon="bi bi-plus-circle" />
 
         <AlertMessage Message="@_error" Variant="danger" Dismissible="true" OnDismiss="() => _error = null" />
 
@@ -49,23 +49,21 @@ else
 
         @if (_activeSeason != null)
         {
-            <div class="card mb-3">
-                <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="seasonalToggle"
-                               checked="@_seasonalToggle" @onchange="OnSeasonalToggleChanged" />
-                        <label class="form-check-label" for="seasonalToggle">
-                            <i class="bi bi-trophy me-1 text-success"></i>Seasonal match
-                            <span class="fw-semibold">(@_activeSeason.Name)</span>
-                        </label>
-                    </div>
-                    <small class="text-muted ms-auto">
-                        @(_seasonalToggle
-                            ? "Counts toward the season ladder — ELO shown below is seasonal."
-                            : "Will be recorded off-season — only all-time ELO is affected.")
-                    </small>
+            <Panel Class="mb-3" BodyClass="py-2 d-flex flex-wrap align-items-center gap-2">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="seasonalToggle"
+                           checked="@_seasonalToggle" @onchange="OnSeasonalToggleChanged" />
+                    <label class="form-check-label" for="seasonalToggle">
+                        <i class="bi bi-trophy me-1 text-success"></i>Seasonal match
+                        <span class="fw-semibold">(@_activeSeason.Name)</span>
+                    </label>
                 </div>
-            </div>
+                <small class="text-muted ms-auto">
+                    @(_seasonalToggle
+                        ? "Counts toward the season ladder — ELO shown below is seasonal."
+                        : "Will be recorded off-season — only all-time ELO is affected.")
+                </small>
+            </Panel>
         }
         else if (_hasAnySeason)
         {

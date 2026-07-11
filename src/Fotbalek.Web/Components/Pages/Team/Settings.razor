@@ -32,44 +32,34 @@ else
     <div class="container py-4">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
-                <h2 class="mb-4"><i class="bi bi-gear me-2"></i>Team settings</h2>
+                <PageHeader Title="Team settings" Icon="bi bi-gear" />
 
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Team name</h5>
+                <Panel Title="Team name" Icon="bi bi-pencil">
+                    <AlertMessage Message="@_nameSuccess" Variant="success" />
+                    <AlertMessage Message="@_nameError" Variant="danger" />
+                    <div class="mb-3">
+                        <label for="teamName" class="form-label">Display name</label>
+                        <input id="teamName" class="form-control" @bind="_name" maxlength="100" />
+                        <small class="text-muted">The URL code <code>/team/@_team.CodeName</code> can't be changed.</small>
                     </div>
-                    <div class="card-body">
-                        <AlertMessage Message="@_nameSuccess" Variant="success" />
-                        <AlertMessage Message="@_nameError" Variant="danger" />
-                        <div class="mb-3">
-                            <label for="teamName" class="form-label">Display name</label>
-                            <input id="teamName" class="form-control" @bind="_name" maxlength="100" />
-                            <small class="text-muted">The URL code <code>/team/@_team.CodeName</code> can't be changed.</small>
-                        </div>
-                        <SpinnerButton Busy="_savingName" OnClick="SaveName">Save name</SpinnerButton>
-                    </div>
-                </div>
+                    <SpinnerButton Busy="_savingName" OnClick="SaveName">Save name</SpinnerButton>
+                </Panel>
 
-                <div class="card shadow-sm">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-key me-2"></i>Team password</h5>
+                <Panel Title="Team password" Icon="bi bi-key">
+                    <AlertMessage Message="@_pwdSuccess" Variant="success" />
+                    <AlertMessage Message="@_pwdError" Variant="danger" />
+                    <p class="text-muted small">Anyone who already joined the team stays a member. Future joiners (via the secondary link) will need the new password.</p>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New password</label>
+                        <input id="newPassword" type="password" class="form-control" @bind="_newPassword" />
+                        <small class="text-muted">Min 4 characters.</small>
                     </div>
-                    <div class="card-body">
-                        <AlertMessage Message="@_pwdSuccess" Variant="success" />
-                        <AlertMessage Message="@_pwdError" Variant="danger" />
-                        <p class="text-muted small">Anyone who already joined the team stays a member. Future joiners (via the secondary link) will need the new password.</p>
-                        <div class="mb-3">
-                            <label for="newPassword" class="form-label">New password</label>
-                            <input id="newPassword" type="password" class="form-control" @bind="_newPassword" />
-                            <small class="text-muted">Min 4 characters.</small>
-                        </div>
-                        <div class="mb-3">
-                            <label for="confirmPassword" class="form-label">Confirm new password</label>
-                            <input id="confirmPassword" type="password" class="form-control" @bind="_confirmPassword" />
-                        </div>
-                        <SpinnerButton Busy="_savingPassword" OnClick="SavePassword">Change password</SpinnerButton>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm new password</label>
+                        <input id="confirmPassword" type="password" class="form-control" @bind="_confirmPassword" />
                     </div>
-                </div>
+                    <SpinnerButton Busy="_savingPassword" OnClick="SavePassword">Change password</SpinnerButton>
+                </Panel>
             </div>
         </div>
     </div>
