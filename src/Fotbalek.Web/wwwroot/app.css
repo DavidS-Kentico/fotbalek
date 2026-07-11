@@ -1140,10 +1140,15 @@ h1:focus {
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 0.75rem;
+    padding: 0.55rem 1rem;
 }
 .lg-scorebar__left { justify-self: start; display: flex; align-items: center; gap: 0.4rem; }
 .lg-scorebar__center { justify-self: center; }
 .lg-scorebar__right { justify-self: end; }
+
+/* The scorebar is a flush panel (overflow:hidden clips its rounded corners),
+   which would also clip the viewers dropdown — let this one panel overflow. */
+.panel--flush.lg-scorebar-panel { overflow: visible; }
 
 /* Narrow screens can't hold three fixed sections on one row — let them wrap,
    score centered, chips/end-game flowing above/below. */
@@ -1207,15 +1212,41 @@ h1:focus {
 }
 .lg-chip--live { color: #dc3545; }
 
-/* ── Card head (icon + title) ── */
-.lg-card-head {
+/* Chip rendered as a button (the clickable viewers count → dropdown). */
+.lg-chip--btn {
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+.lg-chip--btn:hover,
+.lg-chip--btn[aria-expanded="true"] {
+    background: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+/* Viewers dropdown panel */
+.lg-viewers-menu {
+    min-width: 12rem;
+    max-height: 16rem;
+    overflow-y: auto;
+    padding: 0.35rem;
+}
+.lg-viewer-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-weight: 700;
+    gap: 0.55rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    white-space: nowrap;
 }
-.lg-card-head .bi { color: var(--bs-secondary-color); }
-.lg-card-head .lg-count { margin-left: auto; color: var(--bs-secondary-color); font-weight: 600; }
+.lg-viewer-row + .lg-viewer-row { margin-top: 0.1rem; }
+.lg-viewers-empty {
+    padding: 0.3rem 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+}
 
 /* ── Lineup ── */
 .lg-lineup { display: flex; flex-direction: column; gap: 0.9rem; }
@@ -1345,22 +1376,78 @@ h1:focus {
     padding: 0.08rem 0.35rem;
 }
 
-/* ── Viewers ── */
-.lg-viewers { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.lg-viewer {
+/* ── Floating spectators (viewers bobbing over the pitch corner) ── */
+/* Sits inside .game-canvas-wrap, before the waiting/game-over overlays in the
+   DOM so those (same auto z-index, later in source) still paint on top. Purely
+   decorative — pointer-events off so it never blocks the canvas; the live count
+   also lives in the scorebar chip. */
+.lg-spectators {
+    position: absolute;
+    left: 0.6rem;
+    bottom: 0.6rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    pointer-events: none;
+}
+/* Each avatar re-enables pointer events (the container is off) so hovering it
+   can reveal the name and pause the bob. */
+.lg-spectator {
+    position: relative;
+    pointer-events: auto;
+    cursor: default;
+    user-select: none;
+    animation: lg-spectator-bob 2.4s ease-in-out infinite;
+}
+.lg-spectator:hover { animation-play-state: paused; }
+.lg-spectator .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.lg-spectator--more {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    background: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    padding: 0.12rem 0.6rem 0.12rem 0.2rem;
-    font-size: 0.82rem;
-    font-weight: 500;
-    max-width: 100%;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(33, 37, 41, 0.85);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
-.lg-viewer > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lg-muted-note { color: var(--bs-secondary-color); font-size: 0.85rem; }
+/* Name tooltip on hover (custom, so it's instant and themed). Sits above the
+   avatar, inside the canvas bounds so .game-canvas-wrap's overflow won't clip. */
+.lg-spectator[data-name]::after {
+    content: attr(data-name);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    background: rgba(33, 37, 41, 0.95);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    z-index: 3;
+}
+.lg-spectator:hover::after { opacity: 1; }
+@keyframes lg-spectator-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lg-spectator { animation: none; }
+}
 
 /* ── Settings rows (built to grow — one .lg-setting per option) ── */
 .lg-setting { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0; }
@@ -1373,9 +1460,36 @@ h1:focus {
 .lg-setting .form-switch { flex: 0 0 auto; padding-left: 2.75em; margin: 0; min-height: auto; }
 .lg-setting .form-switch .form-check-input { width: 2.25em; height: 1.15em; margin-left: -2.75em; cursor: pointer; }
 
-/* ── Quick actions ── */
-.lg-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.lg-actions .lg-btn { flex: 1 1 auto; justify-content: center; padding: 0.42rem 0.5rem; }
+/* Grouped settings (Display / Match rules subsections in one panel) */
+.lg-setting-group + .lg-setting-group { margin-top: 1.1rem; }
+.lg-setting-group__label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bs-tertiary-color);
+    margin-bottom: 0.1rem;
+}
+
+/* ── In-game control bar ── */
+/* Lives directly under the canvas so the reset/leave actions are always in view
+   while seated (no scrolling into the sidebar). The keyboard legend sits below,
+   split off by a divider. */
+.lg-playbar {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 14px;
+    background: var(--bs-body-bg);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+.lg-playbar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.lg-btn--lg { padding: 0.45rem 0.85rem; font-size: 0.85rem; border-radius: 10px; }
 
 /* ── Controls legend (keycaps) ── */
 .lg-controls {
@@ -1384,7 +1498,9 @@ h1:focus {
     align-items: center;
     justify-content: center;
     gap: 0.35rem 0.5rem;
-    margin-top: 0.65rem;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--bs-border-color);
     color: var(--bs-secondary-color);
     font-size: 0.82rem;
 }

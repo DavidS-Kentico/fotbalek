@@ -2,7 +2,10 @@
 // snapshots + roomState, interpolates, renders with rAF, captures keyboard input and
 // predicts the two own rods locally. Zero game rules live here.
 
-const INTERP_DELAY_MS = 125;      // render this far behind server time (§4.4)
+const INTERP_DELAY_MS = 85;       // render this far behind server time (§4.4). ~2.5 snapshot
+                                  // intervals at the 30 Hz snapshot rate (33 ms each) — same
+                                  // jitter buffer as the old 125 ms @ 20 Hz, but ~40 ms less
+                                  // ball lag, so you have to lead a moving ball much less.
 const MAX_EXTRAPOLATION_MS = 100; // cap ball extrapolation past the newest snapshot
 const NUDGE_RATE = 4;             // /s — correction of predicted own rods by time-aligned error
 const PAD = 30;                   // logical padding around the playfield (goal pockets, handles)
@@ -19,6 +22,7 @@ const SIDE_COLORS = ['#ffc107', '#0d6efd'];  // A yellow, B blue (§5.1)
 const SIDE_DARK = ['#c79100', '#0a53be'];    // head + swinging foot shades
 const SWING_MS = 300;                        // kick swing animation length
 const FOOT_EXTENT = 24;                      // how far the foot sweeps from the rod
+const DASH_FLASH_MS = 220;                   // how long own rods glow after a dash (§skill-dash), client-only
 
 // Game-feel / juice (Layer 1) — all client-only, no effect on the simulation.
 const TRAIL_MS = 140;                        // how long a ball position lingers in the motion trail
@@ -82,6 +86,9 @@ let mySide = null;      // 0 / 1 when seated (drives the win-vs-lose match-end f
 let predicted = null;   // rodIdx → offset
 let predHistory = {};   // rodIdx → [{ t, o }] — past predictions on the server timeline
 let predVel = {};       // rodIdx → world units/s — persistent ramp velocity, mirrors SimState.RodVel
+let dashReadyAt = 0;    // performance.now() clock: earliest time a local dash is allowed (mirrors the
+                        // server per-user cooldown, so we don't predict a dash the server will reject)
+let dashFlashUntil = 0; // render-clock deadline for the own-rod dash glow (client-only juice)
 let lastFrameTime = 0;
 
 // Latency instrumentation (§12): per-window sample buffers + timers, all in ms on the client clock.
@@ -120,6 +127,8 @@ export async function init(canvasEl, options) {
     predicted = null;
     predHistory = {};
     predVel = {};
+    dashReadyAt = 0;
+    dashFlashUntil = 0;
     lastLayoutKey = '';
     lastFrameTime = 0;
     ballAngX = ballAngY = ballAngZ = 0;
@@ -447,10 +456,12 @@ function onKeyDown(e) {
     if (e.code === 'Space') {
         e.preventDefault(); // don't scroll, and don't trigger a focused button
         // Held state: press starts the goalie's charge (and the outfield pass); release launches the
-        // goalie shot. Edges only — key-repeat is ignored.
+        // goalie shot. Edges only — key-repeat is ignored. When SPACE isn't acting on a ball we're
+        // holding, the same press is a dash — predict it locally so the lunge shows instantly.
         if (!e.repeat && !sentSpace) {
             sentSpace = true;
             connection?.send('Space', true).catch(() => { });
+            maybeDash();
         }
         return;
     }
@@ -524,6 +535,42 @@ function syncCatch() {
     connection?.send('Catch', isHeld).catch(() => { });
 }
 
+/** Optimistically mirror the server dash (§skill-dash): SPACE with no ball in hand bursts our moving
+ *  rods' predicted velocity so the lunge appears instantly, exactly as the server will. Seeds predVel
+ *  with the same DashSpeed the server uses — from there the shared ramp in predictOwnRods decays it
+ *  identically, and the snapshot nudge corrects any drift. The cooldown mirrors the server's so we
+ *  don't show a dash it rejects; the server stays authoritative. */
+function maybeDash() {
+    if (!myRods || !config || !config.dashSpeed) {
+        return;
+    }
+    const now = performance.now();
+    if (now < dashReadyAt) {
+        return; // still cooling down
+    }
+    // If we're holding the trapped ball, SPACE is a pass/launch, not a dash — leave it to that path.
+    const trapRod = snapshots.length ? snapshots[snapshots.length - 1].tr : -1;
+    if (trapRod >= 0 && myRods.hands.flat().includes(trapRod)) {
+        return;
+    }
+    let dashed = false;
+    for (const hand of [0, 1]) {
+        const dir = sentDir[hand];
+        if (dir === 0) {
+            continue; // a still rod has no dash direction
+        }
+        for (const rodIdx of myRods.hands[hand]) {
+            predVel[rodIdx] = dir * config.dashSpeed;
+            dashed = true;
+        }
+    }
+    if (dashed) {
+        dashReadyAt = now + config.dashCooldownSeconds * 1000;
+        dashFlashUntil = now + DASH_FLASH_MS;
+        playDash(); // airy whoosh — audio confirmation to match the cyan rod glow
+    }
+}
+
 function releaseAllKeys() {
     for (const hand of [0, 1]) {
         held[hand].up = held[hand].down = false;
@@ -559,7 +606,7 @@ function resendInput() {
 
 // ---- Interpolation & prediction ---------------------------------------------------------------
 
-/** Ball position/velocity and rod offsets at render time (~125 ms behind server). */
+/** Ball position/velocity and rod offsets at render time (~85 ms behind server). */
 function sampleWorld(nowMs) {
     if (snapshots.length === 0 || clockOffset === null) {
         return null;
@@ -644,17 +691,27 @@ function predictOwnRods(rods, dtSec, renderTime) {
     const out = rods.slice();
     const nudge = 1 - Math.exp(-NUDGE_RATE * dtSec);
     const serverNow = renderTime + INTERP_DELAY_MS; // server time this prediction represents
+    // A goalie we control freezes while charging its aimed shot (§skill-aim) — ↑/↓ swing the aim, not
+    // the rod. Mirror the server's freeze rule (GamePhysics.IntegrateRods) so the held rod doesn't drift.
+    const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
+    const aimRod = sentSpace && latest && latest.tr >= 0
+        && config.rods[latest.tr] && config.rods[latest.tr].figures === 1
+        && myRods.hands.flat().includes(latest.tr) ? latest.tr : -1;
     for (const hand of [0, 1]) {
         for (const rodIdx of myRods.hands[hand]) {
             const rod = config.rods[rodIdx];
             // Mirror the server rod ramp (GamePhysics.IntegrateRods) exactly: ease this rod's speed
             // toward the held-direction target, then integrate position. Keeping the two integrators
             // identical is what keeps the prediction from rubber-banding against the server stream.
-            const target = sentDir[hand] * config.rodSpeed;
+            const dir = rodIdx === aimRod ? 0 : sentDir[hand]; // aiming goalie holds still (§skill-aim)
+            const target = dir * config.rodSpeed;
             let v = predVel[rodIdx] ?? 0;
-            const speedingUp = sentDir[hand] !== 0 && (v === 0 || Math.sign(v) === Math.sign(target));
+            const speedingUp = dir !== 0 && (v === 0 || Math.sign(v) === Math.sign(target));
             const rate = speedingUp ? config.rodAccel : config.rodDecel;
             v = moveToward(v, target, rate * dtSec);
+            if (rodIdx === aimRod) {
+                v = 0; // server hard-freezes the aiming keeper (RodVel=0, position held) — don't coast
+            }             // through a decel ramp here or the rod over-travels until the nudge claws it back.
             let p = predicted[rodIdx] ?? rods[rodIdx];
             p = Math.min(1, Math.max(0, p + (v / rod.travel) * dtSec));
             if (p <= 0 || p >= 1) {
@@ -911,6 +968,41 @@ function playPass() {
     tone(340, 0.09, 'sine', 0.10, 250);
 }
 
+/** A dash (§skill-dash) — a short airy "whoosh" of rushing air: a noise burst through a band-pass
+ *  filter whose centre sweeps up then back down, so it reads as air moving past rather than a hit
+ *  (unlike the kick's low thud). Roughly the length of the dash glow (DASH_FLASH_MS) and pitched
+ *  between the pass and the kick in volume. There's no wire signal for a dash, so — like the cyan
+ *  rod glow — it's played locally for the dasher only, from maybeDash on a successful dash. */
+function playDash() {
+    const ac = ensureAudio();
+    if (!ac) {
+        return;
+    }
+    const t = ac.currentTime;
+    const dur = 0.22;
+    const n = Math.max(1, Math.floor(ac.sampleRate * dur));
+    const buf = ac.createBuffer(1, n, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) {
+        data[i] = Math.random() * 2 - 1; // full white noise; the swept band-pass shapes the whoosh
+    }
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 0.8;
+    f.frequency.setValueAtTime(480, t);
+    f.frequency.exponentialRampToValueAtTime(1900, t + dur * 0.45); // rush in
+    f.frequency.exponentialRampToValueAtTime(650, t + dur);         // fall away
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.13, t + 0.03); // quick swell, softer than a kick
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t);
+    src.stop(t + dur + 0.02);
+}
+
 function playWall(intensity) {
     noise(0.035, 0.12 * intensity, 1700);
     tone(300, 0.05, 'triangle', 0.06 * intensity);
@@ -1121,6 +1213,8 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
     // glow green — immediate feedback that you're in catch mode and where the ball can be caught.
     const ownRodSet = new Set(myRods ? myRods.hands.flat() : []);
     const armedRodSet = new Set(myRods && catchKeys.size > 0 ? myRods.hands.flat() : []);
+    // Brief cyan glow on your own rods right after a dash (§skill-dash) — confirms the lunge fired.
+    const dashGlow = nowMs < dashFlashUntil ? (dashFlashUntil - nowMs) / DASH_FLASH_MS : 0;
     for (let i = 0; i < config.rods.length; i++) {
         const rod = config.rods[i];
         const own = ownRodSet.has(i);
@@ -1129,6 +1223,9 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         if (armed) {
             ctx.shadowColor = 'rgba(80,255,130,0.9)';
             ctx.shadowBlur = 14;
+        } else if (own && dashGlow > 0) {
+            ctx.shadowColor = `rgba(120,200,255,${0.9 * dashGlow})`;
+            ctx.shadowBlur = 22 * dashGlow;
         }
         ctx.strokeStyle = armed ? 'rgba(120,255,150,0.98)' : (own ? 'rgba(233,236,239,0.95)' : 'rgba(173,181,189,0.6)');
         ctx.lineWidth = armed ? 8 : (own ? 7 : 5);
@@ -1137,6 +1234,20 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         ctx.lineTo(rod.x, H + PAD - 6);
         ctx.stroke();
         ctx.shadowBlur = 0;
+
+        // Rod end-stop collars: every rod's figures are inset from the walls (by WallMargin, or more
+        // for the short-travel goalie), leaving room for a pair of collars that live on the bar and
+        // slide WITH it, like real foosball rod hardware — spaced so each meets its side wall exactly
+        // at the travel limit. So a rod reads as a physical bar that stops when a collar hits the
+        // wall, not a man halting in open space. yBase > 0 for every inset rod (all of them).
+        if (rod.yBase > 0.5) {
+            const off = rodOffsets[i];
+            const topFigY = rod.yBase + off * rod.travel;               // topmost figure centre
+            const botFigY = topFigY + (rod.figures - 1) * rod.spacing;  // bottommost figure centre
+            const botGap = H - rod.yBase - rod.travel - (rod.figures - 1) * rod.spacing;
+            drawTravelStop(rod.x, topFigY - rod.yBase);                 // → y=0 at the up limit
+            drawTravelStop(rod.x, botFigY + botGap);                    // → y=H at the down limit
+        }
 
         for (let f = 0; f < rod.figures; f++) {
             const y = rod.yBase + rodOffsets[i] * rod.travel + f * rod.spacing;
@@ -1176,6 +1287,37 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
             ctx.stroke();
             ctx.lineCap = 'butt';
         }
+
+        // Aim arrow (§skill-aim): a trapped goalie's charged shot fires dead straight along this. Drawn
+        // for everyone so opponents can read the shot and slide to cover during the wind-up — the visible
+        // aim is the counterplay to a precise cannon. Points straight ahead until the keeper swings it
+        // with ↑/↓ (once SPACE is held); grows and turns green → red as power builds. snap.am = aim angle
+        // (rad off straight), snap.pw = power fraction, dirX = the side's forward (attacking) direction.
+        const side = config.rods[snap.tr].side;
+        const dirX = side === 0 ? 1 : -1;
+        const aim = snap.am || 0;
+        const ux = Math.cos(aim) * dirX;
+        const uy = Math.sin(aim);
+        const len = config.ballRadius + 30 + (snap.pw || 0) * 85;
+        const tipX = ball[0] + ux * len;
+        const tipY = ball[1] + uy * len;
+        ctx.strokeStyle = ctx.fillStyle = snap.pw > 0 ? `hsl(${(1 - snap.pw) * 120}, 90%, 55%)` : SIDE_COLORS[side];
+        ctx.globalAlpha = snap.pw > 0 ? 0.95 : 0.5;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ball[0] + ux * (config.ballRadius + 4), ball[1] + uy * (config.ballRadius + 4));
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        const ah = 11, aw = 7, px = -uy, py = ux; // arrowhead: back off along the shaft, spread perpendicular
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tipX - ux * ah + px * aw, tipY - uy * ah + py * aw);
+        ctx.lineTo(tipX - ux * ah - px * aw, tipY - uy * ah - py * aw);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
     }
 
     // Motion trail: a fading streak behind a fast-moving ball (Layer 1). Always record + prune; render
@@ -1256,8 +1398,27 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
     ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.fillText(formatClock(snap.mt), W / 2, 56);
 
-    // Ping readout (player option §12) — top-left, colored by quality. This is connection RTT: your own
-    // rods are client-predicted, so it's not your control lag, but it's the best "is my link ok" signal.
+    // HUD, top-left. Dash-cooldown pip first (seated players): a lightning bolt that fills from dim to
+    // bright cyan as the cooldown recharges — instant read on whether the dash is ready (§skill-dash).
+    let hudY = 10;
+    if (myRods && config && config.dashCooldownSeconds) {
+        const remaining = Math.max(0, dashReadyAt - nowMs);
+        const frac = 1 - Math.min(1, remaining / (config.dashCooldownSeconds * 1000)); // 0 just-dashed → 1 ready
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = 'bold 22px system-ui, sans-serif';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 3;
+        ctx.globalAlpha = 0.3 + 0.7 * frac;
+        ctx.fillStyle = frac >= 1 ? '#4dd2ff' : '#9ecbff';
+        ctx.fillText('⚡', 12, hudY);
+        ctx.restore();
+        hudY += 30;
+    }
+
+    // Ping readout (player option §12) — colored by quality. This is connection RTT: your own rods are
+    // client-predicted, so it's not your control lag, but it's the best "is my link ok" signal.
     if (playerOptions.showPing && displayPing !== null) {
         const ms = Math.round(displayPing);
         ctx.save();
@@ -1267,7 +1428,7 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
         ctx.textBaseline = 'top';
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 3;
-        ctx.fillText(`● ${ms} ms`, 10, 10);
+        ctx.fillText(`● ${ms} ms`, 10, hudY);
         ctx.restore();
     }
 
@@ -1321,6 +1482,19 @@ function drawFigure(x, y, side, own, foot, radius) {
     ctx.fill();
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.stroke();
+}
+
+/** A rubber end-stop collar on a rod — drawn for every rod (all are inset from the walls) and slid
+ *  along with the bar (see the rod loop), so it meets the side wall at the travel limit like real
+ *  rod hardware. A dark, slightly highlighted bar across the rod. */
+function drawTravelStop(x, y) {
+    // Understated: every rod carries a pair, so keep them as ambient dark hardware, not focal.
+    roundRect(x - 7.5, y - 3.5, 15, 7, 3.5);
+    ctx.fillStyle = 'rgba(33,37,41,0.72)';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
     ctx.stroke();
 }
 

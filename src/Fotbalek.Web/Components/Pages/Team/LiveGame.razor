@@ -22,8 +22,8 @@ else if (_team != null && _user != null)
     <div class="container py-4 live-game">
         @if (_state == null)
         {
-            <div class="card">
-                <div class="card-body lg-hero">
+            <Panel Flush="true">
+                <div class="lg-hero">
                     <div class="lg-hero__icon">🎮</div>
                     <h4>@(_roomEnded ? "The game has ended" : "No live game right now")</h4>
                     <p>Play foosball in the browser against your teammates — up to 4 players, everyone else can watch.</p>
@@ -31,15 +31,36 @@ else if (_team != null && _user != null)
                         <i class="bi bi-play-fill me-1"></i> Start live game
                     </button>
                 </div>
-            </div>
+            </Panel>
         }
         else
         {
-            <div class="card mb-3">
-                <div class="card-body py-2 lg-scorebar">
+            <Panel Flush="true" Class="mb-3 lg-scorebar-panel">
+                <div class="lg-scorebar">
                     <div class="lg-scorebar__left">
                         <span class="lg-chip lg-chip--live"><span class="live-dot"></span> LIVE</span>
-                        <span class="lg-chip"><i class="bi bi-eye"></i> @_state.Viewers.Count</span>
+                        <Dropdown Class="lg-viewers-pop" TriggerClass="lg-chip lg-chip--btn"
+                                  MenuClass="lg-viewers-menu" Header="Watching now" Title="Viewers">
+                            <Trigger>
+                                <i class="bi bi-eye"></i> @_state.Viewers.Count
+                            </Trigger>
+                            <ChildContent>
+                                @if (_state.Viewers.Count == 0)
+                                {
+                                    <div class="lg-viewers-empty">Nobody is watching yet.</div>
+                                }
+                                else
+                                {
+                                    @foreach (var viewer in _state.Viewers)
+                                    {
+                                        <div class="lg-viewer-row">
+                                            <Avatar AvatarId="@viewer.AvatarId" Size="sm" Title="@viewer.Name" />
+                                            <span>@viewer.Name</span>
+                                        </div>
+                                    }
+                                }
+                            </ChildContent>
+                        </Dropdown>
                     </div>
                     <div class="lg-scorebar__center">
                         <div class="lg-score">
@@ -57,12 +78,31 @@ else if (_team != null && _user != null)
                         }
                     </div>
                 </div>
-            </div>
+            </Panel>
 
             <div class="row g-3">
                 <div class="col-lg-8">
                     <div class="game-canvas-wrap">
                         <canvas @ref="_canvas" data-room-id="@_room?.RoomId"></canvas>
+
+                        @if (_state.Viewers.Count > 0)
+                        {
+                            var shownViewers = _state.Viewers.Take(6).ToList();
+                            var extraViewers = _state.Viewers.Count - shownViewers.Count;
+                            <div class="lg-spectators" aria-hidden="true">
+                                @for (var i = 0; i < shownViewers.Count; i++)
+                                {
+                                    var v = shownViewers[i];
+                                    <span class="lg-spectator" data-name="@v.Name" style="animation-delay: @(i * 280)ms">
+                                        <Avatar AvatarId="@v.AvatarId" Size="sm" Title="" />
+                                    </span>
+                                }
+                                @if (extraViewers > 0)
+                                {
+                                    <span class="lg-spectator lg-spectator--more" data-name="@($"+{extraViewers} more watching")">+@extraViewers</span>
+                                }
+                            </div>
+                        }
 
                         @if (_state.State == (int)GamePhase.Waiting)
                         {
@@ -109,27 +149,35 @@ else if (_team != null && _user != null)
                     </div>
                     @if (IsSeated)
                     {
-                        <div class="lg-controls">
-                            <span><kbd class="lg-key">W</kbd><kbd class="lg-key">S</kbd> left rod</span>
-                            <span class="lg-sep">·</span>
-                            <span><kbd class="lg-key">↑</kbd><kbd class="lg-key">↓</kbd> right rod</span>
-                            <span class="lg-sep">·</span>
-                            <span>hold <kbd class="lg-key">Shift</kbd> to catch · release to shoot</span>
-                            <span class="lg-sep">·</span>
-                            <span><kbd class="lg-key">Space</kbd> pass: slide = along rod, else back a rod</span>
-                            <span class="lg-sep">·</span>
-                            <span>goalie: hold <kbd class="lg-key">Space</kbd> to charge, release to launch</span>
+                        <div class="lg-playbar">
+                            <div class="lg-playbar__actions">
+                                <button class="lg-btn lg-btn--lg" @onclick="ResetBall">
+                                    <i class="bi bi-record-circle"></i> Reset ball
+                                </button>
+                                <button class="lg-btn lg-btn--lg" @onclick="ResetScore">
+                                    <i class="bi bi-0-circle"></i> Reset score
+                                </button>
+                            </div>
+                            <div class="lg-controls">
+                                <span><kbd class="lg-key">W</kbd><kbd class="lg-key">S</kbd> left rod</span>
+                                <span class="lg-sep">·</span>
+                                <span><kbd class="lg-key">↑</kbd><kbd class="lg-key">↓</kbd> right rod</span>
+                                <span class="lg-sep">·</span>
+                                <span>hold <kbd class="lg-key">Shift</kbd> to catch · release to shoot</span>
+                                <span class="lg-sep">·</span>
+                                <span><kbd class="lg-key">Space</kbd> dash your moving rods (no ball, 1 s cooldown)</span>
+                                <span class="lg-sep">·</span>
+                                <span>with ball, <kbd class="lg-key">Space</kbd> passes: slide = along rod, else back a rod</span>
+                                <span class="lg-sep">·</span>
+                                <span>goalie: hold <kbd class="lg-key">Space</kbd> to charge &amp; aim (keeper's keys), release to launch</span>
+                            </div>
                         </div>
                     }
                 </div>
 
                 <div class="col-lg-4">
-                    <div class="card mb-3">
-                        <div class="card-header py-2 lg-card-head">
-                            <i class="bi bi-people-fill"></i> Lineup
-                        </div>
-                        <div class="card-body lg-lineup">
-                            @foreach (var (side, label, dot) in new[] { (0, "Team A", "lg-dot--a"), (1, "Team B", "lg-dot--b") })
+                    <Panel Title="Lineup" Icon="bi bi-people-fill" BodyClass="lg-lineup">
+                        @foreach (var (side, label, dot) in new[] { (0, "Team A", "lg-dot--a"), (1, "Team B", "lg-dot--b") })
                             {
                                 <div class="lg-team-group @(side == 0 ? "lg-team-group--a" : "lg-team-group--b")">
                                     <div class="lg-team-group__head"><span class="lg-dot @dot"></span> @label</div>
@@ -157,6 +205,14 @@ else if (_team != null && _user != null)
                                                             }
                                                         </div>
                                                     </div>
+                                                    @if (isMine)
+                                                    {
+                                                        <div class="lg-seat__actions">
+                                                            <button class="lg-btn lg-btn--icon lg-btn--danger" @onclick="LeaveSeat" title="Leave seat">
+                                                                <i class="bi bi-box-arrow-left"></i>
+                                                            </button>
+                                                        </div>
+                                                    }
                                                 }
                                                 else if (seat.IsBot)
                                                 {
@@ -217,38 +273,11 @@ else if (_team != null && _user != null)
                                     </div>
                                 </div>
                             }
-                        </div>
-                    </div>
+                    </Panel>
 
-                    <div class="card mb-3">
-                        <div class="card-header py-2 lg-card-head">
-                            <i class="bi bi-eye"></i> Viewers <span class="lg-count">@_state.Viewers.Count</span>
-                        </div>
-                        <div class="card-body">
-                            @if (_state.Viewers.Count == 0)
-                            {
-                                <div class="lg-muted-note">Nobody is watching yet.</div>
-                            }
-                            else
-                            {
-                                <div class="lg-viewers">
-                                    @foreach (var viewer in _state.Viewers)
-                                    {
-                                        <span class="lg-viewer">
-                                            <Avatar AvatarId="@viewer.AvatarId" Size="sm" />
-                                            <span>@viewer.Name</span>
-                                        </span>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="card mb-3">
-                        <div class="card-header py-2 lg-card-head">
-                            <i class="bi bi-person-gear"></i> Player options
-                        </div>
-                        <div class="card-body">
+                    <Panel Title="Settings" Icon="bi bi-sliders">
+                        <div class="lg-setting-group">
+                            <div class="lg-setting-group__label">Display</div>
                             <div class="lg-setting">
                                 <div class="lg-setting__text">
                                     <div class="lg-setting__label">Show ping</div>
@@ -272,15 +301,10 @@ else if (_team != null && _user != null)
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    @if (IsSeated)
-                    {
-                        <div class="card mb-3">
-                            <div class="card-header py-2 lg-card-head">
-                                <i class="bi bi-sliders"></i> Match settings
-                            </div>
-                            <div class="card-body">
+                        @if (IsSeated)
+                        {
+                            <div class="lg-setting-group">
+                                <div class="lg-setting-group__label">Match rules</div>
                                 <div class="lg-setting">
                                     <div class="lg-setting__text">
                                         <div class="lg-setting__label">No quick goals</div>
@@ -304,22 +328,8 @@ else if (_team != null && _user != null)
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="card mb-3">
-                            <div class="card-body lg-actions">
-                                <button class="lg-btn" @onclick="ResetBall">
-                                    <i class="bi bi-record-circle"></i> Reset ball
-                                </button>
-                                <button class="lg-btn" @onclick="ResetScore">
-                                    <i class="bi bi-0-circle"></i> Reset score
-                                </button>
-                                <button class="lg-btn lg-btn--danger" @onclick="LeaveSeat">
-                                    <i class="bi bi-box-arrow-left"></i> Leave seat
-                                </button>
-                            </div>
-                        </div>
-                    }
+                        }
+                    </Panel>
                 </div>
             </div>
         }

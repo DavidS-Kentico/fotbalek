@@ -11,7 +11,7 @@ public enum GamePhase
 }
 
 /// <summary>
-/// Moving game state, broadcast 20×/s to the room's SignalR group (§4.3). Property names are
+/// Moving game state, broadcast 30×/s to the room's SignalR group (§4.3). Property names are
 /// single letters to keep the payload ~100 bytes; everything else derives client-side from
 /// the static <see cref="GameConfigDto"/>.
 /// </summary>
@@ -31,7 +31,8 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("ch")] double HoldRemaining,
     [property: JsonPropertyName("pw")] double ShotPower,
     [property: JsonPropertyName("sp")] double BallSpin,
-    [property: JsonPropertyName("pt")] long LastPassTick);
+    [property: JsonPropertyName("pt")] long LastPassTick,
+    [property: JsonPropertyName("am")] double AimAngle);
 
 /// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
 /// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>
@@ -79,6 +80,8 @@ public sealed record GameConfigDto(
     double RodSpeed,
     double RodAccel,
     double RodDecel,
+    double DashSpeed,
+    double DashCooldownSeconds,
     int TickRate,
     IReadOnlyList<RodConfigDto> Rods)
 {
@@ -91,6 +94,8 @@ public sealed record GameConfigDto(
         GameConstants.RodSpeed,
         GameConstants.RodAccel,
         GameConstants.RodDecel,
+        GameConstants.DashSpeed,
+        GameConstants.DashCooldownSeconds,
         GameConstants.TickRate,
         GameConstants.Rods
             .Select(r => new RodConfigDto(r.X, r.Side, r.FigureCount, r.FigureSpacing, r.Travel, r.YBase, r.Radius))

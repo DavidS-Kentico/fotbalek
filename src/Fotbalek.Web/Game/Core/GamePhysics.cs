@@ -115,6 +115,20 @@ public static class GamePhysics
         for (var i = 0; i < 8; i++)
         {
             var rod = GameConstants.Rods[i];
+
+            // Aiming goalie (§skill-aim): while the keeper holds its trapped ball and charges (SPACE
+            // held), the rod freezes and ↑/↓ swing the shot's aim instead of sliding it — so the cannon
+            // can be placed precisely. The client mirror (predictOwnRods) applies the identical rule, so
+            // the frozen rod doesn't rubber-band against the snapshot stream.
+            if (i == s.TrappedRod && rod.Role == "GK" && s.RodSpace[i])
+            {
+                s.AimAngle = Math.Clamp(
+                    s.AimAngle + s.RodDir[i] * GameConstants.GoalieAimRate * dt,
+                    -GameConstants.GoalieAimMaxAngle, GameConstants.GoalieAimMaxAngle);
+                s.RodVel[i] = 0;
+                continue; // rod holds position while aiming
+            }
+
             var prev = s.RodOffset[i];
             double next;
             if (s.RodGlide[i])
@@ -210,6 +224,8 @@ public static class GamePhysics
             s.TrappedFigure = bestFig;
             s.ChargeSeconds = 0;
             s.HoldSeconds = 0;
+            s.OneTimerArmed = false; // a fresh catch is not a one-timer (§skill-onetimer)
+            s.AimAngle = 0; // straight-ahead until the keeper swings it (§skill-aim)
             s.TrapY = bestFigY;
             s.BallVX = 0;
             s.BallVY = 0;
@@ -271,22 +287,35 @@ public static class GamePhysics
     /// English (rod momentum) is read from the rod's live velocity, and the kicker's collider is ignored
     /// until the ball separates (§2.3).</summary>
     private static void FireShot(SimState s, RodDef rod, int fig, double powerFrac, double offset,
-        double powerBonus = GameConstants.KickPowerBonus)
+        double powerBonus = GameConstants.KickPowerBonus, double? aimAngle = null)
     {
         var dir = rod.Side == 0 ? 1 : -1;
         var speed = GameConstants.KickSpeed * (1 + powerBonus * powerFrac);
-        s.BallVX = speed * dir;
-        s.BallVY = offset * GameConstants.MaxDeflection
-                   + GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
-        // Curve (§skill): english from the rod's motion at contact plus the off-center clip. A still
-        // block imparts none; a committed swipe hooks the shot mid-flight (see the Magnus step). Signed
-        // by the shot direction: spin is angular, so its sense must flip with the strike direction
-        // (table mirror symmetry) or the same rod slide would hook one team's shots and straighten the
-        // other's — unlike the linear rod-momentum term above, which is direction-independent.
-        s.BallSpin = dir * Math.Clamp(
-            GameConstants.KickSpinFromRod * s.RodVel[rod.Index] / GameConstants.RodSpeed
-            + GameConstants.KickSpinFromOffset * offset,
-            -GameConstants.MaxSpin, GameConstants.MaxSpin);
+        if (aimAngle is { } aim)
+        {
+            // Aimed goalie cannon (§skill-aim): fly dead straight along the chosen angle. Precision is
+            // the whole point, so no english/curve here — the flick-aimed english below stays the
+            // identity of the auto-kick and the outfield trap-shots. cos is always positive over the
+            // sub-90° aim cone, so the shot still leaves toward the opponent goal.
+            s.BallVX = speed * Math.Cos(aim) * dir;
+            s.BallVY = speed * Math.Sin(aim);
+            s.BallSpin = 0;
+        }
+        else
+        {
+            s.BallVX = speed * dir;
+            s.BallVY = offset * GameConstants.MaxDeflection
+                       + GameConstants.RodMomentumTransfer * s.RodVel[rod.Index];
+            // Curve (§skill): english from the rod's motion at contact plus the off-center clip. A still
+            // block imparts none; a committed swipe hooks the shot mid-flight (see the Magnus step). Signed
+            // by the shot direction: spin is angular, so its sense must flip with the strike direction
+            // (table mirror symmetry) or the same rod slide would hook one team's shots and straighten the
+            // other's — unlike the linear rod-momentum term above, which is direction-independent.
+            s.BallSpin = dir * Math.Clamp(
+                GameConstants.KickSpinFromRod * s.RodVel[rod.Index] / GameConstants.RodSpeed
+                + GameConstants.KickSpinFromOffset * offset,
+                -GameConstants.MaxSpin, GameConstants.MaxSpin);
+        }
         ClampSpeed(s);
         s.KickCooldown[rod.Index][fig] = GameConstants.KickCooldownSeconds;
         s.IgnoreRod = rod.Index;
@@ -298,9 +327,10 @@ public static class GamePhysics
 
     /// <summary>A trapped ball: pinned to the front of its figure, riding the rod as it slides
     /// (dribble) and charging while the kick key stays held. Releasing the key — or hitting the safety
-    /// timeout — fires it with power from the charge and english from the rod's motion at that instant
-    /// (a pull/push shot: flick up or down before letting go to aim). A caught shot carries the rod's
-    /// kick-power multiplier — the goalie's cannon (§skill).</summary>
+    /// timeout — fires it with power from the charge. Outfield rods aim by the rod's motion at that
+    /// instant (a pull/push flick shot with english); the goalie instead freezes while charging and
+    /// aims an explicit angle with ↑/↓ (§skill-aim), firing dead straight along it. A caught shot
+    /// carries the rod's kick-power multiplier — the goalie's cannon (§skill).</summary>
     private static StepResult HandleTrapped(SimState s, double dt)
     {
         var rod = GameConstants.Rods[s.TrappedRod];
@@ -326,6 +356,7 @@ public static class GamePhysics
                 s.TrappedFigure = laneTarget;
                 s.ChargeSeconds = 0;
                 s.HoldSeconds = 0;
+                s.OneTimerArmed = true;  // release before the ball settles → one-timer (§skill-onetimer)
                 s.LastPassTick = s.Tick; // lane-pass hop → client plays a pass sound (no swing)
             }
             else if (GameConstants.RodBehind(s.TrappedRod) >= 0)
@@ -338,8 +369,10 @@ public static class GamePhysics
             {
                 s.BallY = rod.FigureY(s.RodOffset[s.TrappedRod], s.TrappedFigure);
                 var launchFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxCharge(s.TrappedRod), 0, 1);
+                // The goalie launches dead straight along its aimed angle (§skill-aim); the offset/english
+                // path is unused for it since the rod was frozen while aiming.
                 FireShot(s, rod, s.TrappedFigure, launchFrac, offset: 0,
-                    powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod));
+                    powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod), aimAngle: s.AimAngle);
                 EndTrap(s);
                 return new StepResult(-1, true);
             }
@@ -373,12 +406,31 @@ public static class GamePhysics
         // the shot always leaves from a figure — never mid-slide between two of them. The caught shot
         // gets the rod's power bonus (ordinary for outfield, the goalie's charge-scaled cannon).
         var arrived = Math.Abs(s.TrapY - figY) < 1;
+
+        // Once a passed ball reaches the new man while still held, the player has cradled it — it's a
+        // controlled dribble now, so a later release is a normal charged shot, not a one-timer.
+        if (arrived && held)
+            s.OneTimerArmed = false;
+
         if (s.HoldSeconds >= GameConstants.TrapTimeout(s.TrappedRod) || (!held && arrived))
         {
-            // Pinned at figure center, so aim is all in the release slide (english) — offset 0.
-            var powerFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxCharge(s.TrappedRod), 0, 1);
             s.BallY = figY;
-            FireShot(s, rod, fig, powerFrac, offset: 0, powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod));
+            if (s.OneTimerArmed)
+            {
+                // One-timer (§skill-onetimer): a lane pass struck first-time — the catch released before
+                // the ball settled. No charge (the pass zeroed it), so fire at full power with the bigger
+                // one-timer bonus. Pinned at figure center → aim is all in the rod's slide (english),
+                // same offset-0 path as a normal outfield trap-shot; the goalie never reaches here.
+                FireShot(s, rod, fig, powerFrac: 1, offset: 0, powerBonus: GameConstants.OneTimerPowerBonus);
+            }
+            else
+            {
+                // Pinned at figure center, so outfield aim is all in the release slide (english) — offset 0.
+                // The goalie instead fires along its aimed angle (§skill-aim), straight, at whatever it charged.
+                var powerFrac = Math.Clamp(s.ChargeSeconds / GameConstants.MaxCharge(s.TrappedRod), 0, 1);
+                FireShot(s, rod, fig, powerFrac, offset: 0, powerBonus: GameConstants.CaughtPowerBonus(s.TrappedRod),
+                    aimAngle: isGoalie ? s.AimAngle : null);
+            }
             EndTrap(s);
             return new StepResult(-1, true);
         }
@@ -415,7 +467,9 @@ public static class GamePhysics
         s.TrappedFigure = -1;
         s.ChargeSeconds = 0;
         s.HoldSeconds = 0;
+        s.AimAngle = 0;
         s.PassRequested = false;
+        s.OneTimerArmed = false;
     }
 
     private static void ClampSpeed(SimState s)

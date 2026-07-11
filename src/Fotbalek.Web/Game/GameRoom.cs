@@ -76,6 +76,11 @@ public sealed class GameRoom
     /// <see cref="_heldInput"/>.</summary>
     private readonly Dictionary<int, bool> _spaceHeld = [];
 
+    /// <summary>Sim time each user may dash again (§skill-dash) — a shared per-user cooldown covering
+    /// both their rods, so one SPACE tap bursts everything they're moving and then rests. Same
+    /// seat-swap carry-over (it's keyed by user) / vacate cleanup as <see cref="_heldInput"/>.</summary>
+    private readonly Dictionary<int, double> _dashReadyAt = [];
+
     private enum Pending { None, KickRandom, KickTowardA, KickTowardB, Resume }
 
     private readonly SimState _sim = new();
@@ -390,10 +395,11 @@ public sealed class GameRoom
     }
 
     /// <summary>SPACE state change; ignored from non-seated users. Held per user to drive
-    /// <see cref="SimState.RodSpace"/> (the goalie's charge). The edge also drives the trapped-ball
-    /// action, resolved server-side so it can't be spoofed (§skill): on the *press* edge an outfield
-    /// trap does its lane/back pass; on the *release* edge a goalie trap launches its charged shot. The
-    /// action itself (lane vs back vs launch) is resolved in <see cref="GamePhysics"/>.</summary>
+    /// <see cref="SimState.RodSpace"/> (the goalie's charge). SPACE is context-resolved server-side so
+    /// it can't be spoofed: if the caller is holding the trapped ball, the edge drives that ball
+    /// (§skill) — on the *press* edge an outfield trap does its lane/back pass, on the *release* edge a
+    /// goalie trap launches its charged shot (lane vs back vs launch resolved in <see cref="GamePhysics"/>).
+    /// Otherwise (defending, or chasing a loose ball) a press is a dash (§skill-dash).</summary>
     public void SetSpace(int userId, bool held)
     {
         lock (_gate)
@@ -402,14 +408,60 @@ public sealed class GameRoom
                 return;
             var was = _spaceHeld.TryGetValue(userId, out var h) && h;
             _spaceHeld[userId] = held;
-            if (was == held || _sim.TrappedRod < 0 || !ControlsRodLocked(seat, _sim.TrappedRod))
+            if (was == held)
+                return; // edges only
+
+            // Holding the ball → SPACE drives it (pass / charge-launch), exactly as before.
+            if (_sim.TrappedRod >= 0 && ControlsRodLocked(seat, _sim.TrappedRod))
+            {
+                var isGoalie = GameConstants.Rods[_sim.TrappedRod].Role == "GK";
+                // Goalie: hold to charge, release to launch → fire on the release edge. Outfield: tap to
+                // pass → act on the press edge (GamePhysics picks lane vs back).
+                if (isGoalie ? !held : held)
+                    _sim.PassRequested = true;
                 return;
-            var isGoalie = GameConstants.Rods[_sim.TrappedRod].Role == "GK";
-            // Goalie: hold to charge, release to launch → fire on the release edge. Outfield: tap to
-            // pass → act on the press edge (GamePhysics picks lane vs back).
-            if (isGoalie ? !held : held)
-                _sim.PassRequested = true;
+            }
+
+            // No ball in hand → SPACE is a dash: burst this seat's moving rods on the press edge.
+            if (held)
+                TryDashLocked(seat, userId);
         }
+    }
+
+    /// <summary>A dash (§skill-dash): SPACE with no held ball gives this seat's rods that are *currently
+    /// moving* a one-off velocity burst in their held direction, on a shared per-user cooldown. Reuses
+    /// the rod-velocity ramp — the impulse decays back to normal speed through
+    /// <see cref="GamePhysics.IntegrateRods"/>, and because the auto-kick reads live rod velocity,
+    /// dashing into a loose ball fires it hard (a fast, steeply-angled, heavily-curved shot). A still
+    /// rod has no dash direction, so it stays put; the cooldown starts only if something actually
+    /// dashed. Authoritative here — the client predicts the same impulse and the usual snapshot nudge
+    /// reconciles any drift.</summary>
+    private void TryDashLocked(SeatState seat, int userId)
+    {
+        if (_dashReadyAt.TryGetValue(userId, out var readyAt) && _time < readyAt)
+            return; // still cooling down
+
+        var seatIndex = Array.IndexOf(_seats, seat);
+        if (seatIndex < 0)
+            return;
+        var side = SeatMap.SideOf(seatIndex);
+        var alone = SeatsOfSideLocked(side).Count(i => _seats[i].Occupied) == 1;
+        _heldInput.TryGetValue(userId, out var hands);
+
+        var dashed = false;
+        for (var hand = 0; hand < 2; hand++)
+        {
+            var dir = hands?[hand] ?? 0;
+            if (dir == 0)
+                continue; // a still rod has no dash direction
+            foreach (var rod in SeatMap.RodsFor(seatIndex, hand, alone))
+            {
+                _sim.RodVel[rod] = dir * GameConstants.DashSpeed;
+                dashed = true;
+            }
+        }
+        if (dashed)
+            _dashReadyAt[userId] = _time + GameConstants.DashCooldownSeconds;
     }
 
     /// <summary>Whether <paramref name="seat"/>'s occupant currently drives <paramref name="rod"/> —
@@ -887,6 +939,7 @@ public sealed class GameRoom
         _sim.ChargeSeconds = 0;
         _sim.HoldSeconds = 0;
         _sim.PassRequested = false;
+        _sim.OneTimerArmed = false;
         _pending = pending;
     }
 
@@ -913,6 +966,7 @@ public sealed class GameRoom
             _heldInput.Remove(userId);
             _catchHeld.Remove(userId);
             _spaceHeld.Remove(userId);
+            _dashReadyAt.Remove(userId);
         }
         seat.UserId = null;
         seat.GraceUntil = null;
@@ -974,7 +1028,10 @@ public sealed class GameRoom
         // Ball spin (english) — lets the client render the ball visibly spinning (§skill).
         Math.Round(_sim.BallSpin, 3),
         // Last pass tick — lets the client play a distinct pass sound (no swing) (§skill).
-        _sim.LastPassTick);
+        _sim.LastPassTick,
+        // Goalie aim angle (§skill-aim), radians off straight — the client draws the launch arrow for
+        // everyone so opponents can read the charged shot and slide to cover. 0 unless a goalie aims.
+        Math.Round(_sim.AimAngle, 3));
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,

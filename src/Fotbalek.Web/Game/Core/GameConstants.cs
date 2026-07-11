@@ -14,17 +14,21 @@ public sealed record RodDef(
     double? SpacingOverride = null, double? TravelOverride = null,
     double Radius = GameConstants.FigureRadius)
 {
-    /// <summary>Distance between adjacent figure centers. Defaults to tableHeight / figureCount, the
-    /// spacing where every rod sweeps the full table height with zero overlap and zero dead lanes;
-    /// a smaller override packs the figures closer (defenders) and grows the travel to compensate.</summary>
-    public double FigureSpacing => SpacingOverride ?? GameConstants.TableHeight / FigureCount;
+    /// <summary>Distance between adjacent figure centers. Defaults to <c>(tableHeight − 2·WallMargin)
+    /// / figureCount</c>, the spacing where every rod sweeps its inset coverage band with zero overlap
+    /// and zero dead lanes (the <see cref="GameConstants.WallMargin"/> off each wall leaves room for
+    /// the rod's end-stop collars); a smaller override packs the figures closer (defenders) and grows
+    /// the travel to compensate.</summary>
+    public double FigureSpacing => SpacingOverride ?? (GameConstants.TableHeight - 2 * GameConstants.WallMargin) / FigureCount;
 
     /// <summary>Vertical slide range of the rod. Defaults to the value that, with the spacing above,
-    /// makes the figures span the full table height.</summary>
-    public double Travel => TravelOverride ?? GameConstants.TableHeight - (FigureCount - 1) * FigureSpacing;
+    /// makes the figures span the inset coverage band (table height minus a <see cref="GameConstants.WallMargin"/>
+    /// at each wall).</summary>
+    public double Travel => TravelOverride ?? (GameConstants.TableHeight - 2 * GameConstants.WallMargin) - (FigureCount - 1) * FigureSpacing;
 
-    /// <summary>Center y of figure 0 at rod offset 0. Zero for full-height rods; a rod whose figures
-    /// span less than the table (a short-travel goalie) is centered so its range straddles mid-goal.</summary>
+    /// <summary>Center y of figure 0 at rod offset 0. Equals <see cref="GameConstants.WallMargin"/>
+    /// for the standard inset rods; a rod whose figures span less than the table (a short-travel
+    /// goalie) is centered so its range straddles mid-goal.</summary>
     public double YBase => (GameConstants.TableHeight - (Travel + (FigureCount - 1) * FigureSpacing)) / 2;
 
     /// <summary>Center y of figure <paramref name="i"/> (0 = topmost) at rod offset 0..1.</summary>
@@ -45,11 +49,25 @@ public static class GameConstants
     public const double TableHeight = 700;
     public const double GoalMouthHeight = 230;
     public const double BallRadius = 14;
-    public const double FigureRadius = 16;
+    public const double FigureRadius = 18;
+
+    /// <summary>Wall margin: outfield figures stay this far off the top/bottom side walls — their
+    /// centres sweep [<c>WallMargin</c>, <c>TableHeight − WallMargin</c>] instead of reaching the
+    /// walls. This leaves room on every rod for the sliding end-stop collars (client-drawn rod
+    /// hardware) so all rods read like a real moving rod, not just the goalie. It also *is* the
+    /// visible gap between the outermost figure and its collar (the collar rides <c>WallMargin</c>
+    /// from that figure), so it's sized to leave a clear space, not glue the collar to the man.
+    /// Still small enough that a figure's contact radius (ball 14 + figure 18 = 32) reaches a
+    /// wall-hugging ball from its inset limit (30 − 14 = 16 ≪ 32), so no new dead lane opens along
+    /// the walls — blocking coverage is unchanged. The goalie ignores this (its own short
+    /// <c>TravelOverride</c> puts its collars far from the keeper already).</summary>
+    public const double WallMargin = 30;
 
     public const int TickRate = 60;
     public const double FixedDt = 1.0 / TickRate;
-    public const int TicksPerSnapshot = 3; // 20 Hz
+    public const int TicksPerSnapshot = 2; // 30 Hz — higher rate lets the client run a tighter
+                                           // interpolation delay (see INTERP_DELAY_MS in game.js)
+                                           // for less ball lag at the same jitter safety.
 
     public const double RodSpeed = 650;
 
@@ -64,6 +82,21 @@ public static class GameConstants
     /// much snappier than <see cref="RodAccel"/> so stopping and blocking stay reactive and the rod
     /// never coasts past where you let go (a real foosball rod stops with your hand).</summary>
     public const double RodDecel = 13000;
+
+    /// <summary>Dash burst speed (§skill-dash): tapping SPACE with no held ball shoves the seat's
+    /// *moving* rods to this speed in one shot — a quick lunge to reach a shot you'd otherwise miss, or,
+    /// struck into a loose ball, a hard angled shot (the kick reads live rod velocity, so a dashing
+    /// figure fires much harder than a normal slide). No new integrator path: the impulse just seeds
+    /// <see cref="SimState.RodVel"/>, then decays back to <see cref="RodSpeed"/> through the ordinary
+    /// ramp (<see cref="GamePhysics.IntegrateRods"/>), and the client mirrors it by seeding the same
+    /// velocity — so it rides the existing prediction machinery unchanged. Kept below the tunneling
+    /// budget: <c>(MaxBallSpeed + DashSpeed)/TickRate</c> ≈ 58 stays under the 64-unit outfield contact
+    /// diameter, so a shot can't step past a dashing defender (§4.6 sanity check).</summary>
+    public const double DashSpeed = 1800;
+
+    /// <summary>Shared per-player cooldown between dashes (§skill-dash): one dash, then a beat before the
+    /// next, so the dash is a committed timing move rather than simply a faster way to travel.</summary>
+    public const double DashCooldownSeconds = 1.0;
     // Base speed of a plain shot — what a *still* figure imparts when the ball just rolls into it.
     // A figure that is moving when it strikes adds up to KickPowerBonus×KickSpeed on top (see
     // GamePhysics.FireShot), so a committed "hit it on the move" shot flies harder than a passive
@@ -76,6 +109,15 @@ public static class GameConstants
     /// rod speed (auto-kick) or full charge (trap-shot). 0 = every shot the same fixed speed (the old
     /// behavior); at 0.4 a fully committed strike is 40% faster than a dead block.</summary>
     public const double KickPowerBonus = 0.4;
+
+    /// <summary>One-timer power bonus (§skill-onetimer): a lane pass struck *first-time* — the catch key
+    /// released before the passed ball settled on the new man — fires at <c>KickSpeed × (1 + this)</c>
+    /// with no charge needed (the pass zeroes the charge, and a one-timer never rebuilds it). Set above
+    /// <see cref="KickPowerBonus"/> so a well-timed one-touch finish is faster than a normal charged
+    /// outfield shot (700×1.8 ≈ 1260 u/s — a clear reward for the timing), yet still short of the goalie
+    /// cannon and the <see cref="MaxBallSpeed"/> cap, so it stays reactable. English still comes from the
+    /// rod's slide at contact, so a one-timer can curve.</summary>
+    public const double OneTimerPowerBonus = 0.8;
 
     /// <summary>Fraction of the rod's vertical velocity added to the ball on a kick ("english").
     /// Higher = sliding the rod as it strikes curves the shot more — the main aim-by-motion lever.</summary>
@@ -142,6 +184,17 @@ public static class GameConstants
     /// ring before launching. Well within the 5 s hold window.</summary>
     public const double GoalieMaxChargeSeconds = 1.5;
 
+    /// <summary>Half-width of the goalie's aim cone (§skill-aim), radians. While the keeper charges a
+    /// caught shot (holding SPACE) the rod freezes and ↑/↓ swing the launch angle within ±this off
+    /// straight-ahead; kept well under 90° so the cannon always fires forward, never back into its own
+    /// net. ~60° is plenty to pick a corner over the long run to the far goal.</summary>
+    public const double GoalieAimMaxAngle = 1.05;
+
+    /// <summary>How fast ↑/↓ swing the goalie's aim (§skill-aim), radians/s. A full edge-to-edge sweep
+    /// of the ±<see cref="GoalieAimMaxAngle"/> cone takes 2·1.05/1.4 ≈ 1.5 s — matched to the charge
+    /// window so lining up and powering up feel like one deliberate motion.</summary>
+    public const double GoalieAimRate = 1.4;
+
     /// <summary>Speed of a back-pass toss (§skill): brisk enough to reach the rod behind, slow enough
     /// that an opponent rod standing in the lane can step in and pick it off.</summary>
     public const double BackPassSpeed = 550;
@@ -151,9 +204,9 @@ public static class GameConstants
     /// along the rod instead of teleporting.</summary>
     public const double TrapFollowSpeed = 900;
 
-    /// <summary>Goalie collision radius — a touch larger than the outfield <see cref="FigureRadius"/>
-    /// so the last line is a little more forgiving to hit.</summary>
-    public const double GoalieRadius = 20;
+    /// <summary>Goalie collision radius — noticeably larger than the outfield <see cref="FigureRadius"/>
+    /// so the last line is the most forgiving to hit/catch (contact = ball 14 + this = 38 vs 32 outfield).</summary>
+    public const double GoalieRadius = 24;
 
     /// <summary>Goalie vertical slide range (&lt; <see cref="TableHeight"/>): the single goalie covers
     /// only the goal area, auto-centered, instead of sweeping the whole table — easier to focus on.</summary>

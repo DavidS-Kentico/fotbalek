@@ -81,10 +81,26 @@ public sealed class SimState
     /// <see cref="GamePhysics"/>; cleared when the trap ends.</summary>
     public bool PassRequested;
 
+    /// <summary>Armed on a lane pass, disarmed once the passed ball settles on the new man while still
+    /// held (the player has taken control). If instead the catch is *released before it settles*, the
+    /// shot that fires on arrival is a one-timer (§skill-onetimer): a first-time strike off the pass,
+    /// fired at a fixed high power (<see cref="GameConstants.OneTimerPowerBonus"/>) with no charge —
+    /// rewarding the timing. Outfield only; the goalie can't lane-pass. Server-only — the ball trajectory
+    /// rides the normal snapshot stream, so no wire or prediction change.</summary>
+    public bool OneTimerArmed;
+
     /// <summary>Eased y of a trapped ball. It follows the target figure quickly enough that dribbling
     /// tracks tightly, but a lane pass slides the ball one man along instead of teleporting. Set to the
     /// figure's y when a trap begins.</summary>
     public double TrapY;
+
+    /// <summary>Aim angle of a trapped goalie's charged shot (§skill-aim), radians off straight-ahead
+    /// (0 = straight at the opponent goal, + = toward the bottom wall, − = toward the top), clamped to
+    /// ±<see cref="GameConstants.GoalieAimMaxAngle"/>. Steered by ↑/↓ while the keeper charges (SPACE
+    /// held, which also freezes the rod); the cannon fires dead straight along it. Reset when a trap
+    /// begins or ends. Ignored by outfield rods (they aim by the release slide). Carried in snapshots so
+    /// every client can draw the launch arrow and read the shot.</summary>
+    public double AimAngle;
 
     /// <summary>Most recent auto-kick, carried in snapshots so the client can play the
     /// figure's swing animation in sync with the tick timeline (§4.3). -1 = none yet.</summary>

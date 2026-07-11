@@ -1,0 +1,56 @@
+@* Reusable Bootstrap dropdown: a trigger button that reveals a panel of
+   arbitrary content. Bootstrap's bundled dropdown JS handles open/close,
+   outside-click dismissal and keyboard nav via the data-api — no init needed,
+   and it keeps working across Blazor re-renders (the .show state lives on the
+   DOM, not in the render output, so live content updates don't close it).
+
+   Use for any "click a chip/button to reveal a small list or panel" affordance
+   (e.g. the live-game viewers list, the navbar online-players list).
+
+   Named slots are used, so callers MUST wrap the panel body in <ChildContent>.
+
+   Params:
+     Trigger       — content inside the toggle button (icon, label, count…)
+     ChildContent  — the dropdown panel body
+     Header        — optional bold header row at the top of the panel
+     TriggerClass  — classes for the toggle button (default: outline button)
+     MenuClass     — extra classes for .dropdown-menu (e.g. dropdown-menu-end)
+     Class         — extra classes for the outer .dropdown
+     Title         — native tooltip / accessible label on the trigger *@
+
+<div class="dropdown @Class">
+    <button type="button" class="@TriggerClass" data-bs-toggle="dropdown" aria-expanded="false"
+            title="@Title" aria-label="@Title">
+        @Trigger
+    </button>
+    <div class="dropdown-menu @MenuClass">
+        @if (!string.IsNullOrEmpty(Header))
+        {
+            <h6 class="dropdown-header">@Header</h6>
+        }
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// <summary>Content of the toggle button (icon, label, count…).</summary>
+    [Parameter] public RenderFragment? Trigger { get; set; }
+
+    /// <summary>The dropdown panel body (list rows, links, etc.).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Optional bold header row at the top of the panel.</summary>
+    [Parameter] public string? Header { get; set; }
+
+    /// <summary>Classes for the toggle button.</summary>
+    [Parameter] public string TriggerClass { get; set; } = "btn btn-outline-secondary";
+
+    /// <summary>Extra classes for the <c>.dropdown-menu</c> (e.g. <c>dropdown-menu-end</c>).</summary>
+    [Parameter] public string? MenuClass { get; set; }
+
+    /// <summary>Extra classes for the outer <c>.dropdown</c>.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Native tooltip / accessible label on the trigger.</summary>
+    [Parameter] public string? Title { get; set; }
+}

@@ -46,11 +46,14 @@ Standard foosball layout, top-down view, horizontal orientation (goals left/righ
 - Rods are evenly spaced along the table length (x-positions in §4.6). Figures on a rod
   are evenly spaced; each rod slides vertically within its travel range
   (travel = table height − span between outermost figure centers).
-- **Default figure spacing = `tableHeight / figureCount`.** This is the unique choice where
-  every rod sweeps the full table height with zero overlap and zero dead lanes
-  (travel = `H/n`): the 5-figure MID travels 140 units, the 3-figure ATK 233, the 2-figure
-  DEF 350, and the single goalie sweeps the whole height — no dead corners it can't reach
-  (real 1-goalie tables solve those with sloped corners; we have none, so full travel it is).
+- **Default figure spacing = `(tableHeight − 2·wallMargin) / figureCount`.** Figures are inset a
+  small `wallMargin` (30 units) off each side wall — their centres sweep the band
+  `[wallMargin, H − wallMargin]`, evenly, with zero overlap and zero dead lanes within it. The
+  inset leaves room on every rod for the sliding end-stop collars (client-drawn rod hardware, §5.1)
+  so all rods read like a real moving rod. It costs no defensive coverage: a figure's contact
+  radius (32) still reaches a ball hugging the wall from its inset limit, so no dead lane opens
+  along the walls (real 1-goalie tables solve dead corners with sloped corners; we don't need them).
+  The goalie is the exception — a short goal-centred `travelOverride` (see §4.6).
 - Goal mouth: centered on each end wall, ~1/3 of table height.
 
 ### 2.2 Seats and rod ownership
@@ -289,7 +292,7 @@ rendering entirely.
 │ GameRoomManager (singleton)                   │      │ /team/{code}/game (Blazor page) │
 │  └─ GameRoom (per team)                       │      │  ├─ lobby UI, seats, buttons    │
 │      ├─ sim loop: PeriodicTimer @ 60 Hz       │      │  │   (normal Blazor circuit)    │
-│      └─ snapshot broadcast @ 20 Hz ────────────────▶ │  └─ <canvas> + game.js          │
+│      └─ snapshot broadcast @ 30 Hz ────────────────▶ │  └─ <canvas> + game.js          │
 │ GameHub (/hubs/game)  ◀───────────────────────────── │      SignalR JS client:         │
 │  cookie-auth, membership check, input intake  │      │      recv snapshots, interp,    │
 │                                               │      │      rAF render, send input     │
@@ -332,7 +335,7 @@ rendering entirely.
 - **Broadcasting**: rooms aren't hubs — `GameRoom` pushes snapshots and `RoomState`
   through an injected `IHubContext<GameHub>` (hub instances are transient; `IHubContext`
   is the singleton-friendly handle to a room's group).
-- **Simulation**: 60 Hz fixed timestep; snapshots broadcast at 20 Hz. Input is held-key
+- **Simulation**: 60 Hz fixed timestep; snapshots broadcast at 30 Hz. Input is held-key
   state per hand (`dir ∈ {-1, 0, +1}`, clamped; ignored from non-seated users); the server
   maps hand → rod(s), integrates rod positions and clamps to travel range. Fully
   authoritative — clients never report positions. Held-hand state is kept per user and
@@ -343,7 +346,7 @@ rendering entirely.
 
 ### 4.3 Snapshot payload
 
-Small and flat — sent 20×/s to the room's group:
+Small and flat — sent 30×/s to the room's group:
 
 ```
 { t: n,               // server tick — clients build the interpolation timeline from
@@ -358,7 +361,7 @@ Small and flat — sent 20×/s to the room's group:
                       // manual/stall reset, kickoff, rematch); when it changes, the
                       // client snaps instead of interpolating across the discontinuity
   k: [rod, fig],      // most recent auto-kick's figure ([-1,-1] before any) — drives the
-                      // client swing animation; kicks inside one 50 ms snapshot window
+                      // client swing animation; kicks inside one ~33 ms snapshot window
                       // may coalesce (cosmetic only)
   kt: n }             // server tick of that kick — the client schedules the swing on the
                       // same tick timeline as the ball, so foot and ball line up
@@ -391,8 +394,8 @@ of waiting for events, and the constants live in exactly one place (the server).
   only by the game page (game.js dynamic-imports it; the UMD browser build attaches
   `window.signalR`).
 - Renders on `<canvas>` with `requestAnimationFrame`; draws table, rods, figures, ball,
-  score. Interpolates between the last two snapshots (render ~100-150 ms behind server
-  time) so 20 Hz updates look like smooth 60 fps.
+  score. Interpolates between the last two snapshots (render ~85 ms behind server
+  time) so 30 Hz updates look like smooth 60 fps.
 - **Own-rod prediction**: the two rods you control are rendered from **locally integrated**
   held-key state (same rod-speed/travel constants, provided by `JoinRoom`), so they respond
   instantly instead of ~150 ms late; local positions are continuously nudged toward the
@@ -435,12 +438,12 @@ Single page for players and viewers — what you see depends on whether you hold
 | Goal mouth height | 230 units | Centered |
 | Rod x-positions | 75, 225, … , 1125 | 8 rods evenly spaced 150 apart (x = 75 + 150·k), symmetric; GK rods 75 from their goal line |
 | Ball radius | 14 | |
-| Figure body radius | 16 | Collision circle per figure |
-| Figure spacing | tableHeight / figureCount | Per rod — full-height coverage, no dead lanes, no overlap (§2.1) |
+| Figure body radius | 18 (goalie 24) | Collision circle per figure; the keeper is fatter to catch |
+| Figure spacing | (tableHeight − 2·wallMargin) / figureCount | Per rod — figures inset 30 u off each wall (room + gap for the rod collars), no dead lanes, no overlap (§2.1) |
 | Tick rate | 60 Hz | Fixed step |
-| Snapshot rate | 20 Hz | |
+| Snapshot rate | 30 Hz | Client interp delay ~85 ms (≈2.5 snapshot intervals) |
 | Rod speed | 650 units/s | Vertical travel while key held |
-| Kick speed | 900 units/s | Horizontal, toward opponent goal |
+| Kick speed | 700 units/s | Horizontal, toward opponent goal |
 | Max deflection | ±500 units/s | Vertical, scaled by contact offset |
 | Rod momentum transfer | 0.35 | Fraction of rod velocity added to ball on kick |
 | Kick cooldown | 200 ms | Per figure |
@@ -451,9 +454,9 @@ Single page for players and viewers — what you see depends on whether you hold
 | Stall reset | speed < 40 for 5 s, or untouched 15 s | |
 
 Sanity check on the numbers: stepping fully through a figure between two ticks takes
-more relative motion per tick than the contact-circle diameter (2 × (14 + 16) = 60
+more relative motion per tick than the contact-circle diameter (2 × (14 + 18) = 64
 units). Worst case — ball at max speed meeting a rod sliding the other way — is
-(1700 + 650) / 60 ≈ 39 units/tick, a ~1.5× margin (the ball alone is ~28). Off-center
+(1700 + 650) / 60 ≈ 39 units/tick, a ~1.6× margin (the ball alone is ~28). Off-center
 grazes have shorter chords and can occasionally be stepped past, but a missed graze is a
 near-miss, not a pass-through. If max ball speed is ever raised past ~2500, add
 substepping. Wall bounces and goal detection test the prev→new movement segment, not
@@ -595,7 +598,7 @@ Settled during spec review (2026-07-06):
 ## 9. Open Questions (remaining)
 
 1. **First playtest checklist** — things expected to need tuning rather than re-deciding:
-   kick speed vs. rod speed balance, momentum transfer factor (0.35), cooldown feel,
+   kick speed vs. rod speed balance, momentum transfer factor (0.55), cooldown feel,
    friction/stall thresholds, and the strength of the prediction correction nudge (§4.4).
    (The hand-assignment question originally listed here is resolved: goal-relative was
    flipped to screen-relative after the first hands-on test, §2.2.)
@@ -653,6 +656,17 @@ renders. The `(§skill)` markers throughout the code point here.
 - **Lane pass — `Space` while sliding.** Hops a trapped ball to the adjacent man on the *same* rod in
   the slide direction. Stays trapped (a controlled hop between your own figures, not an interceptable
   toss); the hold timer resets, buying a fresh setup window on the new man.
+- **One-timer (§skill-onetimer) — release `Shift` before a lane pass settles.** A first-time finish off
+  a lane pass: pass to the next man (`Space` while sliding) and *release the catch (`Shift`) before the
+  ball reaches him*. The ball completes the hop and strikes immediately at a fixed high power
+  (`OneTimerPowerBonus`, ~1260 u/s — faster than a normal charged outfield shot, short of the goalie
+  cannon), no charge needed. Hold `Shift` *through* the ball settling instead and it's an ordinary
+  cradle-and-charge, not a one-timer. Aim is by the rod's slide at contact, so a one-timer can curve.
+  Purely server-side in `GamePhysics.HandleTrapped` (armed on the lane pass, disarmed once a still-held
+  ball settles): the ball rides the normal snapshot stream, so the swing/impact/sound and the
+  pass-whoosh→kick audio all fall out of the existing `k`/`kt`/`pt` fields with no client change. Being a
+  controlled ball, a one-timer goal is exempt from the first-touch let. Goalie can't lane-pass, so it's
+  outfield-only. Bots don't use it.
 - **Goalie cannon.** Power comes from *charge*, not a flat bonus, and the keeper charges it **by
   holding `Space`** — hold to build, release to launch (so its strength is deliberate, not automatic).
   An **uncaught** goalie touch is plain-strength (the ordinary auto-kick). A **caught** shot ramps from
@@ -660,13 +674,28 @@ renders. The `(§skill)` markers throughout the code point here.
   (1.35 → ~1645 u/s, just under the raised `MaxBallSpeed` 1700 cap — a genuine cannon) over
   `GoalieMaxChargeSeconds` (1.5 s). Outfield rods keep their snappy auto-charge — they power up as they cradle the ball (catch
   key held), on the 0.6 s / `KickPowerBonus` (0.4) ramp — and use `Space` only to pass.
+- **Goalie aim (§skill-aim).** While the keeper is charging (holding `Space`), the rod **freezes** and its
+  movement keys instead **swing an aim arrow** through a `±GoalieAimMaxAngle` (~60°) cone at
+  `GoalieAimRate` (1.4 rad/s → a full edge-to-edge sweep in ~1.5 s, matched to the charge window), so the
+  cannon can be placed precisely instead of relying on a release-flick. The aimed shot flies **dead
+  straight** along the arrow (no english/curve — precision is the point; the flick-and-curve stays the
+  identity of the auto-kick and the outfield trap-shots). Power (`Space`-hold) and aim (keeper's keys) are
+  independent axes; release fires along the arrow at whatever charged. Aim resets to straight on each
+  catch. The arrow is drawn for **everyone** (`am` snapshot field), and its ~1.5 s wind-up is telegraphed —
+  so a precise cannon isn't oppressive: the defender reads the arrow and slides to cover, and the shooter
+  can trade power for surprise with a quick low-charge release. All server-authoritative in
+  `GamePhysics` (aim integrated in `IntegrateRods`, fired via `FireShot`'s `aimAngle` path); a trapped
+  ball isn't client-predicted, so the only prediction-mirror touch is freezing the aiming keeper's rod —
+  `game.js` `predictOwnRods` applies the identical freeze rule so it doesn't rubber-band. Outfield trap-shots
+  are unaffected (they still aim by the release slide). Bots never charge, so they never aim.
   - Two clocks back this, so the keeper can hold without auto-charging: `HoldSeconds` (always ticking →
     the `GoalieTrapTimeoutSeconds` 5 s auto-fire backstop, drives the draining hold ring) and
     `ChargeSeconds` (advances only while charging → shot power, drives the power ring). A lane pass
     resets both.
   - Two rings on the trapped ball read this: an inner **hold** ring that *drains* over the window
     (side-colour, red near expiry) and, for the goalie only, an outer **power** ring that *fills*
-    green→red while `Space` is held. Snapshot fields: `ch` (hold remaining), `pw` (power fraction).
+    green→red while `Space` is held, plus (goalie) an **aim arrow** (§skill-aim). Snapshot fields:
+    `ch` (hold remaining), `pw` (power fraction), `am` (goalie aim angle, rad off straight).
   - Input plumbing: `Space` is a held key (down/up) — `RodSpace` per rod feeds the goalie charge; the
     room turns the press edge into an outfield pass and the release edge into the goalie launch.
 - **Back-pass — `Space` when a rod sits behind you** (toward your own goal), i.e. not sliding into a
@@ -676,8 +705,34 @@ renders. The `(§skill)` markers throughout the code point here.
   rods interleave A/B/A/B, so DEF→GK (x225→x75) crosses no enemy rod and is safe, while ATK→MID
   (x825→x525) passes the opponent's MID at x675 and can be picked off. The set-piece it enables:
   trap on defense → back-pass to the (armed) keeper → release the cannon up-field.
-- **Bots** don't use any of this — they only steer rods toward the ball and rely on the auto-kick
-  (`GameBot`), so the skills are a human-only edge.
+- **Dash — tap `Space` when you don't have the ball (§skill-dash).** A quick lunge: every rod you're
+  *currently moving* gets a one-off velocity burst in its held direction (both hands' rods at once,
+  a still rod has nothing to dash), on a shared per-player **1 s cooldown** (`DashCooldownSeconds`).
+  It's the same `Space` key the trapped-ball actions use, resolved by context in `GameRoom.SetSpace`:
+  if you're holding the ball, `Space` passes/charges as before; if you're not, the press is a dash.
+  So `Shift` is effectively the "I want the ball" modifier — not arming a trap means `Space` = dash.
+  - **Mechanically it's just an impulse**, not a new movement mode: the dash seeds
+    `SimState.RodVel` with `DashSpeed` (1800 u/s), and the ordinary acceleration ramp in
+    `GamePhysics.IntegrateRods` decays it back to normal rod speed. Nothing else in the integrator
+    changes, which is what keeps the **prediction mirror** honest — `game.js` predicts the dash by
+    seeding the identical velocity (`maybeDash`), and from there client and server integrate the same
+    way; the usual snapshot nudge reconciles the brief window where the client has dashed but the
+    server hasn't heard yet. `DashSpeed` flows to the client via `GameConfigDto` like the other ramp
+    constants. Reach is a strong lunge (~200 units — most of the goal for a keeper) over ~0.18 s.
+  - **It also buffs attack for free.** The auto-kick reads live rod velocity, so dashing a figure
+    *into a loose ball you're not catching* fires a hard shot — but because rods move vertically, the
+    burst goes into vertical velocity + max spin, so it's a **fast, steeply-angled, heavily-curved**
+    screamer rather than a straight rocket (horizontal pace is still capped at the full-slide
+    `powerFrac`). No shot code changed; the dash just makes `RodVel` big at contact.
+  - **No new wire state.** The fast rod motion is already carried by the rod offsets `o`, so opponents
+    see the lunge without a dedicated field; the local player gets a client-only cyan rod glow on dash,
+    a short airy "whoosh" (`playDash` — a swept band-pass noise burst, dasher-only since there's no wire
+    signal to cue it for others), and a lightning-bolt cooldown pip (top-left HUD) that recharges over
+    the cooldown. All live entirely in `game.js`.
+  - `DashSpeed` is deliberately kept so `(MaxBallSpeed + DashSpeed)/TickRate ≈ 58` stays under the
+    64-unit outfield contact diameter — a shot can't tunnel past a dashing defender (§4.6 sanity check).
+- **Bots** don't use any of this (dash included) — they only steer rods toward the ball and rely on the
+  auto-kick (`GameBot`), so the skills are a human-only edge.
 
 ---
 
