@@ -186,7 +186,7 @@ correct design is the **`PresenceTracker` pattern**:
 | `MessageEdited` | `teamId`, `messageId`, new body, `editedAt` | Panels swap the body in place and show the "(edited)" marker. No banner, no unread impact (added 2026-07-10). |
 | `ReactionChanged` | `teamId`, `messageId`, updated reaction summary | Panels update the reaction bar. |
 | `TypingChanged` | `teamId`, set of typing `userId`s | Panels update the "X is typing…" line. |
-| `ReadStateChanged` | `teamId`, `userId`, new watermark | Docks in the same user's **other** tabs/circuits refresh their badges (subscribers ignore other users' events) — keeps unread in sync after one tab marks read (§5.1/§5.2). Raised by `ChatService` whenever a watermark advances. |
+| `ReadStateChanged` | `teamId`, `userId`, new watermark | Two consumers: **(a)** badge sync — docks in the same user's **other** tabs/circuits recompute their unread badges after one tab marks read, ignoring *other* users' events (§5.1/§5.2); **(b)** the **seen-by** readout — the open `ChatConversation` folds every member's advance into a live watermark map to show who has seen the sender's latest message (§5.5). Raised by `ChatService` whenever a watermark advances. |
 
 ### 3.3 Typing state (ephemeral)
 
@@ -383,6 +383,22 @@ backgrounded — an in-app banner fires. Because the dock is on every authentica
   to dedup across tabs (the cross-tab OS-notification `tag` question is deferred along with the OS
   notifications themselves). Accepted for the PoC.
 
+### 5.5 Read receipts ("seen by") _(added 2026-07-12)_
+
+A quiet indicator under the **sender's own latest** non-deleted message shows who has seen it,
+derived entirely from the existing read watermarks (§5.1) — **no new writes or events**.
+`ChatService.GetReadWatermarksAsync(userId, teamId)` returns every member's `LastReadMessageId`
+for the team (membership-gated, so only a member can see the readout); a member has "seen" the
+message when their watermark ≥ the message id. Because watermarks are monotonic, the newest own
+message is the only one that needs a readout — having seen it implies having seen every earlier one.
+
+`ChatConversation` seeds the map once on open and keeps it live via `ReadStateChanged` (§3.2),
+**max-merging** the seed against any event that landed between subscribe and load so a stale seed
+can't rewind a watermark. The author, inactive/former members, and solo teams draw nothing.
+`ChatMessageView` renders it Messenger-style: a single tick + "Sent" until anyone reads, then a
+compact avatar stack (capped at 3, overflow "+N") with a names tooltip, becoming a green
+double-tick + "Seen by all" once every other active member is caught up.
+
 ---
 
 ## 6. UI / UX
@@ -458,12 +474,12 @@ circuit, and reset the dock to closed/default. Accepted for v1.)
 | `Data/Entities/ChatMessage.cs` `ChatMessageReaction.cs` `ChatReadState.cs` | Entities | §2 |
 | `Data/AppDbContext.cs` (edit) | — | Add 3 `DbSet`s + `OnModelCreating` config/indexes |
 | `Migrations/*_AddChat.cs` | Migration | Create the tables |
-| `Services/ChatService.cs` | Scoped | All DB ops: send, delete, react/unreact, load page, mark read, unread counts (`GetUnreadCountsAsync`), set typing. Every op takes an **explicit `teamId`** and re-verifies membership (§8) — there is no ambient "current team". Raises `ChatNotifier` events; enforces author-only delete |
+| `Services/ChatService.cs` | Scoped | All DB ops: send, delete, react/unreact, load page, mark read, unread counts (`GetUnreadCountsAsync`), seen-by watermarks (`GetReadWatermarksAsync`, §5.5), set typing. Every op takes an **explicit `teamId`** and re-verifies membership (§8) — there is no ambient "current team". Raises `ChatNotifier` events; enforces author-only delete |
 | `Services/ChatNotifier.cs` | Singleton | In-process events (§3.2) + ephemeral typing state (§3.3) + per-user send throttle (§4.1) |
 | `Services/ChatUiState.cs` | Scoped | Per-circuit dock UI state — `IsOpen`, `SelectedTeamId`, and the per-team unread cache with a `Changed` event (maintained by the dock; `TeamLayout`/`Home` badges subscribe, §5.2) — so the dock survives `MainLayout`↔`TeamLayout` swaps (§6.1) |
 | `Components/Chat/ChatDock.razor` | Component | The **global** launcher + team-switcher shell; resolves the user's claimed teams via `GetMembershipOverviewForUserAsync`; subscribes to `ChatNotifier` once for all teams; owns selection, the total-unread launcher badge, and raises banners (§5.4); loads `chat.js` |
 | `Components/Chat/ChatConversation.razor` | Component | One selected team's view: message list, pagination, composer, typing, read semantics. Parameterized by `teamId` + the user's `Player` for that team |
-| `Components/Chat/ChatMessageView.razor` | Component | One message: segmented text (text/mention/emoji), reactions, ⋯ options menu (author-only edit/delete, §4.6), inline edit mode, tombstone |
+| `Components/Chat/ChatMessageView.razor` | Component | One message: segmented text (text/mention/emoji), reactions, ⋯ options menu (author-only edit/delete, §4.6), inline edit mode, tombstone, and the "seen by" indicator on the sender's latest message (§5.5) |
 | `Components/Chat/EmojiPicker.razor` | Component | Wraps the vendored `emoji-picker-element` for the composer (§4.2); the quick-react row is a small static set of common emoji |
 | `wwwroot/lib/emoji-picker-element/*` | Vendored lib | Self-hosted emoji-picker Web Component + its data (§4.2); omitted if the curated-array fallback is used instead |
 | `Components/Chat/ChatDock.razor.css` | Scoped CSS | Dock/launcher/rail styling. The app styles components with scoped `.razor.css` (e.g. `Players.razor.css`); Bootstrap utilities + `bg-body`/`text-muted` cover most of it, so this holds only positioning and chat-specific bits |
@@ -527,7 +543,7 @@ A `Constants.Chat` block (mirroring `Constants.Seasons`, etc.) is a reasonable h
 - **Threads / replies**, message search, pinning.
 - **Captain/admin moderation** (author-delete-only settled, §12).
 - **Cross-team or DM chat** — strictly per-team, members-only.
-- **Read receipts** ("seen by") and rich presence beyond the existing online dot.
+- ~~**Read receipts** ("seen by")~~ _(added 2026-07-12 — on the sender's latest own message, derived from read watermarks; see §5.5)._ Rich presence beyond the existing online dot remains out of scope.
 - **Browser / OS notifications** — the OS `Notification` API (desktop/mobile alerts, permission
   prompts, `tag`-coalesced replace-on-repeat, click-to-focus) is **not in v1**. It belongs with a
   future **app-wide notifications** feature (§11), not a chat-only bolt-on. v1's entire signal

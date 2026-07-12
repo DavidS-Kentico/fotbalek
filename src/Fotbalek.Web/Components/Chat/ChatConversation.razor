@@ -50,6 +50,7 @@
                 <div class="chat-floor"><span class="spinner-border spinner-border-sm"></span></div>
             }
 
+            var lastOwnId = LastOwnMessageId();
             DateOnly? lastDay = null;
             ChatMessageDto? previous = null;
             foreach (var message in _messages)
@@ -73,6 +74,7 @@
                                  MyPlayerName="@MyPlayerName"
                                  RosterNames="_mentionNames"
                                  ResolveUserName="ResolveUserName"
+                                 Seen="@(message.Id == lastOwnId ? BuildSeenState(message.Id) : null)"
                                  OnToggleReaction="emoji => ToggleReaction(message.Id, emoji)"
                                  OnEdit="newBody => EditMessage(message.Id, newBody)"
                                  OnDelete="() => DeleteMessage(message.Id)" />
@@ -156,6 +158,9 @@
     private List<Player> _roster = [];
     private Dictionary<int, Player> _playersByUserId = [];
     private List<string> _mentionNames = [];
+    /// <summary>userId → their highest read message id in this team, for the "seen by" readout.
+    /// Seeded once on load and kept live via <see cref="OnReadStateChanged"/> (monotonic).</summary>
+    private readonly Dictionary<int, int> _readWatermarks = [];
 
     private IReadOnlyList<int> _typingUserIds = [];
 
@@ -188,6 +193,7 @@
         Notifier.MessageEdited += OnMessageEdited;
         Notifier.ReactionChanged += OnReactionChanged;
         Notifier.TypingChanged += OnTypingChanged;
+        Notifier.ReadStateChanged += OnReadStateChanged;
         Presence.Changed += OnPresenceChanged;
         _draft = UiState.GetDraft(TeamId);
     }
@@ -217,6 +223,12 @@
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderByDescending(n => n.Length)
                 .ToList();
+
+            // Max-merge: a live ReadStateChanged may have landed since we subscribed; never let
+            // the seed pull a watermark backwards.
+            foreach (var (uid, id) in await Chat.GetReadWatermarksAsync(MyUserId, TeamId))
+                if (id > _readWatermarks.GetValueOrDefault(uid))
+                    _readWatermarks[uid] = id;
 
             var floor = await Chat.GetJoinFloorIdAsync(MyUserId, TeamId);
             if (floor == null)
@@ -339,6 +351,22 @@
                 var index = _messages.FindIndex(m => m.Id == messageId);
                 if (index < 0) return;
                 _messages[index] = _messages[index] with { Reactions = reactions };
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnReadStateChanged(int teamId, int userId, int lastReadMessageId)
+    {
+        if (teamId != TeamId) return;
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                // Monotonic — ignore stale/out-of-order events. Only a real advance repaints.
+                if (lastReadMessageId <= _readWatermarks.GetValueOrDefault(userId)) return;
+                _readWatermarks[userId] = lastReadMessageId;
                 StateHasChanged();
             });
         }
@@ -607,6 +635,39 @@
     private string ResolveUserName(int userId) =>
         _playersByUserId.TryGetValue(userId, out var player) ? player.Name : "Former member";
 
+    /// <summary>Id of my newest non-deleted message (0 if none) — the only message that carries
+    /// the "seen by" readout. Watermarks are monotonic, so anyone who has seen it has implicitly
+    /// seen every earlier message of mine.</summary>
+    private int LastOwnMessageId()
+    {
+        for (var i = _messages.Count - 1; i >= 0; i--)
+            if (_messages[i].SenderUserId == MyUserId && !_messages[i].IsDeleted)
+                return _messages[i].Id;
+        return 0;
+    }
+
+    /// <summary>Splits the active roster (excluding me) into who has and hasn't seen the message,
+    /// by their read watermark. Returns null for a solo team so no indicator is drawn.</summary>
+    private ChatSeenState? BuildSeenState(int messageId)
+    {
+        List<ChatSeenViewer> seen = [], notSeen = [];
+        foreach (var player in _playersByUserId.Values)
+        {
+            if (!player.IsActive || player.UserId is not int uid || uid == MyUserId)
+                continue;
+            var viewer = new ChatSeenViewer(uid, player.Name, player.AvatarId);
+            if (_readWatermarks.GetValueOrDefault(uid) >= messageId)
+                seen.Add(viewer);
+            else
+                notSeen.Add(viewer);
+        }
+        if (seen.Count == 0 && notSeen.Count == 0)
+            return null;
+        seen.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
+        notSeen.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
+        return new ChatSeenState(seen, notSeen);
+    }
+
     private int OnlineCount() =>
         _roster.Count(p => p.UserId.HasValue && Presence.IsOnline(p.UserId.Value));
 
@@ -634,6 +695,7 @@
         Notifier.MessageEdited -= OnMessageEdited;
         Notifier.ReactionChanged -= OnReactionChanged;
         Notifier.TypingChanged -= OnTypingChanged;
+        Notifier.ReadStateChanged -= OnReadStateChanged;
         Presence.Changed -= OnPresenceChanged;
 
         try

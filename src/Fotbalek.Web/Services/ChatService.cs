@@ -241,6 +241,21 @@ public class ChatService(IDbContextFactory<AppDbContext> dbFactory, ChatNotifier
     }
 
     /// <summary>
+    /// Every member's read watermark for a team (userId → highest read <see cref="ChatMessage.Id"/>),
+    /// powering the "seen by" readout on the caller's own messages. Members who have never opened
+    /// the chat have no row and are simply absent (effective watermark 0). Empty for non-members.
+    /// </summary>
+    public async Task<Dictionary<int, int>> GetReadWatermarksAsync(int userId, int teamId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        if (!await IsMemberAsync(db, userId, teamId))
+            return [];
+        return await db.ChatReadStates.AsNoTracking()
+            .Where(r => r.TeamId == teamId)
+            .ToDictionaryAsync(r => r.UserId, r => r.LastReadMessageId);
+    }
+
+    /// <summary>
     /// Per-team unread counts for all teams where the user has claimed a Player, in one query:
     /// messages after both the join floor (CreatedAt ≥ JoinedAt) and the read watermark
     /// (Id &gt; LastReadMessageId, 0 when no row yet), excluding tombstones.

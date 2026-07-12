@@ -241,3 +241,57 @@
     font-size: .7rem;
     color: var(--bs-secondary-color);
 }
+
+/* "Seen by" — a quiet row under the sender's own last message (Messenger-style): a tick that
+   turns green once everyone's caught up, plus a compact stack of who has seen it. */
+.chat-seen {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    margin-top: .2rem;
+    padding-left: var(--chat-gutter);
+    font-size: .68rem;
+    color: var(--bs-secondary-color);
+    cursor: default;
+    user-select: none;
+}
+
+.chat-seen-tick {
+    font-size: .8rem;
+    line-height: 1;
+    opacity: .8;
+}
+
+.chat-seen.all .chat-seen-tick {
+    color: var(--bs-success);
+    opacity: 1;
+}
+
+.chat-seen-label {
+    letter-spacing: .01em;
+}
+
+.chat-seen-avatars {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 2px;
+}
+
+/* Tiny overlapping avatars; a body-bg ring keeps them legible where they overlap. */
+.chat-seen ::deep .avatar.chat-seen-avatar {
+    width: 16px;
+    height: 16px;
+    font-size: .56rem;
+    border-width: 1px;
+    box-shadow: 0 0 0 2px var(--bs-body-bg);
+}
+
+.chat-seen-avatars ::deep .avatar.chat-seen-avatar + .avatar.chat-seen-avatar {
+    margin-left: -5px;
+}
+
+.chat-seen-more {
+    font-size: .62rem;
+    font-weight: 600;
+    margin-left: .1rem;
+}

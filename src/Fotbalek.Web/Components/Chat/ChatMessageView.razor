@@ -64,6 +64,34 @@
                 }
             </div>
         }
+        @if (Seen is { } seen && IsOwn)
+        {
+            <div class="chat-seen @(seen.AllSeen ? "all" : "")" title="@SeenTooltip(seen)">
+                @if (seen.Seen.Count == 0)
+                {
+                    <i class="bi bi-check2 chat-seen-tick"></i>
+                    <span class="chat-seen-label">Sent</span>
+                }
+                else
+                {
+                    <i class="bi @(seen.AllSeen ? "bi-check2-all" : "bi-check2") chat-seen-tick"></i>
+                    <span class="chat-seen-avatars">
+                        @foreach (var viewer in seen.Seen.Take(SeenAvatarCap))
+                        {
+                            <Avatar AvatarId="@viewer.AvatarId" Size="sm" CssClass="chat-seen-avatar" Title="@viewer.Name" />
+                        }
+                    </span>
+                    @if (seen.Seen.Count > SeenAvatarCap)
+                    {
+                        <span class="chat-seen-more">+@(seen.Seen.Count - SeenAvatarCap)</span>
+                    }
+                    @if (seen.AllSeen)
+                    {
+                        <span class="chat-seen-label">Seen by all</span>
+                    }
+                }
+            </div>
+        }
         <div class="chat-msg-actions">
             @foreach (var emoji in QuickReactions)
             {
@@ -111,8 +139,14 @@
     [Parameter] public EventCallback<string> OnToggleReaction { get; set; }
     [Parameter] public EventCallback<string> OnEdit { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
+    /// <summary>"Seen by" readout for this message; non-null only on the sender's own latest
+    /// message. Null = don't render an indicator.</summary>
+    [Parameter] public ChatSeenState? Seen { get; set; }
 
     private static readonly string[] QuickReactions = ["👍", "❤️", "😂", "🎉", "😮", "😢"];
+
+    /// <summary>Max avatars drawn in the seen stack before collapsing the rest into "+N".</summary>
+    private const int SeenAvatarCap = 3;
 
     private record Segment(string Text, bool IsMention, bool IsMe);
 
@@ -201,6 +235,13 @@
 
     private string ReactionTitle(ChatReactionDto reaction) =>
         string.Join(", ", reaction.UserIds.Select(ResolveUserName));
+
+    /// <summary>Plain-text "who has seen it" for the indicator's tooltip — the reliable readout
+    /// on touch and for screen readers, where the avatar stack alone can't be read.</summary>
+    private static string SeenTooltip(ChatSeenState seen) =>
+        seen.Seen.Count == 0
+            ? "Not seen yet"
+            : "Seen by " + string.Join(", ", seen.Seen.Select(v => v.Name));
 
     private void ToggleActions()
     {

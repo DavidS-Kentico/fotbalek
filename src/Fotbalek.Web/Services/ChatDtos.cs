@@ -30,3 +30,19 @@ public record ChatThreadPreview(
     string SenderName,
     string Body,
     DateTimeOffset CreatedAt);
+
+/// <summary>One member in a "seen by" readout — enough to draw a tiny avatar and name it.</summary>
+public record ChatSeenViewer(int UserId, string Name, int AvatarId);
+
+/// <summary>
+/// Who has (and hasn't) seen a given message, derived from read watermarks: a member has seen
+/// it when their <see cref="ChatReadState.LastReadMessageId"/> ≥ the message id. The author is
+/// never in either list. Shown only on the author's own latest message.
+/// </summary>
+public record ChatSeenState(
+    IReadOnlyList<ChatSeenViewer> Seen,
+    IReadOnlyList<ChatSeenViewer> NotSeen)
+{
+    /// <summary>Every other member has seen it (and there is at least one other member).</summary>
+    public bool AllSeen => NotSeen.Count == 0 && Seen.Count > 0;
+}
