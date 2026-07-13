@@ -76,6 +76,13 @@ public sealed class GameRoom
     /// <see cref="_heldInput"/>.</summary>
     private readonly Dictionary<int, bool> _spaceHeld = [];
 
+    /// <summary>Per-hand lift state per user (§skill-lift): [left, right], each true while that hand's
+    /// lift key (A/D, or ←/→) is down. Per-hand (unlike catch) so a player can raise one rod while the
+    /// other keeps playing — e.g. lift the ATK to open a lane the MID shoots through. Feeds
+    /// <see cref="SimState.RodLifted"/> each tick. Same seat-swap carry-over / vacate cleanup as
+    /// <see cref="_heldInput"/>.</summary>
+    private readonly Dictionary<int, bool[]> _liftHeld = [];
+
     /// <summary>Sim time each user may dash again (§skill-dash) — a shared per-user cooldown covering
     /// both their rods, so one SPACE tap bursts everything they're moving and then rests. Same
     /// seat-swap carry-over (it's keyed by user) / vacate cleanup as <see cref="_heldInput"/>.</summary>
@@ -313,7 +320,7 @@ public sealed class GameRoom
         }
     }
 
-    /// <summary>Sets the room's goal rules. Any seated player may change room options (§3.6).</summary>
+    /// <summary>Sets the room's rules. Any seated player may change room options (§3.6).</summary>
     public void SetGameOptions(int userId, bool disallowQuickGoals, bool disallowFirstTouchGoals)
     {
         lock (_gate)
@@ -391,6 +398,24 @@ public sealed class GameRoom
             if (_closed || FindSeatLocked(userId) == null)
                 return;
             _catchHeld[userId] = held;
+        }
+    }
+
+    /// <summary>Lift-key state change for one hand (§skill-lift); ignored from non-seated users.
+    /// <paramref name="hand"/> 0 = left (A/D), 1 = right (←/→). The server maps hand → rod(s) from the
+    /// seat, so ownership can't be spoofed — you can only lift your own rods. Lifting a rod that holds
+    /// the ball frees it (handled in <see cref="GamePhysics"/>), so the key always means "lift".</summary>
+    public void SetLift(int userId, int hand, bool held)
+    {
+        if (hand is not (SeatMap.LeftHand or SeatMap.RightHand))
+            return;
+        lock (_gate)
+        {
+            if (_closed || FindSeatLocked(userId) == null)
+                return;
+            if (!_liftHeld.TryGetValue(userId, out var hands))
+                _liftHeld[userId] = hands = new bool[2];
+            hands[hand] = held;
         }
     }
 
@@ -715,8 +740,8 @@ public sealed class GameRoom
             // a controlled/trapped ball is never a "first touch" no matter the count (§2.4).
             if (!_touchedLastStep)
                 _roundTouchCount++;
-            if (_sim.TrappedRod >= 0)
-                _roundControlled = true;
+            if (_sim.TrappedRod >= 0 || _sim.SlammedThisStep)
+                _roundControlled = true; // a trap or a timed drop-slam (§skill-lift) is deliberate, not a fluke
         }
         _touchedLastStep = result.Touched;
         if (result.GoalBySide >= 0)
@@ -795,6 +820,7 @@ public sealed class GameRoom
                 _sim.RodDir[rod] = 0;
                 _sim.RodKick[rod] = false;
                 _sim.RodSpace[rod] = false;
+                _sim.RodLifted[rod] = false;
                 _sim.RodGlide[rod] = occupied.Length == 0;
             }
             if (occupied.Length == 0)
@@ -823,6 +849,9 @@ public sealed class GameRoom
                 // One catch flag arms every rod this user drives — catch on any of your own figures.
                 var catching = _catchHeld.TryGetValue(userId, out var c) && c;
                 var spaceDown = _spaceHeld.TryGetValue(userId, out var sp) && sp;
+                // Lift is per-hand (§skill-lift), so each hand's rod(s) raise independently. The physics
+                // forces the trapped rod down regardless (a man gripping the ball can't lift).
+                _liftHeld.TryGetValue(userId, out var lift);
                 for (var hand = 0; hand < 2; hand++)
                 {
                     foreach (var rod in SeatMap.RodsFor(seatIndex, hand, alone))
@@ -831,6 +860,7 @@ public sealed class GameRoom
                             _sim.RodDir[rod] = hands[hand];
                         _sim.RodKick[rod] = catching;
                         _sim.RodSpace[rod] = spaceDown;
+                        _sim.RodLifted[rod] = lift != null && lift[hand];
                     }
                 }
             }
@@ -966,6 +996,7 @@ public sealed class GameRoom
             _heldInput.Remove(userId);
             _catchHeld.Remove(userId);
             _spaceHeld.Remove(userId);
+            _liftHeld.Remove(userId);
             _dashReadyAt.Remove(userId);
         }
         seat.UserId = null;
@@ -1031,7 +1062,13 @@ public sealed class GameRoom
         _sim.LastPassTick,
         // Goalie aim angle (§skill-aim), radians off straight — the client draws the launch arrow for
         // everyone so opponents can read the charged shot and slide to cover. 0 unless a goalie aims.
-        Math.Round(_sim.AimAngle, 3));
+        Math.Round(_sim.AimAngle, 3),
+        // Lifted-rod bitmask (§skill-lift): bit i set = rod i's men are up, so every client draws them
+        // raised (translucent). Excludes the trapped rod (a held ball can't lift).
+        LiftedMask(),
+        // Anti-stall dismissal warning (§2.5), 0..1 — how close the ball is to an inactivity re-center,
+        // so the client can ring it before it vanishes.
+        DismissWarnLocked());
 
     private RoomStateDto BuildStateLocked() => new(
         RoomId,
@@ -1054,6 +1091,33 @@ public sealed class GameRoom
             .ToList(),
         _winners,
         new GameOptionsDto(_disallowQuickGoals, _disallowFirstTouchGoals));
+
+    /// <summary>Bitmask of rods whose men are currently up (§skill-lift), bit i = rod i. Mirrors the
+    /// physics' effective-lift rule (a trapped rod can't lift), so clients draw exactly what collides.</summary>
+    private int LiftedMask()
+    {
+        var mask = 0;
+        for (var i = 0; i < 8; i++)
+            if (_sim.RodLifted[i] && i != _sim.TrappedRod)
+                mask |= 1 << i;
+        return mask;
+    }
+
+    /// <summary>How close the ball is to an anti-stall dismissal (§2.5): 0 when not imminent, rising to 1
+    /// at the reset, over the final <see cref="GameConstants.StallWarningSeconds"/>. Only while a live,
+    /// untrapped ball is actually running down a stall timer — mirrors the reset conditions in the tick
+    /// loop, so the ring shows exactly when a re-center is about to fire.</summary>
+    private double DismissWarnLocked()
+    {
+        if (_phase != GamePhase.Playing || _sim.BallFrozen || _sim.TrappedRod >= 0)
+            return 0;
+        var until = _lastTouch + GameConstants.StallUntouchedSeconds - _time;
+        if (_slowSince >= 0)
+            until = Math.Min(until, _slowSince + GameConstants.StallSpeedSeconds - _time);
+        return until >= GameConstants.StallWarningSeconds
+            ? 0
+            : Math.Round(Math.Clamp(1 - until / GameConstants.StallWarningSeconds, 0, 1), 2);
+    }
 
     private async Task BroadcastStateAsync()
     {

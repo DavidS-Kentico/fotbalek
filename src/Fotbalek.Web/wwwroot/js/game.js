@@ -9,6 +9,8 @@ const INTERP_DELAY_MS = 85;       // render this far behind server time (§4.4).
 const MAX_EXTRAPOLATION_MS = 100; // cap ball extrapolation past the newest snapshot
 const NUDGE_RATE = 4;             // /s — correction of predicted own rods by time-aligned error
 const PAD = 30;                   // logical padding around the playfield (goal pockets, handles)
+const LIFT_FIGURE_ALPHA = 0.28;   // opacity of a lifted rod's men (§skill-lift) — raised out of the plane
+const LIFT_SHAKE_PX = 2;          // max rod tremble while a drop-slam charges (§skill-lift), scaled by charge
 
 // Latency instrumentation (§12) — active only while seated and the game is actually playing.
 const RTT_PING_INTERVAL_MS = 2000; // how often to probe hub round-trip time
@@ -81,6 +83,9 @@ const sentDir = [0, 0];
 const catchKeys = new Set(); // currently-pressed catch keys (any Shift / alternate)
 let sentCatch = false;
 let sentSpace = false; // last SPACE held-state sent (down/up edges only)
+const liftHeld = [false, false]; // per-hand lift state (A/D, ←/→) — §skill-lift; also what's been sent
+const liftStart = [0, 0];        // performance.now() each hand's lift began — local drop-slam charge readout
+const liftKeysDown = new Set();  // currently-pressed lift keys (a hand stays lifted while either of its keys is down)
 let myRods = null;      // { hands: [rodIdxs, rodIdxs] } when seated, else null
 let mySide = null;      // 0 / 1 when seated (drives the win-vs-lose match-end fanfare), null for a viewer
 let predicted = null;   // rodIdx → offset
@@ -145,8 +150,11 @@ export async function init(canvasEl, options) {
     for (const hand of [0, 1]) {
         held[hand].up = held[hand].down = false;
         sentDir[hand] = 0;
+        liftHeld[hand] = false;
+        liftStart[hand] = 0;
     }
     catchKeys.clear();
+    liftKeysDown.clear();
     sentCatch = false;
     sentSpace = false;
     currentPhase = 0;
@@ -449,6 +457,11 @@ const KEY_MAP = {
 // (pick whichever frees the hand you want to dribble with); F and / are sticky-keys-free alternates.
 const CATCH_KEYS = new Set(['ShiftLeft', 'ShiftRight', 'KeyF', 'Slash']);
 
+// Lift keys (§skill-lift): the horizontal neighbours of each slide cluster raise that hand's rod(s) —
+// A/D for the left hand (W/S), ←/→ for the right hand (↑/↓). Either key of a pair lifts, so it's
+// forgiving. Deliberately NOT Ctrl (Ctrl+W/Ctrl+S are browser shortcuts on the left hand's slide keys).
+const LIFT_KEYS = { KeyA: 0, KeyD: 0, ArrowLeft: 1, ArrowRight: 1 };
+
 function onKeyDown(e) {
     if (!myRods || isTyping(e)) {
         return;
@@ -470,6 +483,15 @@ function onKeyDown(e) {
         if (!e.repeat) { // held state is tracked, not repeated keydowns
             catchKeys.add(e.code);
             syncCatch();
+        }
+        return;
+    }
+    const liftHand = LIFT_KEYS[e.code];
+    if (liftHand !== undefined) {
+        e.preventDefault(); // keep ←/→ from scrolling the page
+        if (!e.repeat) {
+            liftKeysDown.add(e.code);
+            setLift(liftHand, true);
         }
         return;
     }
@@ -503,6 +525,15 @@ function onKeyUp(e) {
         syncCatch();
         return;
     }
+    const liftHand = LIFT_KEYS[e.code];
+    if (liftHand !== undefined) {
+        e.preventDefault();
+        liftKeysDown.delete(e.code);
+        // Still lifted if the pair's other key is down (either A/D, either ←/→).
+        const stillDown = Object.keys(LIFT_KEYS).some(c => LIFT_KEYS[c] === liftHand && liftKeysDown.has(c));
+        setLift(liftHand, stillDown);
+        return;
+    }
     const map = KEY_MAP[e.code];
     if (!map) {
         return;
@@ -533,6 +564,19 @@ function syncCatch() {
     }
     sentCatch = isHeld;
     connection?.send('Catch', isHeld).catch(() => { });
+}
+
+/** Send a hand's lift state on its edges (§skill-lift), and stamp the charge clock when it goes up so
+ *  the local power readout can grow from the moment of the press. */
+function setLift(hand, held) {
+    if (held === liftHeld[hand]) {
+        return;
+    }
+    liftHeld[hand] = held;
+    if (held) {
+        liftStart[hand] = performance.now();
+    }
+    connection?.send('Lift', hand, held).catch(() => { });
 }
 
 /** Optimistically mirror the server dash (§skill-dash): SPACE with no ball in hand bursts our moving
@@ -578,6 +622,10 @@ function releaseAllKeys() {
     }
     catchKeys.clear();
     syncCatch(); // …nor holding a ball trapped
+    liftKeysDown.clear();
+    for (const hand of [0, 1]) {
+        setLift(hand, false); // …nor leave a rod lifted (its men stuck up, goal exposed)
+    }
     if (sentSpace) { // …nor leave the goalie charging / the ball unlaunched
         sentSpace = false;
         connection?.send('Space', false).catch(() => { });
@@ -598,6 +646,11 @@ function resendInput() {
     }
     if (sentCatch) {
         connection?.send('Catch', true).catch(() => { });
+    }
+    for (const hand of [0, 1]) {
+        if (liftHeld[hand]) {
+            connection?.send('Lift', hand, true).catch(() => { });
+        }
     }
     if (sentSpace) {
         connection?.send('Space', true).catch(() => { });
@@ -1215,14 +1268,42 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
     const armedRodSet = new Set(myRods && catchKeys.size > 0 ? myRods.hands.flat() : []);
     // Brief cyan glow on your own rods right after a dash (§skill-dash) — confirms the lunge fired.
     const dashGlow = nowMs < dashFlashUntil ? (dashFlashUntil - nowMs) / DASH_FLASH_MS : 0;
+    // Lifted rods (§skill-lift): authoritative for everyone (opponents too) via the snapshot bitmask,
+    // plus optimistic own-rod state so your lift shows the instant you press it, before the round-trip.
+    const liftedSet = new Set();
+    for (let i = 0; i < config.rods.length; i++) {
+        if (snap.lf & (1 << i)) liftedSet.add(i);
+    }
+    if (myRods) {
+        for (const h of [0, 1]) {
+            if (liftHeld[h]) for (const r of myRods.hands[h]) if (r !== snap.tr) liftedSet.add(r);
+        }
+    }
+    const liftMaxMs = (config.liftSlamMaxCharge || 0.8) * 1000;
     for (let i = 0; i < config.rods.length; i++) {
         const rod = config.rods[i];
         const own = ownRodSet.has(i);
         const armed = armedRodSet.has(i);
+        const lifted = liftedSet.has(i);
+        // Local drop-slam charge readout (own rods only) — grows from the press, mirrors the server ramp.
+        const liftHand = lifted && own && myRods ? myRods.hands.findIndex(h => h.includes(i)) : -1;
+        const liftFrac = liftHand >= 0 ? Math.min(1, (nowMs - liftStart[liftHand]) / liftMaxMs) : 0;
+
+        // Charging drop-slam (§skill-lift): the rod trembles harder as it powers up — a coiled-spring
+        // tell on top of the brightening gold aura. Isolated in save/restore so only this rod jitters.
+        ctx.save();
+        if (liftFrac > 0) {
+            const amp = liftFrac * LIFT_SHAKE_PX;
+            ctx.translate((Math.random() * 2 - 1) * amp, (Math.random() * 2 - 1) * amp);
+        }
 
         if (armed) {
             ctx.shadowColor = 'rgba(80,255,130,0.9)';
             ctx.shadowBlur = 14;
+        } else if (lifted && own) {
+            // Gold "charging slam" aura on the bar, brightening as the drop-slam powers up.
+            ctx.shadowColor = `rgba(255,196,80,${0.4 + 0.5 * liftFrac})`;
+            ctx.shadowBlur = 10 + 18 * liftFrac;
         } else if (own && dashGlow > 0) {
             ctx.shadowColor = `rgba(120,200,255,${0.9 * dashGlow})`;
             ctx.shadowBlur = 22 * dashGlow;
@@ -1249,10 +1330,37 @@ function draw(ball, rodOffsets, snap, nowMs, renderTime) {
             drawTravelStop(rod.x, botFigY + botGap);                    // → y=H at the down limit
         }
 
+        if (lifted) {
+            ctx.globalAlpha = LIFT_FIGURE_ALPHA; // men rotated up out of the plane — drawn faint (§skill-lift)
+        }
         for (let f = 0; f < rod.figures; f++) {
             const y = rod.yBase + rodOffsets[i] * rod.travel + f * rod.spacing;
             drawFigure(rod.x, y, rod.side, own, footValue(i, f, renderTime), rod.radius);
         }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // Drop-slam strength readout (§skill-lift): a small gold→red meter above your own charging rod,
+        // steady (drawn after restore, so it doesn't tremble with the bar).
+        if (liftFrac > 0) {
+            drawLiftGauge(rod.x, liftFrac);
+        }
+    }
+
+    // Anti-stall dismissal warning (§2.5): a dashed ring that spins, tightens and reddens around a ball
+    // about to be re-centered for inactivity, so the reset never surprises anyone. snap.dm 0..1 = how
+    // imminent — 0 when not (it also can't coincide with a trap, so this never fights the hold ring).
+    if (snap.dm > 0) {
+        const r = config.ballRadius + 6 + 18 * (1 - snap.dm);
+        ctx.beginPath();
+        ctx.arc(ball[0], ball[1], r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,${Math.round(150 * (1 - snap.dm))},60,${0.5 + 0.45 * snap.dm})`;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 5]);
+        ctx.lineDashOffset = -nowMs / 45;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
     }
 
     // Trap hold timer: a ring that's full when the ball is caught and drains over the hold window
@@ -1496,6 +1604,17 @@ function drawTravelStop(x, y) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(255,255,255,0.16)';
     ctx.stroke();
+}
+
+/** Drop-slam charge meter (§skill-lift): a small pill just above your own charging rod, filling
+ *  gold → orange → red as the slam powers up — the strength you'll unleash when you drop the men. */
+function drawLiftGauge(x, frac) {
+    const w = 26, h = 5, gx = x - w / 2, gy = -PAD + 3;
+    roundRect(gx, gy, w, h, 2.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fill();
+    ctx.fillStyle = frac < 0.55 ? '#ffd24a' : (frac < 0.85 ? '#ff9f43' : '#ff5252');
+    ctx.fillRect(gx, gy, w * frac, h);
 }
 
 /** Whole seconds → m:ss. */

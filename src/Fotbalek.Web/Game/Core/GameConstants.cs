@@ -119,6 +119,24 @@ public static class GameConstants
     /// rod's slide at contact, so a one-timer can curve.</summary>
     public const double OneTimerPowerBonus = 0.8;
 
+    /// <summary>Rod-lift drop-slam charge window (§skill-lift): the seconds of holding a rod's men *up*
+    /// that build a full-power slam. When the men come back down onto the ball the strike ramps from a
+    /// plain <see cref="KickSpeed"/> (a quick lift-and-drop) to
+    /// <c>KickSpeed × (1 + <see cref="LiftSlamPowerBonus"/>)</c> at this much lift time — hold the men up
+    /// longer, slam harder. Mirrors the goalie's dial-able charge, but paid in lift time instead of SPACE.</summary>
+    public const double LiftSlamMaxCharge = 0.8;
+
+    /// <summary>Power bonus of a fully-charged drop-slam (§skill-lift), as a fraction of
+    /// <see cref="KickSpeed"/>. At 1.4 a full slam is 700×2.4 ≈ 1680 u/s — just under the
+    /// <see cref="MaxBallSpeed"/> cap, a genuine cannon that still stays (barely) reactable.</summary>
+    public const double LiftSlamPowerBonus = 1.4;
+
+    /// <summary>Slam window (§skill-lift): once a lifted rod's men come down, a figure that catches the
+    /// ball within this long fires the charged slam instead of an ordinary auto-kick. Wide enough that
+    /// the timing isn't frame-perfect, tight enough that it stays a deliberate "drop onto the ball" move
+    /// rather than a lingering power buff on an ordinary block.</summary>
+    public const double LiftSlamWindowSeconds = 0.12;
+
     /// <summary>Fraction of the rod's vertical velocity added to the ball on a kick ("english").
     /// Higher = sliding the rod as it strikes curves the shot more — the main aim-by-motion lever.</summary>
     public const double RodMomentumTransfer = 0.55;
@@ -191,9 +209,9 @@ public static class GameConstants
     public const double GoalieAimMaxAngle = 1.05;
 
     /// <summary>How fast ↑/↓ swing the goalie's aim (§skill-aim), radians/s. A full edge-to-edge sweep
-    /// of the ±<see cref="GoalieAimMaxAngle"/> cone takes 2·1.05/1.4 ≈ 1.5 s — matched to the charge
-    /// window so lining up and powering up feel like one deliberate motion.</summary>
-    public const double GoalieAimRate = 1.4;
+    /// of the ±<see cref="GoalieAimMaxAngle"/> cone takes 2·1.05/1.9 ≈ 1.1 s — a touch quicker than the
+    /// full charge window, so the keeper can snap onto a corner and still have charge headroom to spare.</summary>
+    public const double GoalieAimRate = 1.9;
 
     /// <summary>Speed of a back-pass toss (§skill): brisk enough to reach the rod behind, slow enough
     /// that an opponent rod standing in the lane can step in and pick it off.</summary>
@@ -230,6 +248,10 @@ public static class GameConstants
     public const double StallSpeedThreshold = 40;
     public const double StallSpeedSeconds = 5;
     public const double StallUntouchedSeconds = 15;
+
+    /// <summary>How long before an anti-stall reset (§2.5) the client starts warning: a ring tightens and
+    /// reddens around the ball over this final window, so a stall re-center never comes out of nowhere.</summary>
+    public const double StallWarningSeconds = 2;
 
     /// <summary>Pause before the ball (re)starts moving: after a goal, on entering playing
     /// from waiting, and after a reconnect resume (§2.4, §3.4).</summary>

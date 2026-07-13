@@ -12,7 +12,9 @@ public static class GamePhysics
 {
     public static StepResult Step(SimState s, double dt)
     {
+        s.SlammedThisStep = false;
         IntegrateRods(s, dt);
+        UpdateLift(s, dt);
         CoolDown(s, dt);
         s.Tick++;
 
@@ -24,7 +26,17 @@ public static class GamePhysics
         // clearing the trap, so a trap interrupted that way must go dormant and resume cleanly rather
         // than keep charging/firing while the ball is meant to be frozen.
         if (s.TrappedRod >= 0)
-            return HandleTrapped(s, dt);
+        {
+            // Lifting the rod that holds the ball frees it (§skill-lift): a rising man can't cradle the
+            // ball, so it drops loose and rolls off in the slide direction, under the now-raised figures.
+            // Execution then falls through to normal integration — the lifted rod is skipped in
+            // HandleFigures, so the ball runs clear until you drop the men onto it for a slam. Otherwise
+            // the trap proceeds as usual (dribble / charge / pass / shoot).
+            if (s.RodLifted[s.TrappedRod])
+                ReleaseTrapToLoose(s);
+            else
+                return HandleTrapped(s, dt);
+        }
 
         var damping = Math.Max(0, 1 - GameConstants.FrictionPerSecond * dt);
         s.BallVX *= damping;
@@ -157,6 +169,43 @@ public static class GamePhysics
         }
     }
 
+    /// <summary>Rod lift + drop-slam bookkeeping (§skill-lift), run every step. A lifted rod charges its
+    /// slam (capped) and keeps its slam window primed; the instant it drops, the primed window counts
+    /// down while <see cref="HandleFigures"/> watches for a figure to catch the ball under the falling
+    /// men. When the window lapses unused the stored charge is spent. A rod holding a trapped ball can't
+    /// lift, so it never charges. Purely server-side — the ball rides the normal snapshot stream.</summary>
+    private static void UpdateLift(SimState s, double dt)
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            if (IsLifted(s, i))
+            {
+                // Men up: charge builds, and the slam window stays primed to fire the moment they drop.
+                s.LiftCharge[i] = Math.Min(s.LiftCharge[i] + dt, GameConstants.LiftSlamMaxCharge);
+                s.SlamArm[i] = GameConstants.LiftSlamWindowSeconds;
+            }
+            else if (s.SlamArm[i] > 0)
+            {
+                // Men just came down: the window is open and the charge stays available to HandleFigures
+                // until it lapses, at which point an unused charge is spent.
+                s.SlamArm[i] -= dt;
+                if (s.SlamArm[i] <= 0)
+                {
+                    s.SlamArm[i] = 0;
+                    s.LiftCharge[i] = 0;
+                }
+            }
+            else
+            {
+                s.LiftCharge[i] = 0; // fully down, nothing pending
+            }
+        }
+    }
+
+    /// <summary>Whether rod <paramref name="i"/>'s men are up (§skill-lift) — the seat is holding lift and
+    /// the rod isn't gripping a trapped ball (a man holding the ball can't lift).</summary>
+    private static bool IsLifted(SimState s, int i) => s.RodLifted[i] && i != s.TrappedRod;
+
     private static double Contact(RodDef rod) => GameConstants.BallRadius + rod.Radius;
 
     private static bool HandleFigures(SimState s, ref double nx, ref double ny)
@@ -182,6 +231,8 @@ public static class GamePhysics
         double bestFigY = 0, bestContact = 0, bestDist = 0;
         for (var i = 0; i < 8; i++)
         {
+            if (IsLifted(s, i))
+                continue; // men up (§skill-lift): the ball passes under this rod entirely
             var rod = GameConstants.Rods[i];
             var contact = Contact(rod);
             var dx = nx - rod.X;
@@ -212,6 +263,21 @@ public static class GamePhysics
             return false;
 
         var best = GameConstants.Rods[bestRod];
+
+        // Drop-slam (§skill-lift): this rod's men came down within the slam window and caught the ball
+        // under them → a committed power strike, charged by how long they were held up. Takes precedence
+        // over the trap and the ordinary auto-kick for this contact (the deliberate drop is the intent).
+        // A lifted rod never reaches here (it's skipped above), so this only fires on the way *down*.
+        if (s.SlamArm[bestRod] > 0 && s.LiftCharge[bestRod] > 0 && s.KickCooldown[bestRod][bestFig] <= 0)
+        {
+            var slamOffset = Math.Clamp((ny - bestFigY) / bestContact, -1, 1);
+            var slamFrac = Math.Clamp(s.LiftCharge[bestRod] / GameConstants.LiftSlamMaxCharge, 0, 1);
+            FireShot(s, best, bestFig, slamFrac, slamOffset, powerBonus: GameConstants.LiftSlamPowerBonus);
+            s.SlamArm[bestRod] = 0;
+            s.LiftCharge[bestRod] = 0;
+            s.SlammedThisStep = true;
+            return true;
+        }
 
         // Kick key held on this rod → trap the ball on the figure instead of auto-kicking. The ball
         // sticks to the front of the man and charges until released (HandleTrapped). Fully opt-in:
@@ -459,6 +525,25 @@ public static class GamePhysics
         s.IgnoreRod = rod.Index;
         s.IgnoreFigure = fig;
         s.LastPassTick = s.Tick; // back-pass toss → client plays a pass sound (no forward swing)
+    }
+
+    /// <summary>Frees a trapped ball because its rod is lifting (§skill-lift): the men rise, so the ball
+    /// can no longer be cradled. It drops loose and rolls along the rod's lane in the current slide
+    /// direction (slide down → it rolls down, under the raised figures) with no forward launch, so it
+    /// stays on the lane for you to drop the men onto and slam. Spin is cleared — a parked ball is dead
+    /// until struck.</summary>
+    private static void ReleaseTrapToLoose(SimState s)
+    {
+        var rod = GameConstants.Rods[s.TrappedRod];
+        // Drop it right on the rod's lane at the man — not out at the cradle point in front of his feet
+        // where it was held. Parked on the lane centre, the men come straight down onto it for a clean
+        // slam; left at the toes it sits at the edge of contact range and is fiddly to strike.
+        s.BallX = rod.X;
+        s.BallY = s.TrapY;
+        s.BallVX = 0;
+        s.BallVY = s.RodVel[s.TrappedRod];
+        s.BallSpin = 0;
+        EndTrap(s);
     }
 
     private static void EndTrap(SimState s)

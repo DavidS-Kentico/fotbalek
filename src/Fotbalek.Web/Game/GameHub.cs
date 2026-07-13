@@ -82,6 +82,19 @@ public class GameHub(
         }
     }
 
+    /// <summary>Lift-key state change (§skill-lift): <paramref name="hand"/> 0 = left (A/D), 1 = right
+    /// (←/→); <paramref name="held"/> true while that hand's lift key is down. The server maps hand → rod(s)
+    /// from the seat, so you can only lift your own rods; it's a no-op unless the room enables rod-lift.</summary>
+    public void Lift(int hand, bool held)
+    {
+        if (Context.Items.TryGetValue(RoomKey, out var value)
+            && value is GameRoom room
+            && int.TryParse(Context.UserIdentifier, out var userId))
+        {
+            room.SetLift(userId, hand, held);
+        }
+    }
+
     /// <summary>SPACE state change: <paramref name="held"/> true while SPACE is down. Held per user to
     /// charge the goalie's shot; its edges drive the trapped-ball action (outfield pass on press, goalie
     /// launch on release). The server resolves the trapped rod and validates the caller drives it, so it

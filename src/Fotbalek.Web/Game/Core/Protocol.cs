@@ -32,7 +32,9 @@ public sealed record SnapshotDto(
     [property: JsonPropertyName("pw")] double ShotPower,
     [property: JsonPropertyName("sp")] double BallSpin,
     [property: JsonPropertyName("pt")] long LastPassTick,
-    [property: JsonPropertyName("am")] double AimAngle);
+    [property: JsonPropertyName("am")] double AimAngle,
+    [property: JsonPropertyName("lf")] int Lifted,
+    [property: JsonPropertyName("dm")] double DismissWarn);
 
 /// <summary>One seat's occupancy. A seat is <see cref="Occupied"/> by a human (<see cref="UserId"/>
 /// set) or a computer (<see cref="IsBot"/>); <see cref="BotLevel"/> is the <see cref="BotDifficulty"/>
@@ -82,6 +84,7 @@ public sealed record GameConfigDto(
     double RodDecel,
     double DashSpeed,
     double DashCooldownSeconds,
+    double LiftSlamMaxCharge,
     int TickRate,
     IReadOnlyList<RodConfigDto> Rods)
 {
@@ -96,6 +99,7 @@ public sealed record GameConfigDto(
         GameConstants.RodDecel,
         GameConstants.DashSpeed,
         GameConstants.DashCooldownSeconds,
+        GameConstants.LiftSlamMaxCharge,
         GameConstants.TickRate,
         GameConstants.Rods
             .Select(r => new RodConfigDto(r.X, r.Side, r.FigureCount, r.FigureSpacing, r.Travel, r.YBase, r.Radius))

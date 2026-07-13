@@ -50,6 +50,22 @@ public sealed class SimState
     /// charge as they cradle the ball (see <see cref="RodKick"/>) and use SPACE only to pass.</summary>
     public readonly bool[] RodSpace = new bool[8];
 
+    /// <summary>Per-rod lift state (§skill-lift): true while the driving seat holds this rod's lift key,
+    /// so the figures rotate up out of the plane and stop colliding — the ball passes under them. Set by
+    /// the room each tick from held input; a rod currently holding a trapped ball ignores it (a man
+    /// gripping the ball can't lift). Carried in snapshots so every client draws the raised figures.</summary>
+    public readonly bool[] RodLifted = new bool[8];
+
+    /// <summary>Seconds a rod has been lifted, charging its drop-slam (§skill-lift). Grows while the men
+    /// are up (capped at <see cref="GameConstants.LiftSlamMaxCharge"/>) and scales the strike when they
+    /// come down onto the ball. Physics-owned; reset once the slam fires or its window lapses.</summary>
+    public readonly double[] LiftCharge = new double[8];
+
+    /// <summary>Remaining slam window after a rod's men come down (§skill-lift): while &gt; 0 a figure
+    /// that catches the ball fires the charged drop-slam instead of an ordinary auto-kick. Held topped
+    /// up while the rod is lifted so it starts full the instant the rod drops. Physics-owned.</summary>
+    public readonly double[] SlamArm = new double[8];
+
     /// <summary>Remaining kick cooldown per figure, seconds; indexed [rod][figure].</summary>
     public readonly double[][] KickCooldown =
         GameConstants.Rods.Select(r => new double[r.FigureCount]).ToArray();
@@ -107,6 +123,11 @@ public sealed class SimState
     public int LastKickRod = -1;
     public int LastKickFigure = -1;
     public long LastKickTick;
+
+    /// <summary>Set for the one step in which a drop-slam fired (§skill-lift). A slam is a deliberate,
+    /// timed strike, so the room reads this to mark the round "controlled" — the goal is never waved off
+    /// as a cheap first touch. Reset at the top of every <see cref="GamePhysics.Step"/>.</summary>
+    public bool SlammedThisStep;
 
     /// <summary>Tick of the most recent pass (a lane-pass hop between own figures or a back-pass toss) —
     /// carried in snapshots purely so the client can play a distinct pass sound. Separate from the kick
