@@ -577,55 +577,89 @@ h1:focus {
     }
 }
 
-/* ===== New Match Page ===== */
-.match-page {
-    max-width: 600px;
-    margin: 0 auto;
+/* ===== Page width tiers (PageContainer component) =====
+   Single source of truth for page content width. `.page` marks every page's
+   primary container; the default tier keeps Bootstrap's responsive .container
+   width (data / dashboard pages). `.page--focused` caps forms & setup pages at
+   one shared, comfortable width so they stay consistent with each other. */
+.page--focused {
+    max-width: 960px;
 }
 
-.match-toolbar {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
+/* ===== New Match Page ===== */
+/* Seasonal / off-season context strip above the two columns */
+.newmatch-season {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
     align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    gap: 8px 12px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    background: var(--bs-tertiary-bg);
+}
+.newmatch-season.is-seasonal {
+    border-color: rgba(25, 135, 84, 0.35);
+    background: rgba(25, 135, 84, 0.06);
 }
 
-.match-toolbar-status {
+/* Two logical columns: left = who plays, right = the result. */
+.newmatch-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+/* The grid gap owns the spacing between panels in both axes. */
+.newmatch-grid .panel + .panel {
+    margin-top: 0;
+}
+
+/* Lineup status line inside the left panel */
+.lineup-status {
     display: flex;
     align-items: center;
     gap: 10px;
     font-weight: 500;
-    color: #495057;
+    color: var(--bs-secondary-color);
+    margin-bottom: 1rem;
 }
-
-.match-toolbar-status .status-icon {
-    width: 32px;
-    height: 32px;
+.lineup-status .status-icon {
+    width: 30px;
+    height: 30px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 1rem;
-    background: rgba(25, 135, 84, 0.12);
+    font-size: 0.95rem;
+    background: rgba(108, 117, 125, 0.15);
+    color: #6c757d;
+    flex: 0 0 auto;
+}
+.lineup-status.ready {
+    color: #198754;
+}
+.lineup-status.ready .status-icon {
+    background: rgba(25, 135, 84, 0.15);
     color: #198754;
 }
 
-.match-toolbar-status.incomplete .status-icon {
-    background: rgba(108, 117, 125, 0.12);
-    color: #6c757d;
+/* Labeled sections inside the result panel */
+.result-section {
+    margin-bottom: 1.1rem;
 }
-
-.match-toolbar-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
+.section-label {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+.result-hint {
+    margin-bottom: 1.1rem;
 }
 
 /* Team labels with avg ELO */
@@ -647,23 +681,12 @@ h1:focus {
     letter-spacing: 0.02em;
 }
 
-/* Match preview / win probability */
+/* Match preview / win probability — a highlighted sub-section of the result panel
+   (no card chrome of its own; it already sits inside a .panel). */
 .match-preview {
-    background: linear-gradient(135deg, rgba(255, 193, 7, 0.06), rgba(13, 110, 253, 0.06));
-    border: 1px solid #e9ecef;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.07), rgba(13, 110, 253, 0.07));
     border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-}
-
-.match-preview-header {
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #6c757d;
-    font-size: 0.7rem;
-    font-weight: 700;
-    margin-bottom: 10px;
+    padding: 12px 14px;
 }
 
 .elo-comparison {
@@ -751,7 +774,6 @@ h1:focus {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
-    margin-bottom: 16px;
 }
 
 .outcome-card {
@@ -829,26 +851,6 @@ h1:focus {
     cursor: not-allowed;
 }
 
-/* Score card */
-.score-card {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    padding: 10px 14px 12px;
-    margin-bottom: 20px;
-}
-
-.score-card-label {
-    display: block;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #6c757d;
-    font-size: 0.7rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-}
-
 .score-card-inputs {
     display: flex;
     align-items: center;
@@ -856,30 +858,190 @@ h1:focus {
     gap: 12px;
 }
 
+/* ===== Player picker (Select Player / Balance Teams modals) ===== */
+.picker-search {
+    position: relative;
+    margin-bottom: 1rem;
+}
+.picker-search .form-control {
+    padding-left: 2.25rem;
+    padding-right: 2.25rem;
+    border-radius: 10px;
+}
+.picker-search-icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bs-tertiary-color);
+    pointer-events: none;
+    font-size: 0.9rem;
+}
+.picker-search-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.picker-search-clear:hover {
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+}
+
+.picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+}
+
+.player-pick {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px 10px;
+    border: 2px solid var(--bs-border-color);
+    border-radius: 14px;
+    background: var(--bs-body-bg);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: inherit;
+}
+.player-pick:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: #198754;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+}
+.player-pick.is-me {
+    border-color: rgba(25, 135, 84, 0.5);
+}
+.player-pick.selected {
+    border-color: #198754;
+    background: rgba(25, 135, 84, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(25, 135, 84, 0.35);
+}
+.player-pick:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.player-pick .pick-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--bs-body-color);
+    overflow-wrap: anywhere;
+}
+.player-pick .pick-elo {
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+.player-pick .pick-check {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #198754;
+    color: #fff;
+    border: 2px solid var(--bs-body-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.picker-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 2rem 1rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.9rem;
+}
+.picker-empty > .bi {
+    font-size: 1.5rem;
+    opacity: 0.6;
+}
+
 /* Record button */
 .record-match-btn {
     box-shadow: 0 4px 12px rgba(25, 135, 84, 0.25);
 }
 
-@media (max-width: 575.98px) {
-    .match-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .match-toolbar-actions {
-        justify-content: center;
-    }
-    .outcome-cards {
-        grid-template-columns: 1fr 1fr;
-    }
-    .elo-side .value {
-        font-size: 1.3rem;
+/* In-context "match recorded" state (replaces the result panel body in place, so
+   the confirmation appears exactly where the Record button was — never at the
+   top of the page). */
+.match-recorded {
+    text-align: center;
+    padding: 0.75rem 0.25rem;
+}
+.match-recorded__icon {
+    font-size: 3rem;
+    line-height: 1;
+    color: #198754;
+    margin-bottom: 0.5rem;
+    animation: recorded-pop 0.4s ease;
+}
+@keyframes recorded-pop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.match-recorded__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+.match-recorded__msg {
+    color: var(--bs-secondary-color);
+    margin-bottom: 1.25rem;
+}
+.match-recorded__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+.match-recorded__link {
+    display: inline-block;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: #198754;
+    font-weight: 600;
+}
+.match-recorded__link:hover {
+    text-decoration: underline;
+}
+
+/* Stack the two columns before the panels get too cramped for the pitch. */
+@media (max-width: 991.98px) {
+    .newmatch-grid {
+        grid-template-columns: 1fr;
     }
 }
 
-/* Match history: narrower content column so rows don't look stretched on wide screens */
-.match-history-page {
-    max-width: 960px;
+@media (max-width: 575.98px) {
+    .elo-side .value {
+        font-size: 1.3rem;
+    }
 }
 
 /* Match history: keep filter bar visible while scrolling long lists */
@@ -889,8 +1051,9 @@ h1:focus {
     z-index: 5;
 }
 
-/* Match history: prominent date group header with an accent stripe */
-.match-history-group-header {
+/* Day-group heading with an accent stripe — shared by Match History and the
+   dashboard Recent Matches feed. Margins come from utilities per context. */
+.day-group {
     font-size: .8rem;
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -899,6 +1062,8 @@ h1:focus {
     padding: .15rem .25rem .15rem .6rem !important;
     border-bottom: none !important;
 }
+/* First day-group in the dashboard feed hugs the panel top. */
+.dashboard-recent .day-group:first-child { margin-top: 0 !important; }
 
 /* Match card: subtle hover lift so the row feels clickable */
 .match-card {
@@ -907,6 +1072,93 @@ h1:focus {
 .match-card:hover {
     transform: translateY(-1px);
     box-shadow: 0 .35rem .9rem rgba(0, 0, 0, .08);
+}
+
+/* Match card (full/non-compact): tighter body + slim meta line so history rows
+   stay low-profile — the day is already shown in the group header, so the meta
+   line only carries the time and the margin/season chips. */
+.match-card-body {
+    padding: .7rem 1rem;
+}
+.match-card-meta {
+    margin-top: .4rem;
+    font-size: .8rem;
+    line-height: 1.15;
+}
+
+/* Shared "+N" overflow pill for capped badge lists (player cards, rankings rows). */
+.badge-more {
+    display: inline-block;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .7rem;
+    padding: .25rem .4rem;
+    border-radius: .375rem;
+    font-weight: 500;
+}
+
+/* Dashboard Rankings panel — middle-aligned rows, tabular ELO, and a compact
+   win-rate meter beneath the percentage so standings scan at a glance. */
+.rankings-table td,
+.rankings-table th { vertical-align: middle; }
+.rankings-table .elo-cell {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.rank-wr {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .2rem;
+}
+.rank-wr__pct {
+    font-size: .85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+.rank-wr__pct.good { color: var(--bs-success); }
+.rank-wr__pct.bad { color: var(--bs-danger); }
+.rank-wr__track {
+    width: 52px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bs-tertiary-bg);
+    overflow: hidden;
+}
+.rank-wr__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--bs-success);
+}
+.rank-wr__fill.bad {
+    background: var(--bs-danger);
+}
+
+/* Dashboard Recent Matches — tighten the compact-card list into a cohesive feed.
+   !important overrides MatchCard's Bootstrap .mb-3 utility (which is itself !important). */
+.dashboard-recent .match-card { margin-bottom: .5rem !important; }
+.dashboard-recent .match-card:last-child { margin-bottom: 0 !important; }
+
+/* Dashboard panels: cap the list height so the panel stays compact regardless of
+   roster/match count; "Load more" reveals the next chunk within this scroll area. */
+.panel-scroll {
+    max-height: 30rem;
+    overflow-y: auto;
+}
+/* Keep the rankings header pinned while its rows scroll. */
+.rankings-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bs-tertiary-bg);
+}
+/* Shared "Load more" action (LoadMoreButton) — centered with breathing room so it
+   reads consistently below a page list, a flush panel's table, or a padded feed. */
+.load-more {
+    text-align: center;
+    padding: .85rem;
 }
 
 /* Match card: stack teams above/below the score on narrow screens */
@@ -1063,13 +1315,6 @@ h1:focus {
 }
 
 /* New-match page surfaces */
-[data-bs-theme="dark"] .match-toolbar {
-    background: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
-}
-[data-bs-theme="dark"] .match-preview {
-    border-color: var(--bs-border-color);
-}
 [data-bs-theme="dark"] .win-probability-bar {
     background: var(--bs-secondary-bg);
 }
@@ -1092,10 +1337,6 @@ h1:focus {
    the white circle — pin it to a dark colour. */
 [data-bs-theme="dark"] .swap-btn {
     color: #212529;
-}
-[data-bs-theme="dark"] .score-card {
-    background: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
 }
 
 /* Head-to-head matrix */
@@ -1731,11 +1972,6 @@ h1:focus {
 .auth-panel--admin .auth-panel__icon {
     background: var(--bs-tertiary-bg);
     color: #997404;
-}
-
-/* Account settings page */
-.account-page {
-    max-width: 820px;
 }
 
 /* ============================================================

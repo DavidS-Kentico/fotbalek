@@ -67,6 +67,23 @@ public static class DateFilterHelper
     }
 
     /// <summary>
+    /// Formats a (local) date as a match-list day-group heading: "Today", "Yesterday",
+    /// the weekday name within the current week, then progressively fuller dates.
+    /// Shared by Match History and the dashboard so their groupings read identically.
+    /// </summary>
+    public static string FormatDayGroup(DateOnly date, DateOnly today)
+    {
+        if (date == today) return "Today";
+        if (date == today.AddDays(-1)) return "Yesterday";
+
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+        if (date >= startOfWeek) return date.ToString("dddd"); // Monday, Tuesday...
+
+        if (date.Year == today.Year) return date.ToString("dddd, MMM d");
+        return date.ToString("dddd, MMM d, yyyy");
+    }
+
+    /// <summary>
     /// Gets a display description for the period, including date range.
     /// </summary>
     public static string? GetPeriodDescription(

@@ -1,30 +1,62 @@
-@* Responsive grid of player buttons. Used by both player and balance pickers. *@
+@* Responsive grid of player cards with live name search. Used by the player &
+   balance pickers on the New Match page. *@
 
-<div class="row row-cols-3 g-2">
-    @foreach (var player in Players)
+<div class="player-picker">
+    @if (ShowSearchBox)
     {
-        var isSelected = SelectedIds?.Contains(player.Id) == true;
-        var isMe = player.Id == MyPlayerId;
-        var buttonClass = isSelected
-            ? "btn-success"
-            : (isMe ? "btn-outline-success border-2" : "btn-outline-secondary");
-        <div class="col">
-            <button class="btn w-100 p-2 @buttonClass"
-                    disabled="@(DisablePlayer?.Invoke(player) ?? false)"
-                    @onclick="() => OnSelect.InvokeAsync(player.Id)">
-                <Avatar AvatarId="@player.AvatarId" Size="md" />
-                <div class="small mt-1">
-                    @player.Name
-                    @if (isMe)
+        <div class="picker-search">
+            <i class="bi bi-search picker-search-icon"></i>
+            <input type="text" class="form-control" placeholder="Search players…"
+                   aria-label="Search players" autocomplete="off" @bind="_search" @bind:event="oninput" />
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <button type="button" class="picker-search-clear" aria-label="Clear search"
+                        @onclick="ClearSearch">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            }
+        </div>
+    }
+
+    @{
+        var filtered = Filtered.ToList();
+    }
+    @if (filtered.Count == 0)
+    {
+        <div class="picker-empty">
+            <i class="bi bi-search"></i>
+            <span>No players match “@_search”.</span>
+        </div>
+    }
+    else
+    {
+        <div class="picker-grid">
+            @foreach (var player in filtered)
+            {
+                var isSelected = SelectedIds?.Contains(player.Id) == true;
+                var isMe = player.Id == MyPlayerId;
+                <button type="button"
+                        class="player-pick @(isSelected ? "selected" : "") @(isMe ? "is-me" : "")"
+                        disabled="@(DisablePlayer?.Invoke(player) ?? false)"
+                        @onclick="() => OnSelect.InvokeAsync(player.Id)">
+                    @if (isSelected)
                     {
-                        <span class="badge badge-you ms-1">you</span>
+                        <span class="pick-check"><i class="bi bi-check-lg"></i></span>
                     }
-                </div>
-                @if (ShowElo)
-                {
-                    <div class="small text-muted">@player.Elo</div>
-                }
-            </button>
+                    <Avatar AvatarId="@player.AvatarId" Size="md" />
+                    <span class="pick-name">
+                        @player.Name
+                        @if (isMe)
+                        {
+                            <span class="badge badge-you ms-1">you</span>
+                        }
+                    </span>
+                    @if (ShowElo)
+                    {
+                        <span class="pick-elo">@player.Elo</span>
+                    }
+                </button>
+            }
         </div>
     }
 </div>
@@ -36,4 +68,16 @@
     [Parameter] public bool ShowElo { get; set; } = true;
     [Parameter] public Func<Player, bool>? DisablePlayer { get; set; }
     [Parameter] public EventCallback<int> OnSelect { get; set; }
+
+    private string _search = string.Empty;
+
+    // Only surface search once the roster is big enough that scanning is a chore.
+    private bool ShowSearchBox => Players.Count() > 6;
+
+    private IEnumerable<Player> Filtered =>
+        string.IsNullOrWhiteSpace(_search)
+            ? Players
+            : Players.Where(p => p.Name.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void ClearSearch() => _search = string.Empty;
 }

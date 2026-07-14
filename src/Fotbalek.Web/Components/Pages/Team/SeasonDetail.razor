@@ -16,17 +16,17 @@
 }
 else if (_season == null)
 {
-    <div class="container py-4">
+    <PageContainer>
         <AlertMessage Message="Season not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
         <a href="/team/@TeamCode/seasons" class="btn btn-primary">Back to Seasons</a>
-    </div>
+    </PageContainer>
 }
 else
 {
     var now = DateTimeOffset.UtcNow;
     var isScheduled = _season.IsScheduledAt(now);
 
-    <div class="container py-4">
+    <PageContainer>
         <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
             new("Seasons", $"/team/{TeamCode}/seasons"),
             new(_season.Name),
@@ -291,7 +291,7 @@ else
                 <i class="bi bi-list-ul me-1"></i> View the season's matches
             </a>
         }
-    </div>
+    </PageContainer>
 }
 
 @code {

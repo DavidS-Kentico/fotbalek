@@ -1,0 +1,55 @@
+@* Day-grouped list of match cards. Shared by Match History and the dashboard Recent
+   Matches feed so the "Today / Yesterday / Mon, Jul 3" headers and card rendering stay
+   identical. Pass an Actions template to render a per-match action area (e.g. the
+   history row's dropdown); omit it for a plain feed (dashboard). *@
+@inject TimeZoneService Tz
+@using Fotbalek.Web.Helpers
+
+@{ DateOnly? group = null; }
+@foreach (var match in Matches)
+{
+    var groupKey = Tz.ToLocalDate(match.PlayedAt);
+    if (group != groupKey)
+    {
+        group = groupKey;
+        <div class="day-group fw-semibold @HeaderMarginClass">
+            <i class="bi bi-calendar-event me-1"></i>@DateFilterHelper.FormatDayGroup(groupKey, Tz.Today)
+        </div>
+    }
+
+    @if (Actions != null)
+    {
+        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
+                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.Season?.Name"
+                   DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
+                   DateTitle="@Tz.FormatLocalDate(match.PlayedAt)">
+            <Actions>@Actions(match)</Actions>
+        </MatchCard>
+    }
+    else
+    {
+        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
+                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.Season?.Name"
+                   DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
+                   DateTitle="@Tz.FormatLocalDate(match.PlayedAt)" />
+    }
+}
+
+@code {
+    /// <summary>Matches to render, already ordered most-recent-first. Consecutive same-day rows group together.</summary>
+    [Parameter, EditorRequired] public IEnumerable<Match> Matches { get; set; } = [];
+
+    [Parameter] public string? TeamCode { get; set; }
+
+    /// <summary>Compact cards (dashboard) vs full cards (history).</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>Show the season / off-season chip on each card.</summary>
+    [Parameter] public bool ShowSeasonChip { get; set; }
+
+    /// <summary>Optional per-match action area, rendered top-right of each card.</summary>
+    [Parameter] public RenderFragment<Match>? Actions { get; set; }
+
+    /// <summary>Margin utilities for the day-group headers (history uses more top space than the dashboard).</summary>
+    [Parameter] public string HeaderMarginClass { get; set; } = "mt-4 mb-2";
+}

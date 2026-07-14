@@ -20,7 +20,7 @@
 }
 else if (_player != null && _stats != null)
 {
-    <div class="container py-4">
+    <PageContainer>
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <Breadcrumbs TeamCode="@TeamCode" Class="mb-0" Items="@(new Breadcrumbs.BreadcrumbItem[] {
                 new("Players", $"/team/{TeamCode}/players"),
@@ -772,7 +772,7 @@ else if (_player != null && _stats != null)
                 }
             </div>
         }
-    </div>
+    </PageContainer>
 
     <Modal Show="@(_showEditModal && _player != null)" Title="Edit player" OnClose="HideEditModal">
         <Body>
@@ -794,10 +794,10 @@ else if (_player != null && _stats != null)
 }
 else
 {
-    <div class="container py-4">
+    <PageContainer>
         <AlertMessage Message="Player not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
         <a href="/team/@TeamCode/players" class="btn btn-primary">Back to Players</a>
-    </div>
+    </PageContainer>
 }
 
 @code {

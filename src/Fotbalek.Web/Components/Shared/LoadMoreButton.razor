@@ -1,0 +1,28 @@
+@* Standard "Load more (N more)" action — one consistent affordance for every
+   progressively-revealed list (match history, dashboard feeds). Centered outline
+   button; the icon swaps to a spinner while Busy so async loads read correctly.
+   Use Compact for dense contexts (dashboard panels); full size for page lists. *@
+
+<div class="load-more">
+    <SpinnerButton Variant="outline-success" CssClass="@(Compact ? "btn-sm" : "")"
+                   Icon="bi bi-arrow-down-circle" Busy="Busy" OnClick="OnClick">
+        <span>Load more</span>
+        @if (Remaining > 0)
+        {
+            <span class="text-muted ms-1">(@Remaining more)</span>
+        }
+    </SpinnerButton>
+</div>
+
+@code {
+    /// <summary>How many items remain beyond what's shown; rendered as a muted "(N more)" hint.</summary>
+    [Parameter, EditorRequired] public int Remaining { get; set; }
+
+    /// <summary>Shows a spinner in place of the icon while an async load is in flight.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>Smaller button for dense contexts (dashboard panels).</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+}

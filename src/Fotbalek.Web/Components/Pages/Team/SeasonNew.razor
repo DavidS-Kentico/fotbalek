@@ -17,14 +17,14 @@
 }
 else if (!_isCaptain)
 {
-    <div class="container py-4">
+    <PageContainer Focused>
         <AlertMessage Message="Only the team captain can create seasons." Variant="warning" Icon="bi bi-exclamation-triangle" />
         <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Back to Seasons</a>
-    </div>
+    </PageContainer>
 }
 else
 {
-    <div class="container py-4" style="max-width: 860px;">
+    <PageContainer Focused>
         <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
             new("Seasons", $"/team/{TeamCode}/seasons"),
             new("New season"),
@@ -120,7 +120,7 @@ else
             </SpinnerButton>
             <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>
         </div>
-    </div>
+    </PageContainer>
 }
 
 @code {

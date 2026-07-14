@@ -100,7 +100,9 @@ public static class Constants
     public static class Pagination
     {
         public const int DefaultPageSize = 20;
-        public const int DashboardRecentMatches = 8;
+        // Dashboard Recent Matches: initial load and per-"Load more" batch size (loaded from
+        // the server on demand, so the feed keeps offering more until the season/team runs out).
+        public const int DashboardRecentMatches = 10;
         public const int DashboardTopPlayers = 10;
         public const int PlayerDetailRecentMatches = 6;
     }

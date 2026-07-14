@@ -20,7 +20,7 @@
 }
 else if (_team != null)
 {
-    <div class="container py-4">
+    <PageContainer>
         @if (_activeSeason != null)
         {
             <Panel Class="border-success mb-4" BodyClass="py-3">
@@ -120,10 +120,8 @@ else if (_team != null)
                     <ChildContent>
                         @if (_rankingRows.Count > 0)
                         {
-                            var displayRows = GetDisplayRows();
-                            var prevRank = 0;
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
+                            <div class="table-responsive panel-scroll">
+                                <table class="table table-hover mb-0 rankings-table">
                                     <thead class="table-light">
                                         <tr>
                                             <th class="text-center" style="width: 50px;">#</th>
@@ -133,15 +131,9 @@ else if (_team != null)
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var player in displayRows)
+                                        @foreach (var player in _rankingRows.Take(_rankingsVisible))
                                         {
                                             var isMine = player.PlayerId == MyPlayerId;
-                                            @if (prevRank > 0 && player.Rank > prevRank + 1)
-                                            {
-                                                <tr>
-                                                    <td colspan="4" class="text-center text-muted py-0"><i class="bi bi-three-dots"></i></td>
-                                                </tr>
-                                            }
                                             <tr class="@(isMine ? "table-success" : "")">
                                                 <td class="text-center">
                                                     <RankBadge Rank="@player.Rank" />
@@ -159,24 +151,39 @@ else if (_team != null)
                                                     {
                                                         <span class="badge badge-you ms-1">you</span>
                                                     }
-                                                    @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
+                                                    @{
+                                                        var rankBadges = StatRegistry.PlayerBadges(_stats, player.PlayerId);
+                                                        const int maxRankBadges = 5;
+                                                        // Cap to keep the Player column tidy: show all when they fit, otherwise
+                                                        // 4 badges + a "+N" overflow pill for the rest.
+                                                        var visRankBadges = rankBadges.Count <= maxRankBadges ? rankBadges.Count : maxRankBadges - 1;
+                                                        var hiddenRankBadges = rankBadges.Count - visRankBadges;
+                                                        var wrGood = player.WinRate >= 50;
+                                                    }
+                                                    @foreach (var badge in rankBadges.Take(visRankBadges))
                                                     {
                                                         <span class="badge @badge.CssClass ms-1 px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
                                                     }
+                                                    @if (hiddenRankBadges > 0)
+                                                    {
+                                                        <span class="badge-more ms-1" title="@string.Join(" · ", rankBadges.Skip(visRankBadges).Select(b => b.Tooltip))">+@hiddenRankBadges</span>
+                                                    }
                                                 </td>
-                                                <td class="text-end fw-bold">@player.Elo</td>
-                                                <td class="text-end text-muted">@player.WinRate.ToString("F1")%</td>
+                                                <td class="text-end elo-cell">@player.Elo</td>
+                                                <td class="text-end">
+                                                    <div class="rank-wr">
+                                                        <span class="rank-wr__pct @(wrGood ? "good" : "bad")">@player.WinRate.ToString("F1")%</span>
+                                                        <span class="rank-wr__track"><span class="rank-wr__fill @(wrGood ? "" : "bad")" style="width:@player.WinRate.ToString("F0")%"></span></span>
+                                                    </div>
+                                                </td>
                                             </tr>
-                                            prevRank = player.Rank;
                                         }
                                     </tbody>
                                 </table>
                             </div>
-                            @if (_rankingRows.Count > displayRows.Count)
+                            @if (_rankingRows.Count > _rankingsVisible)
                             {
-                                <a href="/team/@TeamCode/rankings" class="d-block text-center text-muted small text-decoration-none py-2 border-top">
-                                    Showing @displayRows.Count of @_rankingRows.Count players · <span class="text-success">View full rankings</span>
-                                </a>
+                                <LoadMoreButton Compact Remaining="@(_rankingRows.Count - _rankingsVisible)" OnClick="LoadMoreRankings" />
                             }
                         }
                         else
@@ -195,9 +202,12 @@ else if (_team != null)
                     <ChildContent>
                         @if (_recentMatches.Count > 0)
                         {
-                            @foreach (var match in _recentMatches.Take(Constants.Pagination.DashboardRecentMatches))
+                            <div class="dashboard-recent panel-scroll">
+                                <MatchDayList Matches="_recentMatches" TeamCode="@TeamCode" Compact="true" HeaderMarginClass="mt-3 mb-2" />
+                            </div>
+                            @if (_recentMatches.Count < _matchCount)
                             {
-                                <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
+                                <LoadMoreButton Compact Busy="_loadingMore" Remaining="@(_matchCount - _recentMatches.Count)" OnClick="LoadMoreRecent" />
                             }
                         }
                         else
@@ -232,7 +242,7 @@ else if (_team != null)
                 <StatTile Variant="warning" Icon="bi bi-bullseye" Value="@_avgMatchScore.ToString("F1")" Label="Avg Goals/Match" />
             </div>
         </div>
-    </div>
+    </PageContainer>
 }
 
 @code {
@@ -263,20 +273,28 @@ else if (_team != null)
     // Unified ranking rows: seasonal standings when a season is active, all-time otherwise.
     private List<(int Rank, int PlayerId, string PlayerName, int AvatarId, int Elo, double WinRate)> _rankingRows = [];
 
-    // At most DashboardTopPlayers rows; when the viewer ranks below the cutoff, the last
-    // slot goes to their own row (the rank gap renders as a separator in the table).
-    private List<(int Rank, int PlayerId, string PlayerName, int AvatarId, int Elo, double WinRate)> GetDisplayRows()
-    {
-        const int limit = Constants.Pagination.DashboardTopPlayers;
-        if (_rankingRows.Count <= limit)
-        {
-            return _rankingRows;
-        }
+    // Fixed-height scroll panels: "Load more" reveals the next chunk within the capped scroll
+    // area, so the panel height never grows. Rankings are held in memory (all rows loaded);
+    // recent matches are fetched from the server a batch at a time until the lens is exhausted.
+    private int _rankingsVisible = Constants.Pagination.DashboardTopPlayers;
+    private int _recentTake = Constants.Pagination.DashboardRecentMatches;
+    private bool _loadingMore;
 
-        var mine = _rankingRows.FirstOrDefault(r => r.PlayerId == MyPlayerId);
-        return mine.PlayerId > 0 && mine.Rank > limit
-            ? _rankingRows.Take(limit - 1).Append(mine).ToList()
-            : _rankingRows.Take(limit).ToList();
+    private void LoadMoreRankings() => _rankingsVisible += Constants.Pagination.DashboardTopPlayers;
+
+    private async Task LoadMoreRecent()
+    {
+        if (_team == null || _loadingMore) return;
+        _loadingMore = true;
+        try
+        {
+            _recentTake += Constants.Pagination.DashboardRecentMatches;
+            _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, _recentTake, _activeSeason?.Id);
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
     }
 
     private bool _gameRoomsSubscribed;
@@ -355,7 +373,7 @@ else if (_team != null)
                     _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
                 }
 
-                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, Constants.Pagination.DashboardRecentMatches, seasonId);
+                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, _recentTake, seasonId);
                 _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
                 _matchCount = await MatchService.GetCountByTeamAsync(_team.Id, seasonId);
                 _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id, seasonId);

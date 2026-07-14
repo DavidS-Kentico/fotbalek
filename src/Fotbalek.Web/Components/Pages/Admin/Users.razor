@@ -8,7 +8,7 @@
 
 <PageTitle>Users - Fotbalek Admin</PageTitle>
 
-<div class="container py-4">
+<PageContainer>
     <PageHeader Title="Users" Icon="bi bi-people">
         <Actions>
             @if (_users != null)
@@ -82,7 +82,7 @@
             </ChildContent>
         </Panel>
     }
-</div>
+</PageContainer>
 
 <Modal Show="_showResetModal" Title="Reset password" Icon="bi bi-key" OnClose="CloseResetModal">
     <Body>

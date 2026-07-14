@@ -20,7 +20,7 @@
 }
 else
 {
-    <div class="container py-4">
+    <PageContainer>
         <PageHeader Title="Statistics" Icon="bi bi-graph-up">
             <Actions>
                 @if (_seasons.Count > 0)
@@ -160,7 +160,7 @@ else
                               TooltipConnector="with" />
             </div>
         </div>
-    </div>
+    </PageContainer>
 }
 
 @code {

@@ -1,0 +1,39 @@
+@* Standard page content wrapper — the single source of truth for page width.
+   Wraps Bootstrap's .container and applies one of the app's width tiers so every
+   page stays consistent. Put it on the primary content container of a page.
+
+   Tiers:
+     default   — data / dashboard pages; keeps the responsive container width.
+     Focused   — forms & setup pages; capped at one shared, comfortable width.
+
+   Usage:
+     <PageContainer> … </PageContainer>          (wide — data pages)
+     <PageContainer Focused> … </PageContainer>  (focused — forms / setup) *@
+
+<div class="@CssClass">
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>Cap the page at the shared "focused" width (forms &amp; setup pages).</summary>
+    [Parameter] public bool Focused { get; set; }
+
+    /// <summary>Vertical padding utility. Defaults to <c>py-4</c>; override e.g. "py-4 py-lg-5".</summary>
+    [Parameter] public string Padding { get; set; } = "py-4";
+
+    /// <summary>Extra classes appended to the container (e.g. a page-specific hook class).</summary>
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string CssClass
+    {
+        get
+        {
+            var cls = $"container {Padding} page";
+            if (Focused) cls += " page--focused";
+            if (!string.IsNullOrEmpty(Class)) cls += $" {Class}";
+            return cls;
+        }
+    }
+}

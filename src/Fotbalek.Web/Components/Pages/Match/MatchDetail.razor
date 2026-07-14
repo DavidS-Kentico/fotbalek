@@ -49,7 +49,7 @@ else if (_match != null)
         : eloGap < 150 ? "Clear favorite"
         : "Heavy favorite";
 
-    <div class="container py-4">
+    <PageContainer>
         <Breadcrumbs TeamCode="@TeamCode" Items="@(new Breadcrumbs.BreadcrumbItem[] {
             new("Matches", $"/team/{TeamCode}/matches"),
             new($"Match #{MatchId}"),
@@ -196,7 +196,7 @@ else if (_match != null)
         <a href="/team/@TeamCode/matches" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to History
         </a>
-    </div>
+    </PageContainer>
 
     <Modal Show="_showDeleteConfirm" Title="Delete Match" OnClose="() => _showDeleteConfirm = false">
         <Body>
@@ -217,10 +217,10 @@ else if (_match != null)
 }
 else
 {
-    <div class="container py-4">
+    <PageContainer>
         <AlertMessage Message="Match not found." Variant="warning" Icon="bi bi-exclamation-triangle" />
         <a href="/team/@TeamCode/matches" class="btn btn-primary">Back to History</a>
-    </div>
+    </PageContainer>
 }
 
 @code {

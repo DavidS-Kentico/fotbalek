@@ -19,9 +19,9 @@
 }
 else
 {
-    <div class="container py-4">
+    <PageContainer>
         <PageHeader Title="Players" Icon="bi bi-people" Class="mb-3"
-                    Subtitle="@($"{_activePlayers.Count} active{(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")}")">
+                    Subtitle="@($"{_activePlayers.Count} active{(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")} · {(_activeSeason != null ? "Season" : "All-time")} ELO")">
             <Actions>
                 @if (_isCaptain)
                 {
@@ -98,7 +98,7 @@ else
                 </div>
             }
         }
-    </div>
+    </PageContainer>
 
     <Modal Show="_showModal" Title="Add Player" OnClose="HideModal">
         <Body>
@@ -259,7 +259,7 @@ else
                     </button>
                 }
                 <a href="/team/@TeamCode/players/@player.Id" class="card-link text-center">
-                    <Avatar AvatarId="@player.AvatarId" Size="lg" />
+                    <Avatar AvatarId="@player.AvatarId" Size="md" />
                     <div class="player-name">
                         @player.Name
                         @if (player.UserId != null && player.UserId == _team?.CaptainUserId)
@@ -272,10 +272,9 @@ else
                         }
                     </div>
                     <div class="elo-row">
-                        <span>@(_activeSeason != null ? "Season ELO" : "ELO")</span>
                         @if (rating is int ratingValue)
                         {
-                            <span class="elo-value">@ratingValue</span>
+                            <span class="elo-value" title="@(_activeSeason != null ? "Season ELO" : "ELO")">@ratingValue</span>
                             @if (summary.Games > 0)
                             {
                                 <span class="trend @trendClass" title="@(_activeSeason != null ? "Last seasonal match ELO change" : "Last match ELO change")">
@@ -290,18 +289,21 @@ else
                     </div>
                     @if (summary.Games > 0)
                     {
-                        <div class="stat-line">
-                            @summary.Games @(summary.Games == 1 ? "match" : "matches") ·
-                            @summary.Wins<span class="text-success">W</span>–@summary.Losses<span class="text-danger">L</span> ·
-                            <span class="winrate @winRateClass">@summary.WinRate.ToString("F0")%</span>
+                        <div class="wr-bar" title="@($"{summary.Wins} wins · {summary.Losses} losses · {summary.WinRate:F0}% win rate")">
+                            <span class="wr-track"><span class="wr-fill @winRateClass" style="width:@summary.WinRate.ToString("F0")%"></span></span>
+                            <span class="wr-pct @winRateClass">@summary.WinRate.ToString("F0")%</span>
                         </div>
-                        <div class="last-played">
-                            <i class="bi bi-clock-history me-1"></i>@FormatRelative(summary.LastPlayedAt)
+                        <div class="stat-line">
+                            @summary.Wins<span class="text-success">W</span>–@summary.Losses<span class="text-danger">L</span>
+                            <span class="dot">·</span>
+                            @summary.Games @(summary.Games == 1 ? "game" : "games")
+                            <span class="dot">·</span>
+                            @FormatRelative(summary.LastPlayedAt)
                         </div>
                     }
                     else
                     {
-                        <div class="stat-line">@(_activeSeason != null ? "No seasonal matches yet" : "No matches yet")</div>
+                        <div class="stat-line stat-line--empty">@(_activeSeason != null ? "No seasonal matches yet" : "No matches yet")</div>
                     }
                     <div class="badges-row">
                         @foreach (var badge in badges.Take(visibleBadgeCount))

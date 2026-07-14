@@ -19,7 +19,7 @@
 }
 else if (_team != null && _user != null)
 {
-    <div class="container py-4 live-game">
+    <PageContainer Class="live-game">
         @if (_state == null)
         {
             <Panel Flush="true">
@@ -335,7 +335,7 @@ else if (_team != null && _user != null)
                 </div>
             </div>
         }
-    </div>
+    </PageContainer>
 
     <Modal Show="_showEndModal" Title="End game" Icon="bi bi-x-circle" OnClose="() => _showEndModal = false">
         <Body>

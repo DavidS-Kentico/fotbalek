@@ -38,7 +38,7 @@
     display: block;
     color: inherit;
     text-decoration: none;
-    padding: 1rem .75rem .75rem;
+    padding: .75rem .6rem .65rem;
 }
 
 .player-card .card-link:hover {
@@ -87,22 +87,23 @@
 
 .player-card .player-name {
     font-weight: 600;
-    margin: .5rem 0 .15rem;
+    margin: .4rem 0 .1rem;
     line-height: 1.2;
     word-break: break-word;
 }
 
 .player-card .elo-row {
     display: inline-flex;
-    align-items: center;
-    gap: .25rem;
-    font-size: .9rem;
-    color: var(--bs-secondary-color);
+    align-items: baseline;
+    gap: .3rem;
 }
 
 .player-card .elo-row .elo-value {
-    color: var(--bs-body-color);
-    font-weight: 500;
+    color: var(--bs-emphasis-color);
+    font-weight: 800;
+    font-size: 1.25rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .player-card .trend {
@@ -117,24 +118,58 @@
 .player-card .trend.down { color: var(--bs-danger); }
 .player-card .trend.flat { color: var(--bs-secondary-color); }
 
-.player-card .stat-line {
-    font-size: .8rem;
+/* Win-rate meter: a slim track filled to the win %, tinted green/red at the
+   50% mark, with the % shown alongside. Replaces the old bare "67%" text. */
+.player-card .wr-bar {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    margin-top: .5rem;
+}
+
+.player-card .wr-track {
+    flex: 1 1 auto;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--bs-tertiary-bg);
+    overflow: hidden;
+}
+
+.player-card .wr-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--bs-success);
+}
+
+.player-card .wr-fill.bad { background: var(--bs-danger); }
+
+.player-card .wr-pct {
+    font-size: .72rem;
+    font-weight: 700;
+    min-width: 2.4em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
     color: var(--bs-secondary-color);
-    margin-top: .35rem;
+}
+
+.player-card .wr-pct.good { color: var(--bs-success); }
+.player-card .wr-pct.bad { color: var(--bs-danger); }
+
+.player-card .stat-line {
+    font-size: .78rem;
+    color: var(--bs-secondary-color);
+    margin-top: .3rem;
     line-height: 1.3;
 }
 
-.player-card .stat-line .winrate {
-    font-weight: 600;
+.player-card .stat-line .dot {
+    opacity: .45;
+    margin: 0 .15rem;
 }
 
-.player-card .stat-line .winrate.good { color: var(--bs-success); }
-.player-card .stat-line .winrate.bad { color: var(--bs-danger); }
-
-.player-card .last-played {
-    font-size: .72rem;
-    color: var(--bs-secondary-color);
-    margin-top: .1rem;
+.player-card .stat-line--empty {
+    margin-top: .5rem;
 }
 
 .player-card .badges-row {
@@ -142,21 +177,12 @@
     flex-wrap: wrap;
     gap: .2rem;
     justify-content: center;
-    margin-top: .5rem;
-    min-height: 1.5rem;
+    margin-top: .4rem;
+    min-height: 1.4rem;
 }
 
 .player-card .badges-row .badge {
     padding: .25rem .35rem;
-}
-
-.player-card .badges-row .badge-more {
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-secondary-color);
-    font-size: .7rem;
-    padding: .25rem .4rem;
-    border-radius: .375rem;
-    font-weight: 500;
 }
 
 .player-card.is-me {

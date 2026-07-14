@@ -38,7 +38,7 @@
             @Actions
         </div>
     }
-    <div class="card-body @(Compact ? "p-2" : "")">
+    <div class="card-body @(Compact ? "p-2" : "match-card-body")">
         <div class="d-flex align-items-center match-card-grid">
             <div class="flex-fill match-team match-team-1">
                 <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap @(team1Won ? "fw-bold text-success" : "text-muted")">
@@ -93,32 +93,39 @@
 
         @if (!Compact)
         {
-            <div class="row mt-2">
-                <div class="col text-center d-flex align-items-center justify-content-center gap-2 flex-wrap">
+            <div class="match-card-meta d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                @if (DateLabel != null)
+                {
+                    <small class="text-muted" title="@DateTitle">
+                        <i class="bi bi-clock me-1"></i>@DateLabel
+                    </small>
+                }
+                else
+                {
                     <small class="text-muted">
                         <i class="bi bi-calendar3 me-1"></i>
                         <span class="match-date" data-utc="@Match.PlayedAt.ToString("o")">@Match.PlayedAt.ToString("g")</span>
                     </small>
-                    @if (marginLabel != null)
+                }
+                @if (marginLabel != null)
+                {
+                    <span class="badge @marginCss" title="@($"Score margin: {margin}")">
+                        <i class="bi @marginIcon me-1"></i>@marginLabel
+                    </span>
+                }
+                @if (ShowSeasonChip)
+                {
+                    @if (SeasonName != null)
                     {
-                        <span class="badge @marginCss" title="@($"Score margin: {margin}")">
-                            <i class="bi @marginIcon me-1"></i>@marginLabel
+                        <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match">
+                            <i class="bi bi-award me-1"></i>@SeasonName
                         </span>
                     }
-                    @if (ShowSeasonChip)
+                    else
                     {
-                        @if (SeasonName != null)
-                        {
-                            <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match">
-                                <i class="bi bi-award me-1"></i>@SeasonName
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
-                        }
+                        <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
                     }
-                </div>
+                }
             </div>
         }
     </div>
@@ -134,6 +141,16 @@
     [Parameter] public bool ShowSeasonChip { get; set; }
     /// <summary>Season name for the chip; null renders a muted "off-season" chip.</summary>
     [Parameter] public string? SeasonName { get; set; }
+
+    /// <summary>
+    /// Pre-formatted date/time shown on the meta line (non-compact only). When set, it is rendered
+    /// as-is with a clock icon — callers pass a timezone-local label (e.g. "18:30") so no client-side
+    /// JS date swap is needed. When null, falls back to the JS-localized <c>.match-date</c> span.
+    /// </summary>
+    [Parameter] public string? DateLabel { get; set; }
+
+    /// <summary>Full local date/time for the <see cref="DateLabel"/> tooltip.</summary>
+    [Parameter] public string? DateTitle { get; set; }
 
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 }
