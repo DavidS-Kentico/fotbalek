@@ -1,6 +1,5 @@
 @* Captain controls for one season: end prematurely, edit (name/description/end date), delete. *@
-@inject SeasonService SeasonService
-@inject CurrentUserService CurrentUser
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 @using System.Globalization
 
@@ -103,7 +102,7 @@
 </Modal>
 
 @code {
-    [Parameter, EditorRequired] public Season Season { get; set; } = null!;
+    [Parameter, EditorRequired] public SeasonDto Season { get; set; } = null!;
     /// <summary>Raised after any successful change (end/edit/delete) so the host page can reload.</summary>
     [Parameter] public EventCallback OnChanged { get; set; }
     /// <summary>Raised after a successful delete (e.g. to navigate away from a detail page).</summary>
@@ -148,15 +147,14 @@
         _endError = null;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) { _endError = "Not signed in."; return; }
-            await SeasonService.EndNowAsync(Season.Id, userId.Value);
+            var result = await Sender.Send(new EndSeasonNowCommand(Season.Id));
+            if (result.IsFailure)
+            {
+                _endError = result.Error.Message;
+                return;
+            }
             _showEndConfirm = false;
             await OnChanged.InvokeAsync();
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-        {
-            _endError = ex.Message;
         }
         catch
         {
@@ -174,10 +172,12 @@
         _editError = null;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) { _editError = "Not signed in."; return; }
-
-            await SeasonService.UpdateDetailsAsync(Season.Id, userId.Value, _editName, _editDescription);
+            var detailsResult = await Sender.Send(new UpdateSeasonDetailsCommand(Season.Id, _editName, _editDescription));
+            if (detailsResult.IsFailure)
+            {
+                _editError = detailsResult.Error.Message;
+                return;
+            }
 
             // EndsAt changes only apply to non-closed seasons; the input is a local wall-clock
             // time. Untouched values are not re-saved (the stored instant stays exact).
@@ -189,23 +189,24 @@
                 // first save computes the count, second save confirms.
                 if (_pendingUnassignCount == 0 && newEndsAt != null)
                 {
-                    var affected = await SeasonService.CountMatchesBeyondAsync(Season.Id, newEndsAt.Value);
-                    if (affected > 0)
+                    var affected = await Sender.Send(new CountMatchesBeyondQuery(Season.Id, newEndsAt.Value));
+                    if (affected.IsSuccess && affected.Value > 0)
                     {
-                        _pendingUnassignCount = affected;
+                        _pendingUnassignCount = affected.Value;
                         return;
                     }
                 }
 
-                await SeasonService.UpdateEndsAtAsync(Season.Id, userId.Value, newEndsAt, allowUnassign: _pendingUnassignCount > 0);
+                var endsAtResult = await Sender.Send(new UpdateSeasonEndsAtCommand(Season.Id, newEndsAt, AllowUnassign: _pendingUnassignCount > 0));
+                if (endsAtResult.IsFailure)
+                {
+                    _editError = endsAtResult.Error.Message;
+                    return;
+                }
             }
 
             _showEdit = false;
             await OnChanged.InvokeAsync();
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-        {
-            _editError = ex.Message;
         }
         catch
         {
@@ -223,16 +224,15 @@
         _deleteError = null;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) { _deleteError = "Not signed in."; return; }
-            await SeasonService.DeleteAsync(Season.Id, userId.Value);
+            var result = await Sender.Send(new DeleteSeasonCommand(Season.Id));
+            if (result.IsFailure)
+            {
+                _deleteError = result.Error.Message;
+                return;
+            }
             _showDeleteConfirm = false;
             await OnDeleted.InvokeAsync();
             await OnChanged.InvokeAsync();
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-        {
-            _deleteError = ex.Message;
         }
         catch
         {

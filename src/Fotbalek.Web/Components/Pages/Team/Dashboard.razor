@@ -4,12 +4,8 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject GameRoomManager GameRooms
-@inject TeamAccessService TeamAccess
-@inject StatsService StatsService
-@inject StatsEngine StatsEngine
-@inject MatchService MatchService
-@inject SeasonService SeasonService
-@inject PlayerService PlayerService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 
 <PageTitle>@(_team?.Name ?? "Dashboard") - Foosball Manager</PageTitle>
@@ -248,10 +244,10 @@ else if (_team != null)
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
     private bool _isCaptain;
-    private List<Match> _recentMatches = [];
+    private List<MatchDto> _recentMatches = [];
     private List<StatResult> _stats = [];
     private int _playerCount;
     private int _matchCount;
@@ -263,9 +259,9 @@ else if (_team != null)
     private int? _captainPlayerId;
 
     private bool _hasAnySeason;
-    private Season? _activeSeason;
-    private Season? _latestClosedSeason;
-    private Season? _nextScheduledSeason;
+    private SeasonDto? _activeSeason;
+    private SeasonDto? _latestClosedSeason;
+    private SeasonDto? _nextScheduledSeason;
     private int _daysUntilNextSeason;
     private int _seasonDay;
     private int _seasonMatchCount;
@@ -289,7 +285,7 @@ else if (_team != null)
         try
         {
             _recentTake += Constants.Pagination.DashboardRecentMatches;
-            _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, _recentTake, _activeSeason?.Id);
+            _recentMatches = (await Sender.Send(new GetRecentMatchesQuery(_team.Id, _recentTake, _activeSeason?.Id))).Value;
         }
         finally
         {
@@ -334,10 +330,10 @@ else if (_team != null)
 
                 if (_team.CaptainUserId is int captainUserId)
                 {
-                    _captainPlayerId = (await PlayerService.GetUserPlayerInTeamAsync(_team.Id, captainUserId))?.Id;
+                    _captainPlayerId = (await Sender.Send(new GetUserPlayerInTeamQuery(_team.Id, captainUserId))).Value?.Id;
                 }
 
-                var seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                var seasons = (await Sender.Send(new GetSeasonsQuery(_team.Id))).Value;
                 var now = DateTimeOffset.UtcNow;
                 _hasAnySeason = seasons.Count > 0;
                 _activeSeason = seasons.FirstOrDefault(s => s.IsActiveAt(now));
@@ -354,37 +350,36 @@ else if (_team != null)
                 if (_activeSeason != null)
                 {
                     _seasonDay = Math.Max(1, (int)(now - _activeSeason.StartsAt).TotalDays + 1);
-                    _seasonMatchCount = await SeasonService.GetMatchCountAsync(_activeSeason.Id);
+                    _seasonMatchCount = (await Sender.Send(new GetSeasonMatchCountQuery(_activeSeason.Id))).Value;
 
-                    var standings = await StatsService.GetSeasonStandingsAsync(_activeSeason);
+                    var standings = (await Sender.Send(new GetSeasonStandingsQuery(_activeSeason.Id))).Value;
                     _rankingRows = standings
                         .Select(r => (r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.WinRate))
                         .ToList();
 
-                    var (players, matches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _activeSeason.Id);
-                    _stats = StatsEngine.ComputeSeason(players, seasonPlayers, matches, isFullScope: true);
+                    _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id, _activeSeason.Id))).Value;
                 }
                 else
                 {
-                    var rankings = await StatsService.GetRankingsAsync(_team.Id);
+                    var rankings = (await Sender.Send(new GetRankingsQuery(_team.Id))).Value;
                     _rankingRows = rankings
                         .Select(r => (r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.WinRate))
                         .ToList();
-                    _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
+                    _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id))).Value;
                 }
 
-                _recentMatches = await MatchService.GetRecentByTeamAsync(_team.Id, _recentTake, seasonId);
-                _playerCount = await PlayerService.GetActiveCountAsync(_team.Id);
-                _matchCount = await MatchService.GetCountByTeamAsync(_team.Id, seasonId);
-                _matchesThisWeek = await MatchService.GetMatchesThisWeekAsync(_team.Id, seasonId);
-                _avgMatchScore = await MatchService.GetAverageMatchScoreAsync(_team.Id, seasonId);
+                _recentMatches = (await Sender.Send(new GetRecentMatchesQuery(_team.Id, _recentTake, seasonId))).Value;
+                _playerCount = (await Sender.Send(new GetActivePlayerCountQuery(_team.Id))).Value;
+                _matchCount = (await Sender.Send(new GetMatchCountQuery(_team.Id, seasonId))).Value;
+                _matchesThisWeek = (await Sender.Send(new GetMatchesThisWeekQuery(_team.Id, seasonId))).Value;
+                _avgMatchScore = (await Sender.Send(new GetAverageMatchScoreQuery(_team.Id, seasonId))).Value;
             }
             _loading = false;
             StateHasChanged();
         }
     }
 
-    private string FormatPeriod(Season season)
+    private string FormatPeriod(SeasonDto season)
     {
         var start = Tz.FormatLocalDate(season.StartsAt);
         var end = season.EndsAt is { } ends ? Tz.FormatLocalDate(ends) : "open-ended";

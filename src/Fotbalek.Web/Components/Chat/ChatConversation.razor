@@ -1,8 +1,8 @@
 @implements IAsyncDisposable
-@inject ChatService Chat
+@inject IScopedSender Sender
 @inject ChatNotifier Notifier
+@inject ChatTypingService Typing
 @inject ChatUiState UiState
-@inject PlayerService PlayerService
 @inject PresenceTracker Presence
 @inject TimeZoneService Tz
 @inject IJSRuntime JS
@@ -155,8 +155,8 @@
     private int _lastMarkedReadId;
     private bool _wasActive;
 
-    private List<Player> _roster = [];
-    private Dictionary<int, Player> _playersByUserId = [];
+    private List<PlayerDto> _roster = [];
+    private Dictionary<int, PlayerDto> _playersByUserId = [];
     private List<string> _mentionNames = [];
     /// <summary>userId → their highest read message id in this team, for the "seen by" readout.
     /// Seeded once on load and kept live via <see cref="OnReadStateChanged"/> (monotonic).</summary>
@@ -168,7 +168,7 @@
     private DateTimeOffset _lastTypingSignal = DateTimeOffset.MinValue;
     private bool _pickerOpen;
     private string? _sendError;
-    private List<Player> _mentionMatches = [];
+    private List<PlayerDto> _mentionMatches = [];
     private int _mentionTokenStart;
     private int _mentionCaret;
 
@@ -213,7 +213,7 @@
             _selfRef = DotNetObjectReference.Create(this);
             _js = await JS.InvokeAsync<IJSObjectReference>("import", "/js/chat.js");
 
-            _roster = await PlayerService.GetByTeamAsync(TeamId, includeInactive: true);
+            _roster = (await Sender.Send(new GetTeamPlayersQuery(TeamId, IncludeInactive: true))).Value;
             _playersByUserId = _roster
                 .Where(p => p.UserId.HasValue)
                 .GroupBy(p => p.UserId!.Value)
@@ -226,11 +226,11 @@
 
             // Max-merge: a live ReadStateChanged may have landed since we subscribed; never let
             // the seed pull a watermark backwards.
-            foreach (var (uid, id) in await Chat.GetReadWatermarksAsync(MyUserId, TeamId))
+            foreach (var (uid, id) in (await Sender.Send(new GetChatReadWatermarksQuery(TeamId))).Value)
                 if (id > _readWatermarks.GetValueOrDefault(uid))
                     _readWatermarks[uid] = id;
 
-            var floor = await Chat.GetJoinFloorIdAsync(MyUserId, TeamId);
+            var floor = (await Sender.Send(new GetChatJoinFloorQuery(TeamId))).Value;
             if (floor == null)
             {
                 _notMember = true;
@@ -240,7 +240,7 @@
             }
             _joinFloorId = floor.Value;
 
-            var page = await Chat.GetPageAsync(MyUserId, TeamId, _joinFloorId) ?? [];
+            var page = (await Sender.Send(new GetChatPageQuery(TeamId, _joinFloorId))).Value ?? [];
             // Live messages may have arrived while loading — they are newer, so the page
             // (minus duplicates) goes in front.
             var fresh = page.Where(m => _messageIds.Add(m.Id)).ToList();
@@ -399,13 +399,13 @@
     // ── Message actions ────────────────────────────────────────────────────────────────
 
     private async Task ToggleReaction(int messageId, string emoji) =>
-        await Chat.ToggleReactionAsync(MyUserId, TeamId, messageId, emoji);
+        await Sender.Send(new ToggleChatReactionCommand(TeamId, messageId, emoji));
 
     private async Task DeleteMessage(int messageId) =>
-        await Chat.DeleteAsync(MyUserId, TeamId, messageId);
+        await Sender.Send(new DeleteChatMessageCommand(TeamId, messageId));
 
     private async Task EditMessage(int messageId, string newBody) =>
-        await Chat.EditAsync(MyUserId, TeamId, messageId, newBody);
+        await Sender.Send(new EditChatMessageCommand(TeamId, messageId, newBody));
 
     // ── Read watermark ─────────────────────────────────────────────────────────────────
 
@@ -413,7 +413,7 @@
     {
         if (messageId <= _lastMarkedReadId) return;
         _lastMarkedReadId = messageId;
-        await Chat.MarkReadAsync(MyUserId, TeamId, messageId);
+        await Sender.Send(new MarkChatReadCommand(TeamId, messageId));
     }
 
     // ── Scrolling / pagination (invoked from chat.js) ──────────────────────────────────
@@ -429,7 +429,7 @@
         {
             var previousHeight = await _js.InvokeAsync<double>("measureScrollHeight", _scrollEl);
             var oldestId = _messages.Count > 0 ? _messages[0].Id : (int?)null;
-            var page = await Chat.GetPageAsync(MyUserId, TeamId, _joinFloorId, beforeId: oldestId) ?? [];
+            var page = (await Sender.Send(new GetChatPageQuery(TeamId, _joinFloorId, BeforeId: oldestId))).Value ?? [];
             var fresh = page.Where(m => _messageIds.Add(m.Id)).ToList();
             _messages.InsertRange(0, fresh);
             if (page.Count < Constants.Chat.HistoryPageSize)
@@ -473,12 +473,12 @@
         if (value.Length == 0)
         {
             _lastTypingSignal = DateTimeOffset.MinValue;
-            await Chat.SetTypingAsync(MyUserId, TeamId, false);
+            await Typing.SetTypingAsync(TeamId, false);
         }
         else if ((DateTimeOffset.UtcNow - _lastTypingSignal).TotalSeconds >= Constants.Chat.TypingRefreshSeconds)
         {
             _lastTypingSignal = DateTimeOffset.UtcNow;
-            await Chat.SetTypingAsync(MyUserId, TeamId, true);
+            await Typing.SetTypingAsync(TeamId, true);
         }
         StateHasChanged();
     }
@@ -508,22 +508,25 @@
 
     private async Task SendCoreAsync(string text)
     {
-        var result = await Chat.SendAsync(MyUserId, TeamId, text);
-        switch (result)
+        // The in-memory send throttle runs in Web BEFORE dispatch — rate limiting is a host
+        // concern (§4.4). A throttled send consumes a slot even if a later check would fail
+        // validation; fine for a soft in-memory limit.
+        if (!Notifier.TryRecordSend(MyUserId))
         {
-            case ChatService.SendResult.Throttled:
-                _sendError = "You're sending messages too quickly — give it a few seconds.";
-                await RestoreDraftAsync(text);
-                _ = ClearSendErrorLaterAsync();
-                break;
-            case ChatService.SendResult.NotMember:
+            _sendError = "You're sending messages too quickly — give it a few seconds.";
+            await RestoreDraftAsync(text);
+            _ = ClearSendErrorLaterAsync();
+        }
+        else
+        {
+            var result = await Sender.Send(new SendChatMessageCommand(TeamId, text));
+            if (result.IsFailure && result.Error.Code == "Teams.NotMember")
+            {
                 _sendError = "You're not a member of this team anymore.";
-                break;
-            default:
-                // Don't clear on success: rapid-fire sends complete out of order, and a slow
-                // earlier send finishing late would wipe a just-shown throttle error. The
-                // timer clears it instead.
-                break;
+            }
+            // Don't clear on success: rapid-fire sends complete out of order, and a slow
+            // earlier send finishing late would wipe a just-shown throttle error. The
+            // timer clears it instead.
         }
         _lastTypingSignal = DateTimeOffset.MinValue;
         StateHasChanged();
@@ -556,7 +559,7 @@
     private async Task OnComposerBlur()
     {
         _lastTypingSignal = DateTimeOffset.MinValue;
-        await Chat.SetTypingAsync(MyUserId, TeamId, false);
+        await Typing.SetTypingAsync(TeamId, false);
     }
 
     private void TogglePicker() => _pickerOpen = !_pickerOpen;
@@ -613,7 +616,7 @@
         _mentionMatches = matches;
     }
 
-    private async Task PickMention(Player player)
+    private async Task PickMention(PlayerDto player)
     {
         var start = _mentionTokenStart;
         var end = _mentionCaret;
@@ -700,7 +703,7 @@
 
         try
         {
-            await Chat.SetTypingAsync(MyUserId, TeamId, false);
+            await Typing.SetTypingAsync(TeamId, false);
         }
         catch
         {

@@ -2,14 +2,10 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject MatchService MatchService
-@inject SeasonService SeasonService
-@inject PlayerService PlayerService
-@inject CurrentUserService CurrentUser
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject NavigationManager Navigation
 @inject TimeZoneService Tz
-@using Fotbalek.Web.Helpers
 @using System.Globalization
 
 <PageTitle>Match History - Foosball Manager</PageTitle>
@@ -132,17 +128,17 @@ else
             {
                 var focus = _focusPlayerId.Value;
                 var rows = _filteredMatches
-                    .Select(m => m.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == focus))
-                    .Where(mp => mp != null)
+                    .Select(m => (Match: m, Mp: m.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == focus)))
+                    .Where(x => x.Mp != null)
                     .ToList();
                 // Wins judged by score; the net-ELO chip sums the seasonal change when a season
                 // filter is active, the all-time change otherwise (mixed views: every match has an
                 // all-time change, only seasonal ones have a seasonal one).
-                var wins = rows.Count(mp => IsWinByScore(mp!));
+                var wins = rows.Count(x => IsWinByScore(x.Match, x.Mp!));
                 var losses = rows.Count - wins;
                 var netElo = _selectedSeasonId != null
-                    ? rows.Sum(mp => mp!.SeasonEloChange ?? 0)
-                    : rows.Sum(mp => mp!.EloChange);
+                    ? rows.Sum(x => x.Mp!.SeasonEloChange ?? 0)
+                    : rows.Sum(x => x.Mp!.EloChange);
                 var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
                 var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
                 <Panel Class="border-success mb-3" BodyClass="py-2 d-flex flex-wrap align-items-center gap-3">
@@ -257,12 +253,14 @@ else
 
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
     private bool _isCaptain;
-    private List<Match> _allMatches = [];
-    private List<Match> _filteredMatches = [];
-    private List<Player> _players = [];
+    // Matches within the server-side scope (season + period filters run in the handler);
+    // the player/mine/outcome filters below narrow this set in memory.
+    private List<MatchDto> _scopedMatches = [];
+    private List<MatchDto> _filteredMatches = [];
+    private List<PlayerDto> _players = [];
     // Load-more window: how many of _filteredMatches are rendered; grows by DefaultPageSize
     // per "Load more" click and resets to one page whenever the filters change.
     private int _visibleCount = Constants.Pagination.DefaultPageSize;
@@ -275,12 +273,12 @@ else
     private bool _myMatchesOnly;
     private string? _outcome;
 
-    private List<Season> _seasons = [];
-    private Season? _activeSeason;
+    private List<SeasonDto> _seasons = [];
+    private SeasonDto? _activeSeason;
     private int? _selectedSeasonId;
     private int? _defaultSeasonId;
 
-    private Match? _pendingDelete;
+    private MatchDto? _pendingDelete;
     private bool _deleting;
     private string? _deleteError;
 
@@ -325,10 +323,9 @@ else
             _isCaptain = await TeamAccess.IsCaptainAsync();
             if (_team != null)
             {
-                _allMatches = await MatchService.GetByTeamAsync(_team.Id, 1, 10000);
-                _players = await PlayerService.GetByTeamAsync(_team.Id);
+                _players = (await Sender.Send(new GetTeamPlayersQuery(_team.Id))).Value;
 
-                _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                _seasons = (await Sender.Send(new GetSeasonsQuery(_team.Id))).Value;
                 _activeSeason = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow));
                 // "This season" is the default preset when an active season exists.
                 _defaultSeasonId = _activeSeason?.Id;
@@ -338,6 +335,9 @@ else
                 _customStartDate = _customEndDate.Value.AddMonths(-1);
 
                 ApplyFiltersFromUrl();
+
+                // Load after the URL filters are known — season + period filter server-side.
+                await LoadMatchesAsync();
 
                 _message = MessageParam;
 
@@ -389,16 +389,39 @@ else
         }
     }
 
-    private void OnFilterChanged()
+    /// <summary>Fetches the season/period scope — the handler filters server-side from the
+    /// instant range (range math in Application/Common, instants computed here at the UI
+    /// boundary per the timezone policy).</summary>
+    private async Task LoadMatchesAsync()
     {
+        if (_team == null) return;
+        var (from, toExclusive) = PeriodInstantRange();
+        _scopedMatches = (await Sender.Send(
+            new GetMatchesQuery(_team.Id, 1, 10000, _selectedSeasonId, from, toExclusive))).Value;
+    }
+
+    /// <summary>The period selection as a [From, ToExclusive) instant range for server-side filtering.</summary>
+    private (DateTimeOffset? From, DateTimeOffset? ToExclusive) PeriodInstantRange()
+    {
+        var range = DateFilterHelper.GetDateRange(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
+        if (range == null) return (null, null);
+        var from = Tz.LocalDateTimeToInstant(range.Value.startDate.ToDateTime(TimeOnly.MinValue));
+        var toExclusive = Tz.LocalDateTimeToInstant(range.Value.endDate.AddDays(1).ToDateTime(TimeOnly.MinValue));
+        return (from, toExclusive);
+    }
+
+    private async Task OnFilterChanged()
+    {
+        await LoadMatchesAsync();
         ApplyFilter();
         SyncUrl();
     }
 
-    private void OnSeasonFilterChanged(ChangeEventArgs e)
+    private async Task OnSeasonFilterChanged(ChangeEventArgs e)
     {
         var raw = e.Value?.ToString();
         _selectedSeasonId = int.TryParse(raw, out var id) ? id : null;
+        await LoadMatchesAsync();
         ApplyFilter();
         SyncUrl();
     }
@@ -435,32 +458,23 @@ else
         SyncUrl();
     }
 
-    private void ClearAllFilters()
+    private async Task ClearAllFilters()
     {
         _selectedPeriod = "all";
         _selectedPlayerIds.Clear();
         _myMatchesOnly = false;
         _outcome = null;
         _selectedSeasonId = _defaultSeasonId;
+        await LoadMatchesAsync();
         ApplyFilter();
         SyncUrl();
     }
 
     private void ApplyFilter()
     {
-        var query = _allMatches.AsEnumerable();
-
-        if (_selectedSeasonId is int seasonId)
-        {
-            query = query.Where(m => m.SeasonId == seasonId);
-        }
-
-        query = query.Where(m => DateFilterHelper.IsDateInPeriod(
-            Tz.ToLocalDate(m.PlayedAt),
-            _selectedPeriod,
-            Tz.Today,
-            _customStartDate,
-            _customEndDate));
+        // Season + period are already filtered server-side (LoadMatchesAsync); only the
+        // player/mine/outcome lenses run here.
+        var query = _scopedMatches.AsEnumerable();
 
         if (_selectedPlayerIds.Count > 0)
         {
@@ -489,7 +503,7 @@ else
                 query = query.Where(m =>
                 {
                     var mp = m.MatchPlayers.FirstOrDefault(p => p.PlayerId == focus.Value);
-                    return mp != null && IsWinByScore(mp) == want;
+                    return mp != null && IsWinByScore(m, mp) == want;
                 });
             }
         }
@@ -502,7 +516,7 @@ else
         StateHasChanged();
     }
 
-    private List<Match> GetVisibleMatches() => _filteredMatches.Take(_visibleCount).ToList();
+    private List<MatchDto> GetVisibleMatches() => _filteredMatches.Take(_visibleCount).ToList();
 
     private void LoadMore()
     {
@@ -510,10 +524,10 @@ else
         StateHasChanged();
     }
 
-    private static bool IsWinByScore(MatchPlayer mp)
+    private static bool IsWinByScore(MatchDto match, MatchPlayerDto mp)
     {
-        var teamScore = mp.TeamNumber == 1 ? mp.Match.Team1Score : mp.Match.Team2Score;
-        var opponentScore = mp.TeamNumber == 1 ? mp.Match.Team2Score : mp.Match.Team1Score;
+        var teamScore = mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
+        var opponentScore = mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
         return teamScore > opponentScore;
     }
 
@@ -531,7 +545,7 @@ else
             parts.Add("All seasons");
         }
 
-        var periodDesc = DateFilterHelper.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
+        var periodDesc = DateFilterDisplay.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
         if (periodDesc != null) parts.Add(periodDesc);
 
         if (_myMatchesOnly) parts.Add("My matches");
@@ -573,7 +587,7 @@ else
         Navigation.NavigateTo(newUri, forceLoad: false, replace: true);
     }
 
-    private void RequestDelete(Match match)
+    private void RequestDelete(MatchDto match)
     {
         _deleteError = null;
         _pendingDelete = match;
@@ -586,20 +600,17 @@ else
         _deleting = true;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) { _deleteError = "Not signed in."; return; }
-
-            var deleted = await MatchService.DeleteAsync(_pendingDelete.Id, _team.Id, userId.Value);
-            if (deleted)
+            var result = await Sender.Send(new DeleteMatchCommand(_team.Id, _pendingDelete.Id));
+            if (result.IsSuccess)
             {
-                _allMatches.Remove(_pendingDelete);
+                _scopedMatches.Remove(_pendingDelete);
                 _message = "Match deleted successfully.";
                 _pendingDelete = null;
                 ApplyFilter();
             }
             else
             {
-                _deleteError = "Cannot delete this match. The deletion window may have passed or a later match exists.";
+                _deleteError = result.Error.Message;
             }
         }
         catch

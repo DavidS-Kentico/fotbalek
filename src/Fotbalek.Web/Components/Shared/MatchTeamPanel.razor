@@ -18,10 +18,10 @@
             var after = IsSeasonal ? mp.SeasonEloAfter ?? 0 : mp.EloAfter;
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex align-items-center gap-2">
-                    <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
+                    <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
                     <div>
                         <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none">
-                            @mp.Player.Name
+                            @mp.PlayerName
                         </a>
                         <small class="text-muted d-block">@mp.Position</small>
                     </div>
@@ -45,7 +45,7 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter, EditorRequired] public IEnumerable<MatchPlayer> Players { get; set; } = [];
+    [Parameter, EditorRequired] public IEnumerable<MatchPlayerDto> Players { get; set; } = [];
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool IsWinner { get; set; }
     [Parameter] public string HeaderVariant { get; set; } = "warning";

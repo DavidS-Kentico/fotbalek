@@ -1,14 +1,17 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Fotbalek.Application;
+using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Domain.Entities;
+using Fotbalek.Infrastructure;
+using Fotbalek.Infrastructure.Persistence;
+using Fotbalek.Web.Auth;
 using Fotbalek.Web.Components;
-using Fotbalek.Web.Configuration;
-using Fotbalek.Web.Data;
-using Fotbalek.Web.Data.Entities;
 using Fotbalek.Web.Endpoints;
 using Fotbalek.Web.Game;
+using Fotbalek.Web.Realtime;
 using Fotbalek.Web.Services;
-using Fotbalek.Web.Services.Stats;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -19,31 +22,17 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-// Factory pattern (recommended for Blazor Server): services create a short-lived DbContext per
-// unit of work instead of sharing one circuit-scoped context for hours. AddDbContextFactory also
-// registers AppDbContext itself as a scoped service, which Identity's AddEntityFrameworkStores
-// and the startup migration below still rely on.
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// Layered registrations: Application (mediator pipeline, validators, stats engine, scoped
+// UserContext/EventCollector — scanning this assembly too so the chat event bridge registers,
+// §4.2) and Infrastructure (scoped AppDbContext, Identity core + stores, locks, hasher).
+builder.Services.AddApplication(typeof(Program).Assembly);
+builder.Services.AddInfrastructure(builder.Configuration);
 
-// Identity
-builder.Services.AddIdentityCore<AppUser>(options =>
-    {
-        options.User.RequireUniqueEmail = false;
-        options.Password.RequiredLength = 6;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequireDigit = false;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireLowercase = false;
-        options.SignIn.RequireConfirmedAccount = false;
-        options.Lockout.AllowedForNewUsers = true;
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-    })
-    .AddRoles<IdentityRole<int>>()
-    .AddEntityFrameworkStores<AppDbContext>()
+// SignInManager and the default token providers live in the ASP.NET shared framework, which
+// Infrastructure (a plain class library) can't reference — layer them on via a fresh
+// IdentityBuilder over the same service collection (§4.6). Token providers are needed by
+// admin password reset.
+new IdentityBuilder(typeof(AppUser), typeof(IdentityRole<int>), builder.Services)
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
@@ -88,9 +77,9 @@ builder.Services.AddAuthorizationBuilder()
         .RequireClaim(AdminAuth.ClaimType, "true"))
     // Default-policy hardening: an admin-only principal IS authenticated, so without this
     // every bare [Authorize] page (Create, Join, team pages, /account) would render for an
-    // admin who is not logged in as an app user — and then misbehave when CurrentUserService
-    // returns null. Identity cookie principals always carry NameIdentifier, so normal users
-    // are unaffected; admin-only sessions get treated as unauthenticated on user-facing pages.
+    // admin who is not logged in as an app user — and then misbehave when the current-user
+    // accessor returns null. Identity cookie principals always carry NameIdentifier, so normal
+    // users are unaffected; admin-only sessions get treated as unauthenticated on user-facing pages.
     .SetDefaultPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .RequireClaim(ClaimTypes.NameIdentifier)
@@ -124,35 +113,28 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-// App services
-builder.Services.AddScoped<TeamService>();
-builder.Services.AddScoped<PlayerService>();
-builder.Services.AddScoped<MatchService>();
-builder.Services.AddScoped<EloService>();
-builder.Services.AddScoped<StatsService>();
-builder.Services.AddScoped<ShareTokenService>();
-builder.Services.AddScoped<TeamMembershipService>();
-builder.Services.AddScoped<CurrentUserService>();
-builder.Services.AddScoped<TeamAccessService>();
+// Web host services: the scope-per-dispatch entry point (§4.3) and the circuit-level helpers.
+builder.Services.AddSingleton<ScopedDispatcher>();
+builder.Services.AddScoped<IScopedSender, ScopedSender>();
+builder.Services.AddScoped<CurrentUserAccessor>();
+builder.Services.AddScoped<CurrentTeamProvider>();
 builder.Services.AddScoped<TimeZoneService>();
-builder.Services.AddScoped<SeasonService>();
-builder.Services.AddScoped<LandingStatsService>();
-builder.Services.AddScoped<AdminService>();
+
+// Presence: in-memory singleton + per-circuit tracking handler (unchanged, §4.4).
 builder.Services.AddSingleton<PresenceTracker>();
 builder.Services.AddScoped<CircuitHandler, PresenceCircuitHandler>();
-builder.Services.AddFoosballStats();
 
-// Team chat: DB-backed messages, in-process pub/sub (PresenceTracker pattern — no hub),
-// and per-circuit dock UI state.
-builder.Services.AddScoped<ChatService>();
+// Team chat realtime: in-process pub/sub singleton (fed by the post-commit event bridge),
+// per-circuit dock UI state, and the Web-only typing path.
 builder.Services.AddSingleton<ChatNotifier>();
 builder.Services.AddScoped<ChatUiState>();
+builder.Services.AddScoped<ChatTypingService>();
 
 // Live game (in-memory foosball mini-game): rooms + dedicated hub for the JS canvas client.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameRoomManager>();
 
-// Telemetry export (§12): ship OpenTelemetry — including the structured game-latency logs emitted by
+// Telemetry export: ship OpenTelemetry — including the structured game-latency logs emitted by
 // GameTelemetry — to the existing Application Insights resource via the Azure Monitor distro.
 // Gated behind a flag AND a present connection string so local dev and undecided deploys are untouched.
 // IMPORTANT: this in-process distro competes with App Service *codeless* auto-instrumentation. When you
@@ -205,7 +187,8 @@ app.MapAccountEndpoints();
 app.MapAdminEndpoints();
 app.MapHub<GameHub>("/hubs/game");
 
-// Apply migrations on startup (for PoC simplicity)
+// Apply migrations on startup (for PoC simplicity) — the composition-root exception to
+// "Web never touches AppDbContext" (§2).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

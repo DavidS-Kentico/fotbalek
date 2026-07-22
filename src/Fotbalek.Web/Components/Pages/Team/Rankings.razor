@@ -2,11 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject StatsService StatsService
-@inject StatsEngine StatsEngine
-@inject SeasonService SeasonService
-@inject PlayerService PlayerService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 
 <PageTitle>Rankings - Foosball Manager</PageTitle>
 
@@ -280,11 +277,11 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
-    private List<Season> _seasons = [];
+    private List<SeasonDto> _seasons = [];
     private int? _selectedSeasonId;
-    private Season? _selectedSeason;
+    private SeasonDto? _selectedSeason;
 
     private List<PlayerRanking> _rankings = [];
     private List<SeasonStandingRow> _seasonStandings = [];
@@ -305,10 +302,10 @@ else
             {
                 if (_team.CaptainUserId is int captainUserId)
                 {
-                    _captainPlayerId = (await PlayerService.GetUserPlayerInTeamAsync(_team.Id, captainUserId))?.Id;
+                    _captainPlayerId = (await Sender.Send(new GetUserPlayerInTeamQuery(_team.Id, captainUserId))).Value?.Id;
                 }
 
-                _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                _seasons = (await Sender.Send(new GetSeasonsQuery(_team.Id))).Value;
                 // Default scope = the current season; all-time when none is active (idle default).
                 _selectedSeasonId = _seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow))?.Id;
                 await LoadScopeAsync();
@@ -333,22 +330,23 @@ else
         if (_selectedSeason != null)
         {
             // Season scope: live aggregation for the active season, frozen tables for closed ones.
-            _seasonStandings = await StatsService.GetSeasonStandingsAsync(_selectedSeason);
-            (_goalkeepers, _attackers) = await StatsService.GetSeasonPositionRankingsAsync(_selectedSeason);
-            _pairRankings = await StatsService.GetSeasonPairRankingsAsync(_selectedSeason);
+            _seasonStandings = (await Sender.Send(new GetSeasonStandingsQuery(_selectedSeason.Id))).Value;
+            var positions = (await Sender.Send(new GetSeasonPositionRankingsQuery(_selectedSeason.Id))).Value;
+            (_goalkeepers, _attackers) = (positions.Goalkeepers, positions.Attackers);
+            _pairRankings = (await Sender.Send(new GetSeasonPairRankingsQuery(_selectedSeason.Id))).Value;
 
             // Badge chips come from the season-scoped StatContext — computed on the fly even for
             // closed seasons (their matches are immutable, so this is safe).
-            var (players, matches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _selectedSeason.Id);
-            _stats = StatsEngine.ComputeSeason(players, seasonPlayers, matches, isFullScope: true);
+            _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id, _selectedSeason.Id))).Value;
             _rankings = [];
         }
         else
         {
-            _rankings = await StatsService.GetRankingsAsync(_team.Id);
-            _pairRankings = await StatsService.GetPairRankingsAsync(_team.Id);
-            (_goalkeepers, _attackers) = await StatsService.GetPositionRankingsAsync(_team.Id);
-            _stats = await StatsEngine.GetAllTimeAsync(_team.Id);
+            _rankings = (await Sender.Send(new GetRankingsQuery(_team.Id))).Value;
+            _pairRankings = (await Sender.Send(new GetPairRankingsQuery(_team.Id))).Value;
+            var positions = (await Sender.Send(new GetPositionRankingsQuery(_team.Id))).Value;
+            (_goalkeepers, _attackers) = (positions.Goalkeepers, positions.Attackers);
+            _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id))).Value;
             _seasonStandings = [];
         }
     }

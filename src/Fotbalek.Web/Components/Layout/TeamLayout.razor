@@ -1,11 +1,8 @@
 @implements IDisposable
 @inherits LayoutComponentBase
-@inject TeamAccessService TeamAccess
-@inject TeamService TeamService
-@inject TeamMembershipService MembershipService
-@inject PlayerService PlayerService
-@inject CurrentUserService CurrentUser
-@inject ShareTokenService ShareTokenService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
+@inject CurrentUserAccessor CurrentUser
 @inject PresenceTracker Presence
 @inject GameRoomManager GameRooms
 @inject NavigationManager Navigation
@@ -277,9 +274,9 @@
 </div>
 
 @code {
-    private Team? _team;
-    private AppUser? _user;
-    private Player? _myPlayer;
+    private TeamDto? _team;
+    private CurrentUserInfo? _user;
+    private PlayerDto? _myPlayer;
     private bool _loading = true;
     private bool _isCaptain;
     private bool _claimingCaptain;
@@ -288,8 +285,8 @@
     private bool _copiedBasic;
     private bool _generatingToken;
     private string? _shareToken;
-    private List<Team> _userTeams = new();
-    private List<Player> _teamPlayersWithUser = new();
+    private List<TeamDto> _userTeams = new();
+    private List<PlayerDto> _teamPlayersWithUser = new();
     private bool _presenceSubscribed;
 
     private string DisplayName => _myPlayer?.Name ?? _user?.UserName ?? "User";
@@ -315,7 +312,7 @@
     private bool SectionActive(params string[] segments)
         => segments.Contains(CurrentSection, StringComparer.OrdinalIgnoreCase);
 
-    private List<Player> GetOnlinePlayers()
+    private List<PlayerDto> GetOnlinePlayers()
     {
         if (_teamPlayersWithUser.Count == 0) return new();
         return _teamPlayersWithUser
@@ -370,7 +367,8 @@
         {
             if (_team != null && _user != null)
             {
-                _shareToken = await ShareTokenService.GenerateTokenAsync(_team.Id, _user.Id);
+                var tokenResult = await Sender.Send(new GenerateShareTokenCommand(_team.Id));
+                _shareToken = tokenResult.IsSuccess ? tokenResult.Value : null;
             }
         }
         catch
@@ -418,7 +416,7 @@
         var room = GameRooms.GetOrCreateForTeam(_team.Id);
         // The seat sits in the not-yet-connected grace state until the game page's JS client
         // joins the room (§3.2).
-        room.TryTakeFirstFreeSeat(_user.Id, DisplayName, _myPlayer?.AvatarId ?? 1);
+        room.TryTakeFirstFreeSeat(_user.UserId!.Value, DisplayName, _myPlayer?.AvatarId ?? 1);
         Navigation.NavigateTo($"/team/{_team.CodeName}/game");
     }
 
@@ -428,10 +426,11 @@
         _claimingCaptain = true;
         try
         {
-            var success = await TeamService.TryClaimCaptainAsync(_team.Id, _user.Id);
-            if (success)
+            var result = await Sender.Send(new ClaimCaptainCommand(_team.Id));
+            if (result.IsSuccess)
             {
-                _team.CaptainUserId = _user.Id;
+                _team = _team with { CaptainUserId = _user.UserId };
+                TeamAccess.UpdateCachedCaptain(_user.UserId!.Value);
                 _isCaptain = true;
             }
         }
@@ -453,7 +452,8 @@
                 await Tz.EnsureResolvedAsync();
 
                 var teamCode = TeamAccess.GetTeamCodeFromUrl();
-                _user = await CurrentUser.GetUserAsync();
+                var userInfo = await CurrentUser.GetAsync();
+                _user = userInfo.IsAuthenticated ? userInfo : null;
 
                 if (_user == null)
                 {
@@ -478,12 +478,12 @@
                     return;
                 }
 
-                _isCaptain = _team.CaptainUserId == _user.Id;
-                _userTeams = await MembershipService.GetTeamsForUserAsync(_user.Id);
+                _isCaptain = _team.CaptainUserId == _user.UserId;
+                _userTeams = (await Sender.Send(new GetMyTeamsQuery())).Value;
 
-                _myPlayer = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+                _myPlayer = (await Sender.Send(new GetMyPlayerQuery(_team.Id))).Value;
 
-                var allPlayers = await PlayerService.GetByTeamAsync(_team.Id);
+                var allPlayers = (await Sender.Send(new GetTeamPlayersQuery(_team.Id))).Value;
                 _teamPlayersWithUser = allPlayers.Where(p => p.UserId.HasValue).ToList();
 
                 Presence.Changed += OnPresenceChanged;

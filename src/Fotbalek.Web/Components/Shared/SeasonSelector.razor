@@ -23,13 +23,13 @@
     [Parameter] public EventCallback<int?> ValueChanged { get; set; }
 
     /// <summary>All seasons of the team (any order); the component picks out current and past ones.</summary>
-    [Parameter, EditorRequired] public IReadOnlyList<Season> Seasons { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<SeasonDto> Seasons { get; set; } = [];
     [Parameter] public EventCallback OnChangedCallback { get; set; }
 
-    private Season? ActiveSeason => Seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow));
+    private SeasonDto? ActiveSeason => Seasons.FirstOrDefault(s => s.IsActiveAt(DateTimeOffset.UtcNow));
 
     // Closed seasons, newest first. Scheduled seasons carry no data, so they are not selectable.
-    private IEnumerable<Season> PastSeasons => Seasons
+    private IEnumerable<SeasonDto> PastSeasons => Seasons
         .Where(s => s.IsClosed)
         .OrderByDescending(s => s.StartsAt);
 

@@ -2,8 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject SeasonService SeasonService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 
 <PageTitle>Seasons - Foosball Manager</PageTitle>
@@ -103,12 +103,12 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
     private bool _isCaptain;
-    private List<Season> _seasons = [];
+    private List<SeasonDto> _seasons = [];
     private Dictionary<int, int> _matchCounts = new();
-    private Dictionary<int, SeasonService.SeasonChampion> _champions = new();
+    private Dictionary<int, SeasonChampionDto> _champions = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -128,9 +128,9 @@ else
     private async Task LoadAsync()
     {
         if (_team == null) return;
-        _seasons = await SeasonService.GetByTeamAsync(_team.Id);
-        _matchCounts = await SeasonService.GetMatchCountsBySeasonAsync(_team.Id);
-        _champions = await SeasonService.GetChampionsAsync(_team.Id);
+        _seasons = (await Sender.Send(new GetSeasonsQuery(_team.Id))).Value;
+        _matchCounts = (await Sender.Send(new GetMatchCountsBySeasonQuery(_team.Id))).Value;
+        _champions = (await Sender.Send(new GetSeasonChampionsQuery(_team.Id))).Value;
     }
 
     private async Task ReloadAsync()
@@ -139,14 +139,14 @@ else
         StateHasChanged();
     }
 
-    private string FormatPeriod(Season season)
+    private string FormatPeriod(SeasonDto season)
     {
         var start = Tz.FormatLocalDate(season.StartsAt);
         var end = season.EndsAt is { } ends ? Tz.FormatLocalDate(ends) : "open-ended";
         return $"{start} – {end}";
     }
 
-    private RenderFragment StatusBadge(Season season, DateTimeOffset now) => __builder =>
+    private RenderFragment StatusBadge(SeasonDto season, DateTimeOffset now) => __builder =>
     {
         @if (season.IsActiveAt(now))
         {

@@ -1,9 +1,8 @@
 @page "/"
 @rendermode InteractiveServer
 @implements IDisposable
-@inject CurrentUserService CurrentUser
-@inject TeamMembershipService MembershipService
-@inject LandingStatsService LandingStats
+@inject CurrentUserAccessor CurrentUser
+@inject IScopedSender Sender
 @inject PresenceTracker Presence
 @inject ChatUiState ChatUi
 @inject IJSRuntime JS
@@ -271,17 +270,17 @@
 @code {
     private bool _loading = true;
     private bool _isAuthenticated;
-    private List<Fotbalek.Web.Data.Entities.Team> _myTeams = [];
-    private LandingStats? _stats;
+    private List<TeamDto> _myTeams = [];
+    private LandingStatsDto? _stats;
     private int _onlineCount;
-    private LandingActivityPoint? _busiestDay;
+    private LandingActivityPointDto? _busiestDay;
     private bool _chatSubscribed;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        _stats = await LandingStats.GetAsync();
+        _stats = (await Sender.Send(new GetLandingStatsQuery())).Value;
         _onlineCount = Presence.OnlineCount;
         _busiestDay = _stats.Activity.Count > 0
             ? _stats.Activity.OrderByDescending(a => a.Matches).First()
@@ -291,7 +290,7 @@
         if (userId != null)
         {
             _isAuthenticated = true;
-            _myTeams = await MembershipService.GetTeamsForUserAsync(userId.Value);
+            _myTeams = (await Sender.Send(new GetMyTeamsQuery())).Value;
             // Per-team chat badges render from ChatUiState's cache, which the dock (also on
             // this page) keeps current.
             ChatUi.Changed += OnChatUnreadChanged;

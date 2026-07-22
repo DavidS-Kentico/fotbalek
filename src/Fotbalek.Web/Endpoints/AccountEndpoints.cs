@@ -1,4 +1,4 @@
-using Fotbalek.Web.Data.Entities;
+using Fotbalek.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 

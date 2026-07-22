@@ -46,8 +46,8 @@
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
                         <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none text-end @(team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
-                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
-                            <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
+                            <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
+                            <span class="ms-1 @(Compact ? "small" : "")">@mp.PlayerName</span>
                         </a>
                     }
                 </div>
@@ -83,8 +83,8 @@
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
                         <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none @(!team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
-                            <Avatar AvatarId="@mp.Player.AvatarId" Size="sm" />
-                            <span class="ms-1 @(Compact ? "small" : "")">@mp.Player.Name</span>
+                            <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
+                            <span class="ms-1 @(Compact ? "small" : "")">@mp.PlayerName</span>
                         </a>
                     }
                 </div>
@@ -132,7 +132,7 @@
 </div>
 
 @code {
-    [Parameter, EditorRequired] public Match Match { get; set; } = null!;
+    [Parameter, EditorRequired] public MatchDto Match { get; set; } = null!;
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }

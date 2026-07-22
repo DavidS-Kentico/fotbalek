@@ -3,7 +3,6 @@
    identical. Pass an Actions template to render a per-match action area (e.g. the
    history row's dropdown); omit it for a plain feed (dashboard). *@
 @inject TimeZoneService Tz
-@using Fotbalek.Web.Helpers
 
 @{ DateOnly? group = null; }
 @foreach (var match in Matches)
@@ -13,14 +12,14 @@
     {
         group = groupKey;
         <div class="day-group fw-semibold @HeaderMarginClass">
-            <i class="bi bi-calendar-event me-1"></i>@DateFilterHelper.FormatDayGroup(groupKey, Tz.Today)
+            <i class="bi bi-calendar-event me-1"></i>@DateFilterDisplay.FormatDayGroup(groupKey, Tz.Today)
         </div>
     }
 
     @if (Actions != null)
     {
         <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
-                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.Season?.Name"
+                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
                    DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
                    DateTitle="@Tz.FormatLocalDate(match.PlayedAt)">
             <Actions>@Actions(match)</Actions>
@@ -29,7 +28,7 @@
     else
     {
         <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
-                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.Season?.Name"
+                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
                    DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
                    DateTitle="@Tz.FormatLocalDate(match.PlayedAt)" />
     }
@@ -37,7 +36,7 @@
 
 @code {
     /// <summary>Matches to render, already ordered most-recent-first. Consecutive same-day rows group together.</summary>
-    [Parameter, EditorRequired] public IEnumerable<Match> Matches { get; set; } = [];
+    [Parameter, EditorRequired] public IEnumerable<MatchDto> Matches { get; set; } = [];
 
     [Parameter] public string? TeamCode { get; set; }
 
@@ -48,7 +47,7 @@
     [Parameter] public bool ShowSeasonChip { get; set; }
 
     /// <summary>Optional per-match action area, rendered top-right of each card.</summary>
-    [Parameter] public RenderFragment<Match>? Actions { get; set; }
+    [Parameter] public RenderFragment<MatchDto>? Actions { get; set; }
 
     /// <summary>Margin utilities for the day-group headers (history uses more top space than the dashboard).</summary>
     [Parameter] public string HeaderMarginClass { get; set; } = "mt-4 mb-2";

@@ -2,9 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject TeamService TeamService
-@inject CurrentUserService CurrentUser
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 
 <PageTitle>Team settings - Foosball Manager</PageTitle>
 
@@ -68,7 +67,7 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
     private bool _isCaptain;
 
@@ -112,19 +111,15 @@ else
         _savingName = true;
         try
         {
-            var actorId = await CurrentUser.GetUserIdAsync();
-            if (actorId == null)
+            var result = await Sender.Send(new UpdateTeamNameCommand(_team.Id, trimmed));
+            if (result.IsFailure)
             {
-                _nameError = "You must be logged in.";
+                _nameError = result.Error.Type == ErrorType.Forbidden
+                    ? "Could not update — you may not have permission."
+                    : result.Error.Message;
                 return;
             }
-            var ok = await TeamService.UpdateNameAsync(_team.Id, actorId.Value, trimmed);
-            if (!ok)
-            {
-                _nameError = "Could not update — you may not have permission.";
-                return;
-            }
-            _team.Name = trimmed;
+            _team = _team with { Name = trimmed };
             _nameSuccess = "Team name updated.";
         }
         finally
@@ -154,16 +149,12 @@ else
         _savingPassword = true;
         try
         {
-            var actorId = await CurrentUser.GetUserIdAsync();
-            if (actorId == null)
+            var result = await Sender.Send(new UpdateTeamPasswordCommand(_team.Id, _newPassword));
+            if (result.IsFailure)
             {
-                _pwdError = "You must be logged in.";
-                return;
-            }
-            var ok = await TeamService.UpdatePasswordAsync(_team.Id, actorId.Value, _newPassword);
-            if (!ok)
-            {
-                _pwdError = "Could not update — you may not have permission.";
+                _pwdError = result.Error.Type == ErrorType.Forbidden
+                    ? "Could not update — you may not have permission."
+                    : result.Error.Message;
                 return;
             }
             _newPassword = string.Empty;

@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using Fotbalek.Web.Configuration;
+using Fotbalek.Web.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;

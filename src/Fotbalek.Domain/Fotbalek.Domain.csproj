@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fotbalek.SharedKernel\Fotbalek.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one documented Domain package exception: AppUser : IdentityUser<int> (see AI/architecture.md §1). -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" />
+  </ItemGroup>
+
+</Project>

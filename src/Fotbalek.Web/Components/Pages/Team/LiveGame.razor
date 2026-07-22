@@ -3,11 +3,11 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 @using Fotbalek.Web.Game
-@using Fotbalek.Web.Game.Core
+@using Fotbalek.Game
 @implements IAsyncDisposable
-@inject TeamAccessService TeamAccess
-@inject CurrentUserService CurrentUser
-@inject PlayerService PlayerService
+@inject CurrentTeamProvider TeamAccess
+@inject CurrentUserAccessor CurrentUser
+@inject IScopedSender Sender
 @inject GameRoomManager Rooms
 @inject IJSRuntime JS
 
@@ -186,7 +186,7 @@ else if (_team != null && _user != null)
                                     <div class="lg-seats">
                                         @foreach (var seat in _state.Seats.Where(s => side == 0 ? s.Seat <= 1 : s.Seat >= 2))
                                         {
-                                            var isMine = seat.UserId == _user.Id;
+                                            var isMine = seat.UserId == _user.UserId!.Value;
                                             var isEmpty = seat.UserId == null && !seat.IsBot;
                                             var isOpen = isEmpty && _addBotSeat != seat.Seat;
                                             <div class="lg-seat @(isMine ? "is-mine" : "") @(isOpen ? "is-open" : "") @(seat.UserId != null && !seat.Connected ? "is-offline" : "")">
@@ -351,9 +351,9 @@ else if (_team != null && _user != null)
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
-    private AppUser? _user;
-    private Player? _myPlayer;
+    private TeamDto? _team;
+    private CurrentUserInfo? _user;
+    private PlayerDto? _myPlayer;
     private GameRoom? _room;
     private RoomStateDto? _state;
     private bool _loading = true;
@@ -379,7 +379,7 @@ else if (_team != null && _user != null)
     private bool _jsInitialized;
     private Guid? _jsRoomId;
 
-    private bool IsSeated => _state != null && _user != null && _state.Seats.Any(s => s.UserId == _user.Id);
+    private bool IsSeated => _state != null && _user != null && _state.Seats.Any(s => s.UserId == _user.UserId!.Value);
 
     private string MyDisplayName => _myPlayer?.Name ?? _user?.UserName ?? "Player";
     private int MyAvatarId => _myPlayer?.AvatarId ?? 1;
@@ -410,12 +410,13 @@ else if (_team != null && _user != null)
         if (firstRender)
         {
             _team = await TeamAccess.GetCurrentTeamAsync();
-            _user = await CurrentUser.GetUserAsync();
+            var userInfo = await CurrentUser.GetAsync();
+            _user = userInfo.IsAuthenticated ? userInfo : null;
             if (_team == null || _user == null)
             {
                 return; // TeamLayout handles the redirect
             }
-            _myPlayer = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+            _myPlayer = (await Sender.Send(new GetMyPlayerQuery(_team.Id))).Value;
 
             Rooms.Changed += OnRoomsChanged;
             _subscribed = true;
@@ -434,7 +435,7 @@ else if (_team != null && _user != null)
             {
                 hubUrl = "/hubs/game",
                 roomId = _room.RoomId.ToString(),
-                userId = _user!.Id,
+                userId = _user!.UserId!.Value,
             });
             // Mirror the persisted "show ping" preference so the toggle renders in the right state.
             try
@@ -492,14 +493,14 @@ else if (_team != null && _user != null)
         }
         _roomEnded = false;
         var room = Rooms.GetOrCreateForTeam(_team.Id);
-        room.TryTakeFirstFreeSeat(_user.Id, MyDisplayName, MyAvatarId);
+        room.TryTakeFirstFreeSeat(_user.UserId!.Value, MyDisplayName, MyAvatarId);
         RefreshRoom();
     }
 
     private void TakeSeat(int seat)
     {
         _addBotSeat = null;
-        _room?.TakeSeat(_user!.Id, seat, MyDisplayName, MyAvatarId);
+        _room?.TakeSeat(_user!.UserId!.Value, seat, MyDisplayName, MyAvatarId);
     }
 
     private void AddBot(int seat, BotDifficulty difficulty)
@@ -525,15 +526,15 @@ else if (_team != null && _user != null)
         _ => "",
     };
 
-    private void LeaveSeat() => _room?.LeaveSeat(_user!.Id);
-    private void ResetBall() => _room?.ResetBall(_user!.Id);
-    private void ResetScore() => _room?.ResetScore(_user!.Id);
-    private void Rematch() => _room?.Rematch(_user!.Id);
+    private void LeaveSeat() => _room?.LeaveSeat(_user!.UserId!.Value);
+    private void ResetBall() => _room?.ResetBall(_user!.UserId!.Value);
+    private void ResetScore() => _room?.ResetScore(_user!.UserId!.Value);
+    private void Rematch() => _room?.Rematch(_user!.UserId!.Value);
     private void OnToggleQuickGoals(ChangeEventArgs e) =>
-        _room?.SetGameOptions(_user!.Id, e.Value is true, _state!.Options.DisallowFirstTouchGoals);
+        _room?.SetGameOptions(_user!.UserId!.Value, e.Value is true, _state!.Options.DisallowFirstTouchGoals);
 
     private void OnToggleFirstTouch(ChangeEventArgs e) =>
-        _room?.SetGameOptions(_user!.Id, _state!.Options.DisallowQuickGoals, e.Value is true);
+        _room?.SetGameOptions(_user!.UserId!.Value, _state!.Options.DisallowQuickGoals, e.Value is true);
 
     /// <summary>Client-local display preference — persisted in the browser via game.js, never server state.</summary>
     private async Task OnTogglePing(ChangeEventArgs e)
@@ -576,7 +577,7 @@ else if (_team != null && _user != null)
     private void EndGame()
     {
         _showEndModal = false;
-        _room?.EndGame(_user!.Id);
+        _room?.EndGame(_user!.UserId!.Value);
     }
 
     private async Task DisposeJsClientAsync()

@@ -2,10 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject MatchService MatchService
-@inject SeasonService SeasonService
-@inject CurrentUserService CurrentUser
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -95,7 +93,7 @@ else if (_match != null)
                     @if (isSeasonal)
                     {
                         <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match — numbers below show the seasonal ladder">
-                            <i class="bi bi-award me-1"></i>@(_match.Season?.Name ?? "Season")
+                            <i class="bi bi-award me-1"></i>@(_match.SeasonName ?? "Season")
                         </span>
                     }
                     else if (_hasAnySeason)
@@ -203,8 +201,8 @@ else if (_match != null)
             <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
             <div class="alert alert-secondary">
                 <strong>Match Summary:</strong><br />
-                Team 1 (@string.Join(", ", team1Players.Select(p => p.Player.Name))) vs
-                Team 2 (@string.Join(", ", team2Players.Select(p => p.Player.Name)))<br />
+                Team 1 (@string.Join(", ", team1Players.Select(p => p.PlayerName))) vs
+                Team 2 (@string.Join(", ", team2Players.Select(p => p.PlayerName)))<br />
                 Score: @_match.Team1Score : @_match.Team2Score<br />
                 Date: @_match.PlayedAt.ToString("f")
             </div>
@@ -227,8 +225,8 @@ else
     [Parameter] public string TeamCode { get; set; } = string.Empty;
     [Parameter] public int MatchId { get; set; }
 
-    private Team? _team;
-    private Match? _match;
+    private TeamDto? _team;
+    private MatchDto? _match;
     private bool _loading = true;
     private bool _isCaptain;
     private bool _canDelete;
@@ -275,16 +273,17 @@ else
 
         if (_team != null)
         {
-            _hasAnySeason = await SeasonService.HasAnySeasonAsync(_team.Id);
-            var match = await MatchService.GetByIdAsync(MatchId);
-            if (match != null && match.TeamId == _team.Id)
+            _hasAnySeason = (await Sender.Send(new HasAnySeasonQuery(_team.Id))).Value;
+            var match = (await Sender.Send(new GetMatchQuery(_team.Id, MatchId))).Value;
+            if (match != null)
             {
                 _match = match;
-                var (canDelete, reason) = await MatchService.CanDeleteWithReasonAsync(MatchId);
-                _canDelete = canDelete;
-                _deleteBlockedReason = reason;
+                var deletability = (await Sender.Send(new CanDeleteMatchQuery(MatchId))).Value;
+                _canDelete = deletability.CanDelete;
+                _deleteBlockedReason = deletability.Reason;
 
-                (_newerId, _olderId) = await MatchService.GetAdjacentMatchIdsAsync(MatchId, _team.Id);
+                var adjacent = (await Sender.Send(new GetAdjacentMatchIdsQuery(_team.Id, MatchId))).Value;
+                (_newerId, _olderId) = (adjacent.NewerId, adjacent.OlderId);
             }
         }
 
@@ -318,16 +317,14 @@ else
         _deleting = true;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) return;
-            var deleted = await MatchService.DeleteAsync(MatchId, _team.Id, userId.Value);
-            if (deleted)
+            var result = await Sender.Send(new DeleteMatchCommand(_team.Id, MatchId));
+            if (result.IsSuccess)
             {
                 Navigation.NavigateTo($"/team/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);
             }
             else
             {
-                _deleteError = "Cannot delete this match. It may have been modified or the deletion window has passed.";
+                _deleteError = result.Error.Message;
                 _showDeleteConfirm = false;
             }
         }

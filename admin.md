@@ -1,5 +1,11 @@
 # Account Page & Admin Interface — Feature Spec
 
+> **Note (2026-07-16):** this spec predates the clean-architecture restructure (see
+> `AI/architecture.md`). File paths and service names below refer to the old single-project
+> layout — e.g. `Services/AdminService.cs` is now `Fotbalek.Application/Features/Admin`,
+> `TeamAccessService` is now `CurrentTeamProvider` (Web) + `TeamAccess` (Application), and
+> entities live in `Fotbalek.Domain`. The behavior described here is unchanged.
+
 Three features that work together:
 
 1. **`/account`** — a page for logged-in users: profile overview (teams + their claimed player per team) and change-password.

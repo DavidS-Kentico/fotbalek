@@ -2,13 +2,9 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject PlayerService PlayerService
-@inject StatsService StatsService
-@inject StatsEngine StatsEngine
-@inject MatchService MatchService
-@inject SeasonService SeasonService
-@inject CurrentUserService CurrentUser
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
+@inject CurrentUserAccessor CurrentUser
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
@@ -53,9 +49,9 @@ else if (_player != null && _stats != null)
                                 <span class="badge bg-secondary">Inactive</span>
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(_player.User?.UserName))
+                        @if (!string.IsNullOrEmpty(_playerUserName))
                         {
-                            <div class="text-muted small">@($"@{_player.User.UserName.ToLowerInvariant()}")</div>
+                            <div class="text-muted small">@($"@{_playerUserName.ToLowerInvariant()}")</div>
                         }
                     </div>
                     @if (_canEdit)
@@ -137,7 +133,7 @@ else if (_player != null && _stats != null)
                             <span>@(award.Rank switch { 1 => "🥇", 2 => "🥈", _ => "🥉" })</span>
                             <i class="@CategoryIcon(award.Category)"></i>
                             <span>@AwardLabel(award)</span>
-                            <span class="text-muted">· @award.Season.Name</span>
+                            <span class="text-muted">· @award.SeasonName</span>
                         </span>
                     }
                 </ChildContent>
@@ -808,17 +804,18 @@ else
 
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
-    private Team? _team;
-    private Player? _player;
+    private TeamDto? _team;
+    private PlayerDto? _player;
+    private string? _playerUserName;
     private PlayerStats? _stats;
-    private List<Match> _recentMatches = [];
+    private List<MatchDto> _recentMatches = [];
     private int _totalMatchCount;
     private bool _loading = true;
-    private List<Season> _seasons = [];
+    private List<SeasonDto> _seasons = [];
     private int? _selectedSeasonId;
-    private Season? _selectedSeason;
+    private SeasonDto? _selectedSeason;
     private bool _scopeInitialized;
-    private List<SeasonAward> _trophies = [];
+    private List<SeasonAwardDto> _trophies = [];
     private int _lastLoadedPlayerId;
     private bool _isMyPlayer;
     private bool _isCaptainPlayer;
@@ -900,10 +897,12 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _player = await PlayerService.GetByIdWithTeamAsync(PlayerId);
+            var playerWithTeam = (await Sender.Send(new GetPlayerWithTeamQuery(PlayerId))).Value;
+            _player = playerWithTeam?.Player;
+            _playerUserName = playerWithTeam?.OwnerUserName;
             if (_player != null && _player.TeamId == _team.Id)
             {
-                _seasons = await SeasonService.GetByTeamAsync(_team.Id);
+                _seasons = (await Sender.Send(new GetSeasonsQuery(_team.Id))).Value;
                 if (!_scopeInitialized)
                 {
                     // Default = the current season; all-time when none is active (idle default).
@@ -913,25 +912,25 @@ else
                 _selectedSeason = _selectedSeasonId is int sid ? _seasons.FirstOrDefault(s => s.Id == sid) : null;
 
                 // Everything below follows the selector: (match subset, ladder).
-                _stats = await StatsService.GetPlayerStatsAsync(PlayerId, _selectedSeason?.Id);
-                _recentMatches = await MatchService.GetByPlayerAsync(PlayerId, Constants.Pagination.PlayerDetailRecentMatches, _selectedSeason?.Id);
-                _totalMatchCount = await MatchService.GetCountByPlayerAsync(PlayerId, _selectedSeason?.Id);
+                _stats = (await Sender.Send(new GetPlayerStatsQuery(PlayerId, _selectedSeason?.Id))).Value;
+                _recentMatches = (await Sender.Send(new GetMatchesByPlayerQuery(PlayerId, Constants.Pagination.PlayerDetailRecentMatches, _selectedSeason?.Id))).Value;
+                _totalMatchCount = (await Sender.Send(new GetMatchCountByPlayerQuery(PlayerId, _selectedSeason?.Id))).Value;
 
                 // Trophies are permanent — never scoped by the selector.
-                _trophies = await SeasonService.GetAwardsForPlayerAsync(PlayerId);
+                _trophies = (await Sender.Send(new GetPlayerAwardsQuery(PlayerId))).Value;
 
                 // Rank chip follows the selector: live seasonal rank for the active season,
                 // frozen FinalRank for closed seasons, all-time rank otherwise.
                 if (_selectedSeason != null)
                 {
-                    var standings = await StatsService.GetSeasonStandingsAsync(_selectedSeason);
+                    var standings = (await Sender.Send(new GetSeasonStandingsQuery(_selectedSeason.Id))).Value;
                     var mine = standings.FirstOrDefault(r => r.PlayerId == PlayerId);
                     _rank = mine?.Rank ?? 0;
                     _totalRanked = standings.Count;
                 }
                 else
                 {
-                    var rankings = await StatsService.GetRankingsAsync(_team.Id);
+                    var rankings = (await Sender.Send(new GetRankingsQuery(_team.Id))).Value;
                     var mine = rankings.FirstOrDefault(r => r.PlayerId == PlayerId);
                     _rank = mine?.Rank ?? 0;
                     _totalRanked = rankings.Count;
@@ -939,16 +938,7 @@ else
 
                 // Badges: pull from the stats engine in the selected scope so they mirror what
                 // shows on Players, Rankings and Dashboard pages.
-                List<StatResult> teamStats;
-                if (_selectedSeason != null)
-                {
-                    var (players, matches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _selectedSeason.Id);
-                    teamStats = StatsEngine.ComputeSeason(players, seasonPlayers, matches, isFullScope: true);
-                }
-                else
-                {
-                    teamStats = await StatsEngine.GetAllTimeAsync(_team.Id);
-                }
+                var teamStats = (await Sender.Send(new GetTeamStatsQuery(_team.Id, _selectedSeason?.Id))).Value;
                 _playerBadges = teamStats
                     .Where(r => r.Badge != null)
                     .Select(r => new
@@ -1003,18 +993,18 @@ else
         _ => "bi bi-people-fill text-primary"
     };
 
-    private static string AwardLabel(SeasonAward award) => award.Category switch
+    private static string AwardLabel(SeasonAwardDto award) => award.Category switch
     {
         Constants.Seasons.AwardCategories.Player => "Player",
         Constants.Seasons.AwardCategories.Goalkeeper => "Goalkeeper",
         Constants.Seasons.AwardCategories.Attacker => "Attacker",
-        _ => $"Pair with {award.PartnerPlayer?.Name ?? "?"}"
+        _ => $"Pair with {award.PartnerPlayerName ?? "?"}"
     };
 
-    private static string AwardTooltip(SeasonAward award)
+    private static string AwardTooltip(SeasonAwardDto award)
     {
         var place = award.Rank switch { 1 => "Gold", 2 => "Silver", _ => "Bronze" };
-        return $"{place} — {AwardLabel(award)} ({award.Season.Name})";
+        return $"{place} — {AwardLabel(award)} ({award.SeasonName})";
     }
 
     private void SwitchTab(string tab)
@@ -1054,21 +1044,12 @@ else
         _editError = null;
         try
         {
-            if (await PlayerService.IsNameTakenAsync(_team.Id, name, _player.Id))
+            var result = await Sender.Send(new UpdatePlayerCommand(_team.Id, _player.Id, name, _editAvatar));
+            if (result.IsFailure)
             {
-                _editError = "A player with that name already exists in this team.";
-                return;
-            }
-            var actorId = await CurrentUser.GetUserIdAsync();
-            if (actorId == null)
-            {
-                _editError = "You must be logged in.";
-                return;
-            }
-            var ok = await PlayerService.UpdateAsync(_player.Id, _team.Id, actorId.Value, name, _editAvatar);
-            if (!ok)
-            {
-                _editError = "Could not update. You may not have permission.";
+                _editError = result.Error.Code == "Players.NameTaken"
+                    ? "A player with that name already exists in this team."
+                    : "Could not update. You may not have permission.";
                 return;
             }
             _showEditModal = false;

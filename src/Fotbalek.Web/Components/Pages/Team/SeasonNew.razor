@@ -2,9 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject SeasonService SeasonService
-@inject CurrentUserService CurrentUser
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject NavigationManager Navigation
 @using System.Globalization
@@ -103,9 +102,9 @@ else
                                        checked="@isSelected" @onchange="() => ToggleImport(match.Id)" />
                                 <span class="text-muted" style="min-width: 7.5rem;">@Tz.ToLocalTime(match.PlayedAt).ToString("MMM d, HH:mm")</span>
                                 <span class="text-truncate">
-                                    @string.Join(" & ", team1.Select(mp => mp.Player.Name))
+                                    @string.Join(" & ", team1.Select(mp => mp.PlayerName))
                                     <strong class="mx-1">@match.Team1Score : @match.Team2Score</strong>
-                                    @string.Join(" & ", team2.Select(mp => mp.Player.Name))
+                                    @string.Join(" & ", team2.Select(mp => mp.PlayerName))
                                 </span>
                             </label>
                         }
@@ -126,7 +125,7 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
     private bool _isCaptain;
     private bool _saving;
@@ -137,7 +136,7 @@ else
     private DateTime _start;
     private DateTime? _end;
 
-    private List<Match> _importCandidates = [];
+    private List<MatchDto> _importCandidates = [];
     private readonly HashSet<int> _selectedImportIds = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -173,7 +172,7 @@ else
         if (_team == null || !_isCaptain) return;
         var startsAt = Tz.LocalDateTimeToInstant(_start);
         var endsAt = _end is { } end ? Tz.LocalDateTimeToInstant(end) : (DateTimeOffset?)null;
-        _importCandidates = await SeasonService.GetImportCandidatesAsync(_team.Id, startsAt, endsAt);
+        _importCandidates = (await Sender.Send(new GetImportCandidatesQuery(_team.Id, startsAt, endsAt))).Value;
 
         // Drop selections that fell out of the period.
         var candidateIds = _importCandidates.Select(m => m.Id).ToHashSet();
@@ -198,21 +197,19 @@ else
         _error = null;
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) { _error = "Not signed in."; return; }
-
             var startsAt = Tz.LocalDateTimeToInstant(_start);
             var endsAt = _end is { } end ? Tz.LocalDateTimeToInstant(end) : (DateTimeOffset?)null;
 
-            var season = await SeasonService.CreateAsync(
-                _team.Id, userId.Value, _name, _description, startsAt, endsAt,
-                _selectedImportIds.Count > 0 ? _selectedImportIds.ToList() : null);
+            var result = await Sender.Send(new CreateSeasonCommand(
+                _team.Id, _name, _description, startsAt, endsAt,
+                _selectedImportIds.Count > 0 ? _selectedImportIds.ToList() : null));
+            if (result.IsFailure)
+            {
+                _error = result.Error.Message;
+                return;
+            }
 
-            Navigation.NavigateTo($"/team/{TeamCode}/seasons/{season.Id}");
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-        {
-            _error = ex.Message;
+            Navigation.NavigateTo($"/team/{TeamCode}/seasons/{result.Value.Id}");
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {

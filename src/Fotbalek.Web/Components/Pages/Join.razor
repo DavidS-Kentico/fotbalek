@@ -1,10 +1,7 @@
 @page "/join"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamService TeamService
-@inject TeamMembershipService MembershipService
-@inject ShareTokenService ShareTokenService
-@inject CurrentUserService CurrentUser
+@inject IScopedSender Sender
 @inject NavigationManager Navigation
 
 <PageTitle>Join Team - Foosball Manager</PageTitle>
@@ -87,18 +84,15 @@
 
             try
             {
-                var userId = await CurrentUser.GetUserIdAsync();
-                if (userId == null)
+                var result = await Sender.Send(new JoinTeamByShareTokenCommand(Token, TeamCode));
+                if (result.IsSuccess)
                 {
-                    Navigation.NavigateTo("/login", forceLoad: true);
+                    Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
                     return;
                 }
-
-                var team = await ShareTokenService.ValidateTokenAsync(Token);
-                if (team != null && team.CodeName.Equals(TeamCode, StringComparison.OrdinalIgnoreCase))
+                if (result.Error.Type == ErrorType.Unauthorized && result.Error.Code == "Auth.NotAuthenticated")
                 {
-                    await MembershipService.JoinAsync(userId.Value, team.Id);
-                    Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
+                    Navigation.NavigateTo("/login", forceLoad: true);
                     return;
                 }
 
@@ -123,28 +117,19 @@
 
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
+            var result = await Sender.Send(new JoinTeamCommand(_model.CodeName, _model.Password));
+            if (result.IsFailure)
             {
-                Navigation.NavigateTo("/login", forceLoad: true);
+                if (result.Error.Code == "Auth.NotAuthenticated")
+                {
+                    Navigation.NavigateTo("/login", forceLoad: true);
+                    return;
+                }
+                _error = result.Error.Message;
                 return;
             }
 
-            var team = await TeamService.GetByCodeNameAsync(_model.CodeName);
-            if (team == null)
-            {
-                _error = "Team not found. Please check the team code.";
-                return;
-            }
-
-            if (!await TeamService.ValidatePasswordAsync(_model.CodeName, _model.Password))
-            {
-                _error = "Invalid password.";
-                return;
-            }
-
-            await MembershipService.JoinAsync(userId.Value, team.Id);
-            Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
+            Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)
         {

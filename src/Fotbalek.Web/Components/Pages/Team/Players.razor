@@ -2,12 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject PlayerService PlayerService
-@inject StatsEngine StatsEngine
-@inject SeasonService SeasonService
-@inject CurrentUserService CurrentUser
-@inject ShareTokenService ShareTokenService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -176,15 +172,15 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
-    private List<Player> _activePlayers = [];
-    private List<Player> _inactivePlayers = [];
+    private List<PlayerDto> _activePlayers = [];
+    private List<PlayerDto> _inactivePlayers = [];
     private List<StatResult> _stats = [];
-    private Dictionary<int, PlayerSummary> _summaries = [];
+    private Dictionary<int, PlayerSummaryDto> _summaries = [];
     private Dictionary<int, int> _ranks = [];
-    private Season? _activeSeason;
-    private IReadOnlyDictionary<int, SeasonPlayer> _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
+    private SeasonDto? _activeSeason;
+    private Dictionary<int, int> _seasonEloByPlayer = [];
 
     private string _search = string.Empty;
     private string _sortBy = "elo";
@@ -196,7 +192,7 @@ else
     private bool _saving;
 
     private bool _showDeactivateConfirm;
-    private Player? _playerToDeactivate;
+    private PlayerDto? _playerToDeactivate;
     private string? _deactivateError;
 
     private bool _showInviteModal;
@@ -209,9 +205,9 @@ else
     private bool _isCaptain;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
-    private RenderFragment RenderPlayerCard(Player player, bool isInactive) => __builder =>
+    private RenderFragment RenderPlayerCard(PlayerDto player, bool isInactive) => __builder =>
     {
-        var summary = _summaries.GetValueOrDefault(player.Id) ?? new PlayerSummary();
+        var summary = _summaries.GetValueOrDefault(player.Id) ?? new PlayerSummaryDto(0, 0, 0, null, 0);
         var badges = StatRegistry.PlayerBadges(_stats, player.Id);
         var isMine = player.Id == MyPlayerId;
         var rating = RatingOf(player);
@@ -322,7 +318,7 @@ else
         </div>
     };
 
-    private List<Player> FilterAndSort(IEnumerable<Player> source)
+    private List<PlayerDto> FilterAndSort(IEnumerable<PlayerDto> source)
     {
         var query = source.AsEnumerable();
         if (!string.IsNullOrWhiteSpace(_search))
@@ -354,8 +350,8 @@ else
     /// The displayed rating: seasonal ELO when a season is active (null = no SeasonPlayer row —
     /// shown as "—" and never defaulted to 1000), all-time ELO otherwise.
     /// </summary>
-    private int? RatingOf(Player player) => _activeSeason != null
-        ? (_seasonPlayersById.TryGetValue(player.Id, out var sp) ? sp.Elo : null)
+    private int? RatingOf(PlayerDto player) => _activeSeason != null
+        ? (_seasonEloByPlayer.TryGetValue(player.Id, out var seasonElo) ? seasonElo : (int?)null)
         : player.Elo;
 
     private void OnSearchChanged(ChangeEventArgs e) => _search = e.Value?.ToString() ?? string.Empty;
@@ -394,85 +390,16 @@ else
         if (_team == null) return;
 
         // The roster follows the default lens: with an active season, ratings/ranks/summaries and
-        // badges come from the season; with no active season, all-time (idle default).
-        _activeSeason = await SeasonService.GetActiveSeasonAsync(_team.Id);
-
-        if (_activeSeason != null)
-        {
-            var (playersById, seasonMatches, seasonPlayers) = await StatsEngine.LoadSeasonAsync(_team.Id, _activeSeason.Id);
-            _seasonPlayersById = seasonPlayers;
-            _stats = StatsEngine.ComputeSeason(playersById, seasonPlayers, seasonMatches, isFullScope: true);
-
-            var all = playersById.Values.ToList();
-            _activePlayers = all.Where(p => p.IsActive).ToList();
-            _inactivePlayers = all.Where(p => !p.IsActive).ToList();
-
-            _summaries = BuildSummaries(seasonMatches, seasonal: true);
-            // Only players with a seasonal rating are ranked — with the same deterministic
-            // tie-breaks as the season standings, so the chips match the Rankings page.
-            _ranks = _activePlayers
-                .Where(p => _seasonPlayersById.ContainsKey(p.Id))
-                .OrderByDescending(p => _seasonPlayersById[p.Id].Elo)
-                .ThenByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Wins ?? 0)
-                .ThenByDescending(p => _summaries.GetValueOrDefault(p.Id)?.Games ?? 0)
-                .ThenBy(p => p.Id)
-                .Select((p, idx) => (p.Id, Rank: idx + 1))
-                .ToDictionary(x => x.Id, x => x.Rank);
-        }
-        else
-        {
-            var (playersById, matches) = await StatsEngine.LoadAsync(_team.Id);
-            _seasonPlayersById = new Dictionary<int, SeasonPlayer>();
-            _stats = StatsEngine.Compute(playersById, matches, isAllTime: true);
-
-            var all = playersById.Values.ToList();
-            _activePlayers = all.Where(p => p.IsActive).ToList();
-            _inactivePlayers = all.Where(p => !p.IsActive).ToList();
-
-            _summaries = BuildSummaries(matches, seasonal: false);
-            _ranks = _activePlayers
-                .OrderByDescending(p => p.Elo)
-                .Select((p, idx) => (p.Id, Rank: idx + 1))
-                .ToDictionary(x => x.Id, x => x.Rank);
-        }
-    }
-
-    private static Dictionary<int, PlayerSummary> BuildSummaries(IReadOnlyList<Match> matches, bool seasonal)
-    {
-        var result = new Dictionary<int, PlayerSummary>();
-        foreach (var match in matches)
-        {
-            foreach (var mp in match.MatchPlayers)
-            {
-                if (!result.TryGetValue(mp.PlayerId, out var s))
-                {
-                    s = new PlayerSummary();
-                    result[mp.PlayerId] = s;
-                }
-                s.Games++;
-                var won = (mp.TeamNumber == 1 && match.Team1Score > match.Team2Score)
-                       || (mp.TeamNumber == 2 && match.Team2Score > match.Team1Score);
-                if (won) s.Wins++;
-                else s.Losses++;
-                if (s.LastPlayedAt == null || match.PlayedAt > s.LastPlayedAt)
-                {
-                    s.LastPlayedAt = match.PlayedAt;
-                    // The trend chip shows the change on the lens's ladder.
-                    s.LastEloChange = seasonal ? mp.SeasonEloChange ?? 0 : mp.EloChange;
-                }
-            }
-        }
-        return result;
-    }
-
-    private sealed class PlayerSummary
-    {
-        public int Games { get; set; }
-        public int Wins { get; set; }
-        public int Losses { get; set; }
-        public DateTimeOffset? LastPlayedAt { get; set; }
-        public int LastEloChange { get; set; }
-        public double WinRate => Games > 0 ? Wins * 100.0 / Games : 0;
+        // badges come from the season; with no active season, all-time (idle default). One query
+        // returns the whole roster payload (GetRosterQuery).
+        var roster = (await Sender.Send(new GetRosterQuery(_team.Id))).Value;
+        _activeSeason = roster.ActiveSeason;
+        _seasonEloByPlayer = roster.SeasonEloByPlayer;
+        _stats = roster.Badges;
+        _summaries = roster.Summaries;
+        _ranks = roster.Ranks;
+        _activePlayers = roster.Players.Where(p => p.IsActive).ToList();
+        _inactivePlayers = roster.Players.Where(p => !p.IsActive).ToList();
     }
 
     private void ShowAddModal()
@@ -499,9 +426,8 @@ else
         try
         {
             if (_team == null) return;
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null) return;
-            _inviteToken = await ShareTokenService.GenerateTokenAsync(_team.Id, userId.Value);
+            var tokenResult = await Sender.Send(new GenerateShareTokenCommand(_team.Id));
+            _inviteToken = tokenResult.IsSuccess ? tokenResult.Value : null;
         }
         catch
         {
@@ -550,22 +476,10 @@ else
             }
             _formModel.Name = name;
 
-            if (await PlayerService.IsNameTakenAsync(_team.Id, name))
+            var created = await Sender.Send(new CreatePlaceholderPlayerCommand(_team.Id, _formModel.Name, _formModel.AvatarId));
+            if (created.IsFailure)
             {
-                _modalError = "A player with this name already exists.";
-                return;
-            }
-
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
-            {
-                _modalError = "You must be logged in.";
-                return;
-            }
-            var created = await PlayerService.CreatePlaceholderAsync(_team.Id, userId.Value, _formModel.Name, _formModel.AvatarId);
-            if (created == null)
-            {
-                _modalError = "Only the team captain can add players.";
+                _modalError = created.Error.Message;
                 return;
             }
             _message = $"Player '{_formModel.Name}' added successfully.";
@@ -583,7 +497,7 @@ else
         }
     }
 
-    private void ShowDeactivateConfirm(Player player)
+    private void ShowDeactivateConfirm(PlayerDto player)
     {
         _playerToDeactivate = player;
         _deactivateError = null;
@@ -599,22 +513,10 @@ else
 
         try
         {
-            if (!await PlayerService.CanDeactivateAsync(_playerToDeactivate.Id))
+            var deactivated = await Sender.Send(new DeactivatePlayerCommand(_team.Id, _playerToDeactivate.Id));
+            if (deactivated.IsFailure)
             {
-                _deactivateError = $"Cannot deactivate player with matches in the last {Constants.TimeThresholds.RecentActivityDays} days.";
-                return;
-            }
-
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
-            {
-                _deactivateError = "You must be logged in.";
-                return;
-            }
-            var deactivated = await PlayerService.DeactivateAsync(_playerToDeactivate.Id, _team.Id, userId.Value);
-            if (!deactivated)
-            {
-                _deactivateError = "Failed to deactivate player.";
+                _deactivateError = deactivated.Error.Message;
                 return;
             }
             _message = $"Player '{_playerToDeactivate.Name}' deactivated.";
@@ -633,21 +535,14 @@ else
         }
     }
 
-    private async Task ReactivatePlayer(Player player)
+    private async Task ReactivatePlayer(PlayerDto player)
     {
         if (_team == null) return;
 
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
-            {
-                _message = "You must be logged in.";
-                _messageIsError = true;
-                return;
-            }
-            var reactivated = await PlayerService.ReactivateAsync(player.Id, _team.Id, userId.Value);
-            if (!reactivated)
+            var reactivated = await Sender.Send(new ReactivatePlayerCommand(_team.Id, player.Id));
+            if (reactivated.IsFailure)
             {
                 _message = "Failed to reactivate player.";
                 _messageIsError = true;

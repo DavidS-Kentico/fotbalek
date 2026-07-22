@@ -1,11 +1,9 @@
 @implements IAsyncDisposable
-@inject CurrentUserService CurrentUser
-@inject TeamMembershipService MembershipService
-@inject ChatService Chat
+@inject CurrentUserAccessor CurrentUser
+@inject IScopedSender Sender
 @inject ChatNotifier Notifier
 @inject ChatUiState UiState
 @inject PresenceTracker Presence
-@inject PlayerService PlayerService
 @inject TimeZoneService Tz
 @inject IJSRuntime JS
 
@@ -102,7 +100,7 @@
     /// team (unless the panel is already open with a selection this circuit).</summary>
     [Parameter] public int? DefaultTeamId { get; set; }
 
-    private record TeamEntry(Team Team, Player MyPlayer);
+    private record TeamEntry(TeamDto Team, PlayerDto MyPlayer);
     private record Banner(long Key, int TeamId, string TeamName, string Text);
     private record DockInit(int Token, bool Active, bool Coarse);
 
@@ -133,7 +131,7 @@
             return;
         _userId = userId.Value;
 
-        var overview = await MembershipService.GetMembershipOverviewForUserAsync(_userId);
+        var overview = (await Sender.Send(new GetMembershipOverviewQuery())).Value;
         _teams = overview
             .Where(o => o.MyPlayer != null)
             .Select(o => new TeamEntry(o.Team, o.MyPlayer!))
@@ -144,7 +142,7 @@
         // Claimed rosters per team for the rail's online dots.
         foreach (var entry in _teams)
         {
-            var roster = await PlayerService.GetByTeamAsync(entry.Team.Id);
+            var roster = (await Sender.Send(new GetTeamPlayersQuery(entry.Team.Id))).Value;
             _rosterUserIdsByTeam[entry.Team.Id] = roster
                 .Where(p => p.UserId.HasValue)
                 .Select(p => p.UserId!.Value)
@@ -160,7 +158,7 @@
         _subscribed = true;
 
         await Tz.EnsureResolvedAsync();
-        foreach (var (teamId, preview) in await Chat.GetThreadPreviewsAsync(_userId))
+        foreach (var (teamId, preview) in (await Sender.Send(new GetChatThreadPreviewsQuery())).Value)
             _previews[teamId] = preview;
 
         // Team pages hint their team; it only overrides while the panel is closed so an open
@@ -247,7 +245,7 @@
                 // before it; any other deletion leaves the preview untouched.
                 if (_previews.TryGetValue(teamId, out var current) && current.MessageId == messageId)
                 {
-                    var replacement = await Chat.GetThreadPreviewAsync(_userId, teamId);
+                    var replacement = (await Sender.Send(new GetChatThreadPreviewQuery(teamId))).Value;
                     if (replacement != null)
                         _previews[teamId] = replacement;
                     else
@@ -323,7 +321,7 @@
     {
         // Recompute, never increment — a user's own sends advance their watermark, so a
         // count query can't drift the way a local counter would (§5.2).
-        var counts = await Chat.GetUnreadCountsAsync(_userId);
+        var counts = (await Sender.Send(new GetChatUnreadCountsQuery())).Value;
         UiState.SetUnreadCounts(counts);
     }
 

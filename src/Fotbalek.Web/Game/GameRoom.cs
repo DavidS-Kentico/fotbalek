@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Fotbalek.Web.Game.Core;
+using Fotbalek.Game;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Fotbalek.Web.Game;

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fotbalek.SharedKernel\Fotbalek.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

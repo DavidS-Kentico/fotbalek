@@ -1,10 +1,8 @@
 @page "/team/{TeamCode}/claim"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamService TeamService
-@inject PlayerService PlayerService
-@inject TeamMembershipService MembershipService
-@inject CurrentUserService CurrentUser
+@inject IScopedSender Sender
+@inject CurrentUserAccessor CurrentUser
 @inject NavigationManager Navigation
 
 <PageTitle>Choose your player - Foosball Manager</PageTitle>
@@ -66,9 +64,9 @@ else if (_team != null)
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    private Team? _team;
-    private AppUser? _user;
-    private List<Player> _claimable = new();
+    private TeamDto? _team;
+    private CurrentUserInfo? _user;
+    private List<PlayerDto> _claimable = new();
     private bool _loading = true;
     private bool _busy;
     private string? _error;
@@ -79,48 +77,42 @@ else if (_team != null)
     {
         if (!firstRender) return;
 
-        _user = await CurrentUser.GetUserAsync();
+        var userInfo = await CurrentUser.GetAsync();
+        _user = userInfo.IsAuthenticated ? userInfo : null;
         if (_user == null)
         {
             Navigation.NavigateTo("/login", forceLoad: true);
             return;
         }
 
-        _team = await TeamService.GetByCodeNameAsync(TeamCode);
+        _team = (await Sender.Send(new GetTeamByCodeNameQuery(TeamCode))).Value;
         if (_team == null)
         {
             Navigation.NavigateTo("/", forceLoad: true);
             return;
         }
 
-        var isMember = await MembershipService.IsMemberAsync(_user.Id, _team.Id);
+        var isMember = (await Sender.Send(new IsTeamMemberQuery(_team.Id))).Value;
         if (!isMember)
         {
             Navigation.NavigateTo($"/join?team={_team.CodeName}", forceLoad: true);
             return;
         }
 
-        var existing = await PlayerService.GetUserPlayerInTeamAsync(_team.Id, _user.Id);
+        var existing = (await Sender.Send(new GetMyPlayerQuery(_team.Id))).Value;
         if (existing != null)
         {
             Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             return;
         }
 
-        _claimable = await PlayerService.GetClaimablePlayersAsync(_team.Id);
+        _claimable = (await Sender.Send(new GetClaimablePlayersQuery(_team.Id))).Value;
 
         // No unclaimed players — auto-create one using the username so the user can skip the picker.
         if (_claimable.Count == 0)
         {
             var autoName = TruncateName(_user.UserName ?? "Player");
-            var finalName = autoName;
-            var suffix = 2;
-            while (await PlayerService.IsNameTakenAsync(_team.Id, finalName))
-            {
-                finalName = TruncateName($"{autoName} {suffix}");
-                suffix++;
-            }
-            await PlayerService.CreateAsync(_team.Id, finalName, 1, _user.Id);
+            await Sender.Send(new CreateMyPlayerCommand(_team.Id, autoName, 1, AutoSuffixName: true));
             Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             return;
         }
@@ -143,14 +135,14 @@ else if (_team != null)
         _error = null;
         try
         {
-            var ok = await PlayerService.ClaimAsync(playerId, _team.Id, _user.Id);
-            if (ok)
+            var result = await Sender.Send(new ClaimPlayerCommand(_team.Id, playerId));
+            if (result.IsSuccess)
             {
                 Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             }
             else
             {
-                _error = "Could not claim that player. It may have just been taken; please refresh.";
+                _error = result.Error.Message;
             }
         }
         finally
@@ -174,12 +166,14 @@ else if (_team != null)
         _error = null;
         try
         {
-            if (await PlayerService.IsNameTakenAsync(_team.Id, name))
+            var result = await Sender.Send(new CreateMyPlayerCommand(_team.Id, name, _newAvatar));
+            if (result.IsFailure)
             {
-                _error = "A player with that name already exists in this team.";
+                _error = result.Error.Code == "Players.NameTaken"
+                    ? "A player with that name already exists in this team."
+                    : result.Error.Message;
                 return;
             }
-            await PlayerService.CreateAsync(_team.Id, name, _newAvatar, _user.Id);
             Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
         }
         catch (Exception)

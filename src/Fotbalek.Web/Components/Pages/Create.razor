@@ -1,9 +1,7 @@
 @page "/create"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamService TeamService
-@inject TeamMembershipService MembershipService
-@inject CurrentUserService CurrentUser
+@inject IScopedSender Sender
 @inject NavigationManager Navigation
 
 <PageTitle>Create Team - Foosball Manager</PageTitle>
@@ -107,23 +105,19 @@
                 return;
             }
 
-            if (await TeamService.IsCodeNameTakenAsync(_model.CodeName))
+            var result = await Sender.Send(new CreateTeamCommand(_model.Name, _model.CodeName, _model.Password));
+            if (result.IsFailure)
             {
-                _error = "This URL code is already taken. Please choose a different one.";
+                if (result.Error.Type == ErrorType.Unauthorized)
+                {
+                    Navigation.NavigateTo("/login", forceLoad: true);
+                    return;
+                }
+                _error = result.Error.Message;
                 return;
             }
 
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
-            {
-                Navigation.NavigateTo("/login", forceLoad: true);
-                return;
-            }
-
-            var team = await TeamService.CreateAsync(_model.Name, _model.CodeName, _model.Password, userId.Value);
-            await MembershipService.JoinAsync(userId.Value, team.Id);
-
-            Navigation.NavigateTo($"/team/{team.CodeName}/claim", forceLoad: true);
+            Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)
         {

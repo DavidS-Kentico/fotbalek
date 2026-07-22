@@ -2,12 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject CurrentUserService CurrentUser
-@inject PlayerService PlayerService
-@inject MatchService MatchService
-@inject SeasonService SeasonService
-@inject EloService EloService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 
 <PageTitle>New Match - Foosball Manager</PageTitle>
 
@@ -273,9 +269,9 @@ else
     [SupplyParameterFromQuery(Name = "rematch")]
     public int? RematchId { get; set; }
 
-    private Team? _team;
+    private TeamDto? _team;
     private bool _loading = true;
-    private List<Player> _players = [];
+    private List<PlayerDto> _players = [];
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
     private int Team1GkId { get; set; }
@@ -298,7 +294,7 @@ else
     private string? _successMessage;
     private int? _recordedMatchId;
 
-    private Season? _activeSeason;
+    private SeasonDto? _activeSeason;
     private bool _hasAnySeason;
     private bool _seasonalToggle;
     private Dictionary<int, int> _seasonEloByPlayer = new();
@@ -314,7 +310,7 @@ else
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
         {
-            _players = await PlayerService.GetByTeamAsync(_team.Id);
+            _players = (await Sender.Send(new GetTeamPlayersQuery(_team.Id))).Value;
             await LoadSeasonContextAsync();
             _seasonalToggle = _activeSeason != null; // checked by default when a season is active
             await TryPrefillFromRematchAsync();
@@ -326,10 +322,10 @@ else
     private async Task LoadSeasonContextAsync()
     {
         if (_team == null) return;
-        _hasAnySeason = await SeasonService.HasAnySeasonAsync(_team.Id);
-        _activeSeason = _hasAnySeason ? await SeasonService.GetActiveSeasonAsync(_team.Id) : null;
+        _hasAnySeason = (await Sender.Send(new HasAnySeasonQuery(_team.Id))).Value;
+        _activeSeason = _hasAnySeason ? (await Sender.Send(new GetActiveSeasonQuery(_team.Id))).Value : null;
         _seasonEloByPlayer = _activeSeason != null
-            ? await SeasonService.GetSeasonEloMapAsync(_activeSeason.Id)
+            ? (await Sender.Send(new GetSeasonEloMapQuery(_activeSeason.Id))).Value
             : new Dictionary<int, int>();
     }
 
@@ -343,8 +339,8 @@ else
     {
         if (RematchId is not int id || _team == null) return;
 
-        var source = await MatchService.GetByIdAsync(id);
-        if (source == null || source.TeamId != _team.Id) return;
+        var source = (await Sender.Send(new GetMatchQuery(_team.Id, id))).Value;
+        if (source == null) return;
 
         int Pick(int team, string position)
         {
@@ -360,7 +356,7 @@ else
         Team2AtkId = Pick(2, Constants.Positions.Attacker);
     }
 
-    private Player? GetPlayer(int id) => id > 0 ? _players.FirstOrDefault(p => p.Id == id) : null;
+    private PlayerDto? GetPlayer(int id) => id > 0 ? _players.FirstOrDefault(p => p.Id == id) : null;
 
     private void OpenPlayerPicker(int team, bool isGk)
     {
@@ -371,7 +367,7 @@ else
 
     private void ClosePlayerPicker() => _showPlayerPicker = false;
 
-    private IEnumerable<Player> GetAvailablePlayers()
+    private IEnumerable<PlayerDto> GetAvailablePlayers()
     {
         var selectedIds = new HashSet<int> { Team1GkId, Team1AtkId, Team2GkId, Team2AtkId };
 
@@ -414,12 +410,23 @@ else
         }
     }
 
+    // UI-only preview math, formula-identical to Domain's EloCalculator (Web references Domain
+    // only for Identity plumbing per §2; the authoritative values come from CreateMatchCommand).
+    private static int PreviewTeamElo(int player1Elo, int player2Elo) => (player1Elo + player2Elo) / 2;
+
+    private static int PreviewEloChange(int team1Elo, int team2Elo, bool team1Won)
+    {
+        var expected1 = 1.0 / (1.0 + Math.Pow(10, (team2Elo - team1Elo) / 400.0));
+        var actual1 = team1Won ? 1.0 : 0.0;
+        return (int)Math.Round(Constants.Elo.KFactor * (actual1 - expected1));
+    }
+
     private int? Team1AvgIfReady => (Team1AtkId > 0 && Team1GkId > 0)
-        ? EloService.GetTeamElo(EloOf(Team1AtkId), EloOf(Team1GkId))
+        ? PreviewTeamElo(EloOf(Team1AtkId), EloOf(Team1GkId))
         : null;
 
     private int? Team2AvgIfReady => (Team2AtkId > 0 && Team2GkId > 0)
-        ? EloService.GetTeamElo(EloOf(Team2AtkId), EloOf(Team2GkId))
+        ? PreviewTeamElo(EloOf(Team2AtkId), EloOf(Team2GkId))
         : null;
 
     private int Team1AvgElo => Team1AvgIfReady ?? 0;
@@ -440,8 +447,8 @@ else
     private int GetWinDelta(int winningTeam)
     {
         if (!AllPlayersSelected) return 0;
-        var (c1, c2) = EloService.CalculateEloChange(Team1AvgElo, Team2AvgElo, winningTeam == 1);
-        return winningTeam == 1 ? c1 : c2;
+        var change1 = PreviewEloChange(Team1AvgElo, Team2AvgElo, winningTeam == 1);
+        return winningTeam == 1 ? change1 : -change1;
     }
 
     // The match's own ladder: seasonal ELO (players without a ladder row count as 1000)
@@ -477,7 +484,7 @@ else
         var picked = _balanceSelectedIds.Select(id => _players.First(p => p.Id == id)).ToList();
 
         // Three possible 2v2 splits — pick the one minimizing team ELO gap (on the match's ladder).
-        var splits = new (Player a1, Player a2, Player b1, Player b2)[]
+        var splits = new (PlayerDto a1, PlayerDto a2, PlayerDto b1, PlayerDto b2)[]
         {
             (picked[0], picked[1], picked[2], picked[3]),
             (picked[0], picked[2], picked[1], picked[3]),
@@ -487,7 +494,7 @@ else
         var best = splits.OrderBy(s => Math.Abs((EloOf(s.a1.Id) + EloOf(s.a2.Id)) - (EloOf(s.b1.Id) + EloOf(s.b2.Id)))).First();
 
         // Assign positions to minimize per-position imbalance across teams.
-        Player bestAtk1 = best.a1, bestGk1 = best.a2, bestAtk2 = best.b1, bestGk2 = best.b2;
+        PlayerDto bestAtk1 = best.a1, bestGk1 = best.a2, bestAtk2 = best.b1, bestGk2 = best.b2;
         var bestScore = int.MaxValue;
         foreach (var swap1 in new[] { false, true })
         foreach (var swap2 in new[] { false, true })
@@ -573,22 +580,20 @@ else
 
         try
         {
-            var userId = await CurrentUser.GetUserIdAsync();
-            if (userId == null)
-            {
-                _error = "You must be logged in to record a match.";
-                return;
-            }
-
-            var result = await MatchService.CreateAsync(
+            var creation = await Sender.Send(new CreateMatchCommand(
                 _team.Id,
                 Team1GkId, Team1AtkId,
                 Team2GkId, Team2AtkId,
                 Team1Score, Team2Score,
-                userId.Value,
-                seasonal: UseSeasonalLadder);
+                Seasonal: UseSeasonalLadder));
+            if (creation.IsFailure)
+            {
+                _error = creation.Error.Message;
+                return;
+            }
+            var result = creation.Value;
 
-            _players = await PlayerService.GetByTeamAsync(_team.Id);
+            _players = (await Sender.Send(new GetTeamPlayersQuery(_team.Id))).Value;
             await LoadSeasonContextAsync();
             if (_activeSeason == null) _seasonalToggle = false;
 
@@ -609,14 +614,6 @@ else
                 _successMessage += " — the season ended in the meantime, so the match was recorded off-season.";
             }
             _showSuccess = true;
-        }
-        catch (ArgumentException ex)
-        {
-            _error = ex.Message;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _error = ex.Message;
         }
         catch (Exception)
         {

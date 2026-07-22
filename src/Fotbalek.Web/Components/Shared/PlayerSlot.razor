@@ -26,7 +26,7 @@
 @code {
     [Parameter, EditorRequired] public int Team { get; set; }
     [Parameter, EditorRequired] public bool IsGoalkeeper { get; set; }
-    [Parameter] public Player? Player { get; set; }
+    [Parameter] public PlayerDto? Player { get; set; }
     [Parameter] public int? MyPlayerId { get; set; }
     [Parameter] public EventCallback OnSelect { get; set; }
     [Parameter] public EventCallback OnRemove { get; set; }

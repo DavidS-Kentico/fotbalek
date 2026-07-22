@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fotbalek.Domain\Fotbalek.Domain.csproj" />
+    <ProjectReference Include="..\Fotbalek.Contracts\Fotbalek.Contracts.csproj" />
+    <ProjectReference Include="..\Fotbalek.SharedKernel\Fotbalek.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="MediatR" />
+    <!-- Relational rather than core: handlers keep today's ExecuteUpdate/ExecuteDelete bulk ops
+         (those extensions live in the Relational package) — AI/architecture.md §2. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <!-- Second documented exception: UserManager<AppUser> in Features/Admin (host-agnostic pkg) — §2. -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+  </ItemGroup>
+
+</Project>

@@ -1,8 +1,8 @@
 @page "/admin"
 @layout AdminLayout
 @attribute [Authorize(Policy = AdminAuth.Policy)]
-@using Fotbalek.Web.Configuration
-@inject AdminService AdminService
+@using Fotbalek.Web.Auth
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject IJSRuntime JS
 
@@ -131,19 +131,19 @@
 </Modal>
 
 @code {
-    private List<AdminService.UserRow>? _users;
+    private List<AdminUserRowDto>? _users;
     private bool _loading = true;
     private string? _error;
     private string _search = string.Empty;
 
     private bool _showResetModal;
-    private AdminService.UserRow? _resetTarget;
+    private AdminUserRowDto? _resetTarget;
     private string? _tempPassword;
     private string? _resetError;
     private bool _resetting;
     private bool _copied;
 
-    private List<AdminService.UserRow> FilteredUsers =>
+    private List<AdminUserRowDto> FilteredUsers =>
         string.IsNullOrWhiteSpace(_search)
             ? _users ?? []
             : (_users ?? []).Where(u => u.UserName?.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase) == true).ToList();
@@ -157,7 +157,15 @@
             // Nothing under AdminLayout resolves the browser timezone — do it here before
             // formatting any dates.
             await Tz.EnsureResolvedAsync();
-            _users = await AdminService.GetUsersAsync();
+            var result = await Sender.Send(new GetAdminUsersQuery());
+            if (result.IsFailure)
+            {
+                _error = "Failed to load users.";
+            }
+            else
+            {
+                _users = result.Value;
+            }
         }
         catch
         {
@@ -170,7 +178,7 @@
         }
     }
 
-    private void OpenResetModal(AdminService.UserRow user)
+    private void OpenResetModal(AdminUserRowDto user)
     {
         _resetTarget = user;
         _tempPassword = null;
@@ -193,7 +201,15 @@
         _resetting = true;
         try
         {
-            _tempPassword = await AdminService.ResetPasswordAsync(_resetTarget.Id);
+            var result = await Sender.Send(new ResetUserPasswordCommand(_resetTarget.Id));
+            if (result.IsFailure)
+            {
+                _resetError = "Password reset failed. Try again.";
+            }
+            else
+            {
+                _tempPassword = result.Value;
+            }
         }
         catch
         {

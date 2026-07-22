@@ -2,9 +2,8 @@
 @layout TeamLayout
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject TeamAccessService TeamAccess
-@inject SeasonService SeasonService
-@inject StatsService StatsService
+@inject CurrentTeamProvider TeamAccess
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject NavigationManager Navigation
 
@@ -299,8 +298,8 @@ else
     [Parameter] public int SeasonId { get; set; }
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
 
-    private Team? _team;
-    private Season? _season;
+    private TeamDto? _team;
+    private SeasonDto? _season;
     private bool _loading = true;
     private bool _isCaptain;
     private int _matchCount;
@@ -308,7 +307,7 @@ else
     private List<PositionRanking> _goalkeepers = [];
     private List<PositionRanking> _attackers = [];
     private List<PairStats> _pairs = [];
-    private List<SeasonAward> _awards = [];
+    private List<SeasonAwardDto> _awards = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -329,18 +328,19 @@ else
     {
         if (_team == null) return;
 
-        var season = await SeasonService.GetByIdAsync(SeasonId);
+        var season = (await Sender.Send(new GetSeasonQuery(SeasonId))).Value;
         if (season == null || season.TeamId != _team.Id)
         {
             _season = null;
             return;
         }
         _season = season;
-        _matchCount = await SeasonService.GetMatchCountAsync(season.Id);
-        _standings = await StatsService.GetSeasonStandingsAsync(season);
-        (_goalkeepers, _attackers) = await StatsService.GetSeasonPositionRankingsAsync(season);
-        _pairs = await StatsService.GetSeasonPairRankingsAsync(season);
-        _awards = season.IsClosed ? await SeasonService.GetAwardsAsync(season.Id) : [];
+        _matchCount = (await Sender.Send(new GetSeasonMatchCountQuery(season.Id))).Value;
+        _standings = (await Sender.Send(new GetSeasonStandingsQuery(season.Id))).Value;
+        var positions = (await Sender.Send(new GetSeasonPositionRankingsQuery(season.Id))).Value;
+        (_goalkeepers, _attackers) = (positions.Goalkeepers, positions.Attackers);
+        _pairs = (await Sender.Send(new GetSeasonPairRankingsQuery(season.Id))).Value;
+        _awards = season.IsClosed ? (await Sender.Send(new GetSeasonAwardsQuery(season.Id))).Value : [];
     }
 
     private async Task ReloadAsync()
@@ -386,15 +386,15 @@ else
                     <div class="d-flex align-items-center gap-2 mb-1">
                         <span title="@($"Rank {award.Rank}")">@Medal(award.Rank)</span>
                         <a href="/team/@TeamCode/players/@award.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
-                            <Avatar AvatarId="@award.Player.AvatarId" Size="sm" />
-                            <span class="small">@award.Player.Name</span>
+                            <Avatar AvatarId="@award.PlayerAvatarId" Size="sm" />
+                            <span class="small">@award.PlayerName</span>
                         </a>
-                        @if (award.PartnerPlayer != null)
+                        @if (award.PartnerPlayerId != null)
                         {
                             <span class="text-muted small">&</span>
                             <a href="/team/@TeamCode/players/@award.PartnerPlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
-                                <Avatar AvatarId="@award.PartnerPlayer.AvatarId" Size="sm" />
-                                <span class="small">@award.PartnerPlayer.Name</span>
+                                <Avatar AvatarId="@(award.PartnerPlayerAvatarId ?? 1)" Size="sm" />
+                                <span class="small">@award.PartnerPlayerName</span>
                             </a>
                         }
                     </div>

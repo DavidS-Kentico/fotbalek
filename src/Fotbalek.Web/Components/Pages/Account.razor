@@ -1,7 +1,6 @@
 @page "/account"
 @attribute [Authorize]
-@inject CurrentUserService CurrentUser
-@inject TeamMembershipService MembershipService
+@inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject IJSRuntime JS
 
@@ -161,8 +160,8 @@
 </PageContainer>
 
 @code {
-    private AppUser? _user;
-    private List<TeamMembershipService.MembershipOverview> _memberships = [];
+    private Fotbalek.Contracts.Account.AccountInfoDto? _user;
+    private List<MembershipOverviewDto> _memberships = [];
     private bool _loading = true;
     private string _theme = "system";
 
@@ -200,10 +199,10 @@
             // Reflect the saved colour-theme preference in the selector.
             _theme = await JS.InvokeAsync<string>("fotbalekTheme.get");
 
-            _user = await CurrentUser.GetUserAsync();
+            _user = (await Sender.Send(new GetMyAccountQuery())).Value;
             if (_user != null)
             {
-                _memberships = await MembershipService.GetMembershipOverviewForUserAsync(_user.Id);
+                _memberships = (await Sender.Send(new GetMembershipOverviewQuery())).Value;
             }
         }
         finally

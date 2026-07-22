@@ -1,4 +1,6 @@
-using Fotbalek.Web.Game.Core;
+using Fotbalek.Application.Features.Memberships;
+using Fotbalek.Application.Features.Players;
+using Fotbalek.Game;
 using Fotbalek.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Connections.Features;
@@ -10,13 +12,14 @@ namespace Fotbalek.Web.Game;
 /// Connection lifecycle + input only (§4.2) — a logic-free adapter over <see cref="GameRoom"/>.
 /// All other lobby mutations go through the room API directly from the Blazor circuit.
 /// The default authorization policy (authenticated + NameIdentifier claim) applies, so
-/// admin-only cookie sessions are rejected for free.
+/// admin-only cookie sessions are rejected for free. JoinRoom is the hub's one data touchpoint —
+/// its membership check and player lookup are Application queries dispatched per §4.3/§4.4
+/// (each dispatch gets its own DI scope).
 /// </summary>
 [Authorize]
 public class GameHub(
     GameRoomManager rooms,
-    TeamMembershipService membership,
-    PlayerService players,
+    ScopedDispatcher dispatcher,
     ILogger<GameHub> logger) : Hub
 {
     private const string RoomKey = "room";
@@ -33,12 +36,14 @@ public class GameHub(
         var room = rooms.Get(roomId);
         if (room == null || !int.TryParse(Context.UserIdentifier, out var userId))
             return null;
-        if (!await membership.IsMemberAsync(userId, room.TeamId))
+        var isMember = await dispatcher.Send(new IsUserTeamMemberQuery(room.TeamId, userId), Context.User);
+        if (isMember.IsFailure || !isMember.Value)
             return null;
 
         // Display name/avatar: the user's claimed Player in this team; the generic fallback is
         // defensive — TeamLayout redirects unclaimed members before they reach team pages (§3.7).
-        var player = await players.GetUserPlayerInTeamAsync(room.TeamId, userId);
+        var playerResult = await dispatcher.Send(new GetUserPlayerInTeamQuery(room.TeamId, userId), Context.User);
+        var player = playerResult.IsSuccess ? playerResult.Value : null;
         var name = player?.Name ?? Context.User?.Identity?.Name ?? "Player";
         var avatarId = player?.AvatarId ?? 1;
 
