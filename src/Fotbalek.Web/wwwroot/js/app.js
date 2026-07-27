@@ -1,3 +1,16 @@
+// ===== PWA service worker =====
+// Registers the installable-shell worker (see /service-worker.js). Deferred to window load so
+// it never competes with the Blazor circuit for startup bandwidth. The worker deliberately does
+// not enable offline app use — Blazor Server needs a live connection — it only makes the app
+// installable and caches the static shell + offline notice.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function (err) {
+            console.warn('Service worker registration failed:', err);
+        });
+    });
+}
+
 // Convert UTC dates to local time
 function formatLocalDates() {
     document.querySelectorAll('.match-date').forEach(function(el) {

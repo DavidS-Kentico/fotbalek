@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline · Fotbálek</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+        :root { color-scheme: light dark; }
+        html, body {
+            height: 100%; margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: #ffffff; color: #212529;
+        }
+        @media (prefers-color-scheme: dark) {
+            html, body { background: #1a1d20; color: #dee2e6; }
+        }
+        .wrap {
+            min-height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center;
+            padding: 2rem; box-sizing: border-box;
+        }
+        img { width: 96px; height: 96px; margin-bottom: 1.5rem; }
+        h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+        p { margin: 0 0 1.5rem; max-width: 28rem; line-height: 1.5; opacity: .85; }
+        button {
+            font: inherit; font-weight: 600; color: #fff; background: #198754;
+            border: none; border-radius: .5rem; padding: .65rem 1.4rem; cursor: pointer;
+        }
+        button:hover { background: #157347; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <img src="/icon-192.png" alt="Fotbálek" />
+        <h1>You're offline</h1>
+        <p>Fotbálek needs a live connection to run — matches, live games and chat all update in
+           real time. Reconnect to the network and try again.</p>
+        <button onclick="location.reload()">Retry</button>
+    </div>
+</body>
+</html>
