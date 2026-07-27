@@ -27,11 +27,8 @@ internal sealed class SendChatMessageCommandHandler(
         if (userContext.UserId is not int userId)
             return Result.Failure<ChatMessageDto>(CommonErrors.NotAuthenticated);
 
-        var body = (command.Body ?? string.Empty).Trim();
-        if (body.Length == 0)
+        if (!ChatMessageContent.TryNormalize(command.Body, out var body))
             return Result.Failure<ChatMessageDto>(Error.Validation("Chat.Empty", "The message is empty."));
-        if (body.Length > Constants.Chat.MaxMessageLength)
-            body = body[..Constants.Chat.MaxMessageLength];
 
         if (!await teamAccess.IsMemberAsync(command.TeamId, cancellationToken))
             return Result.Failure<ChatMessageDto>(CommonErrors.NotMember);

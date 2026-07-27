@@ -54,6 +54,12 @@
     font-size: .9rem;
     line-height: 1.4;
     padding-left: var(--chat-gutter);
+    /* Defense-in-depth for stray combining marks ("Zalgo") that the server sanitizer didn't
+       catch or that predate it: clip glyph bleed to this message's own box so it can never
+       paint over the avatar gutter, the header, or neighbouring messages. overflow-clip-margin
+       leaves a hair of room for legitimate descenders/emoji. */
+    overflow: clip;
+    overflow-clip-margin: 0.3rem;
 }
 
 .chat-msg-tombstone {

@@ -28,11 +28,8 @@ internal sealed class EditChatMessageCommandHandler(
         if (userContext.UserId is not int userId)
             return Result.Failure(CommonErrors.NotAuthenticated);
 
-        var newBody = (command.NewBody ?? string.Empty).Trim();
-        if (newBody.Length == 0)
+        if (!ChatMessageContent.TryNormalize(command.NewBody, out var newBody))
             return Result.Failure(Error.Validation("Chat.Empty", "The message is empty."));
-        if (newBody.Length > Constants.Chat.MaxMessageLength)
-            newBody = newBody[..Constants.Chat.MaxMessageLength];
 
         if (!await teamAccess.IsMemberAsync(command.TeamId, cancellationToken))
             return Result.Failure(CommonErrors.NotMember);
