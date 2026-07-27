@@ -1,13 +1,13 @@
 @* Match-detail panel showing one team's roster with ELO changes. Leads with the ladder the match
    belongs to (seasonal for seasonal matches); the all-time change is secondary in that case. *@
 
-<div class="panel panel--accent panel--@HeaderVariant @(IsWinner ? "panel--winner" : "") h-100">
+<div class="panel panel--accent panel--@HeaderVariant @(IsWinner ? "panel--winner" : "") h-full">
     <div class="panel__head">
         <i class="bi @(IsWinner ? "bi-trophy-fill" : "bi-people-fill")"></i>
         <h3 class="panel__title">@Title</h3>
         @if (IsWinner)
         {
-            <span class="badge text-bg-success ms-auto"><i class="bi bi-trophy me-1"></i>Winner</span>
+            <span class="badge bg-brand text-white ms-auto"><i class="bi bi-trophy me-1"></i>Winner</span>
         }
     </div>
     <div class="panel__body">
@@ -16,24 +16,24 @@
             var change = IsSeasonal ? mp.SeasonEloChange ?? 0 : mp.EloChange;
             var before = IsSeasonal ? mp.SeasonEloBefore ?? 0 : mp.EloBefore;
             var after = IsSeasonal ? mp.SeasonEloAfter ?? 0 : mp.EloAfter;
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="d-flex align-items-center gap-2">
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center gap-2">
                     <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
                     <div>
-                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none">
+                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="no-underline">
                             @mp.PlayerName
                         </a>
-                        <small class="text-muted d-block">@mp.Position</small>
+                        <small class="text-ink-muted block">@mp.Position</small>
                     </div>
                 </div>
-                <div class="text-end">
-                    <span class="badge @(change >= 0 ? "bg-success" : "bg-danger")" title="@(IsSeasonal ? "Seasonal ELO change" : "ELO change")">
+                <div class="text-right">
+                    <span class="badge @(change >= 0 ? "bg-brand" : "bg-danger")" title="@(IsSeasonal ? "Seasonal ELO change" : "ELO change")">
                         @(change >= 0 ? "+" : "")@change
                     </span>
-                    <small class="text-muted d-block">@before -> @after</small>
+                    <small class="text-ink-muted block">@before -> @after</small>
                     @if (IsSeasonal)
                     {
-                        <small class="text-muted d-block" title="All-time ladder (secondary)">
+                        <small class="text-ink-muted block" title="All-time ladder (secondary)">
                             all-time @(mp.EloChange >= 0 ? "+" : "")@mp.EloChange
                         </small>
                     }

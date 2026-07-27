@@ -14,11 +14,11 @@
 else if (_team != null)
 {
     <PageContainer>
-        <div class="row justify-content-center">
-            <div class="col-md-10 col-lg-8">
-                <div class="text-center mb-4">
-                    <h2><i class="bi bi-person-check text-success me-2"></i>Choose your player</h2>
-                    <p class="text-muted">You've joined <strong>@_team.Name</strong>. Pick an existing unclaimed player, or create a new one.</p>
+        <div class="grid grid-cols-12 gap-x-6 justify-center">
+            <div class="col-span-12 md:col-span-10 lg:col-span-8">
+                <div class="text-center mb-6">
+                    <h2><i class="bi bi-person-check text-brand me-2"></i>Choose your player</h2>
+                    <p class="text-ink-muted">You've joined <strong>@_team.Name</strong>. Pick an existing unclaimed player, or create a new one.</p>
                 </div>
 
                 <AlertMessage Message="@_error" Variant="danger" />
@@ -26,15 +26,15 @@ else if (_team != null)
                 <Panel Title="Claim an existing player" Icon="bi bi-people">
                     @if (_claimable.Count == 0)
                     {
-                        <p class="text-muted mb-0">No unclaimed players in this team. Create a new one below.</p>
+                        <p class="text-ink-muted mb-0">No unclaimed players in this team. Create a new one below.</p>
                     }
                     else
                     {
-                        <div class="row row-cols-2 row-cols-md-3 g-2">
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
                             @foreach (var p in _claimable)
                             {
-                                <div class="col">
-                                    <button type="button" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-start gap-2 py-2"
+                                <div>
+                                    <button type="button" class="btn btn-outline-success w-full flex items-center justify-start gap-2 py-2"
                                             @onclick="() => Claim(p.Id)" disabled="@_busy">
                                         <Avatar AvatarId="@p.AvatarId" Size="sm" />
                                         <span>@p.Name</span>
@@ -46,11 +46,11 @@ else if (_team != null)
                 </Panel>
 
                 <Panel Title="Or create a new player" Icon="bi bi-plus-circle">
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="newName" class="form-label">Name</label>
                         <input id="newName" class="form-control" @bind="_newName" maxlength="50" />
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label class="form-label">Avatar</label>
                         <AvatarPicker @bind-Value="_newAvatar" />
                     </div>

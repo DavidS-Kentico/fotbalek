@@ -1,0 +1,325 @@
+/* ============================================================================
+   Buttons
+   ----------------------------------------------------------------------------
+   `.btn` is the shape; a variant class supplies the palette through four custom
+   properties. Adding a variant means declaring those four values — no new
+   layout, sizing or state rules.
+
+     .btn                          base shape, neutral palette
+     .btn-success | -secondary | -primary | -danger | -warning | -light | -dark
+     .btn-outline-*               same palettes, transparent until hovered
+     .btn-link                    looks like a link, behaves like a button
+     .btn-sm | .btn-lg            size steps
+     .btn-close                   the ✕ in modal headers
+     .btn-group                   segmented row of buttons
+   ============================================================================ */
+
+@layer components {
+    .btn {
+        /* Variant surface. Overridden by the palette classes below. */
+        --btn-color: var(--color-ink);
+        --btn-bg: transparent;
+        --btn-border: transparent;
+        --btn-hover-color: var(--color-ink);
+        --btn-hover-bg: transparent;
+        --btn-hover-border: transparent;
+        --btn-active-bg: transparent;
+        --btn-active-border: transparent;
+
+        /* Size. Overridden by .btn-sm / .btn-lg. */
+        --btn-padding-y: 0.375rem;
+        --btn-padding-x: 0.75rem;
+        --btn-font-size: 1rem;
+        --btn-radius: var(--radius-sm);
+
+        display: inline-block;
+        padding: var(--btn-padding-y) var(--btn-padding-x);
+        font-size: var(--btn-font-size);
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--btn-color);
+        text-align: center;
+        text-decoration: none;
+        vertical-align: middle;
+        cursor: pointer;
+        user-select: none;
+        background-color: var(--btn-bg);
+        border: 1px solid var(--btn-border);
+        border-radius: var(--btn-radius);
+        transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+                    border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .btn:hover {
+        color: var(--btn-hover-color);
+        background-color: var(--btn-hover-bg);
+        border-color: var(--btn-hover-border);
+    }
+
+    .btn:active,
+    .btn.active {
+        color: var(--btn-hover-color);
+        background-color: var(--btn-active-bg);
+        border-color: var(--btn-active-border);
+    }
+
+    /* Brand-green ring. The inner ring uses the page surface rather than a fixed
+       white so it reads correctly in dark mode too. `:focus-visible`, not
+       `:focus`: a mouse click on a button should not leave a ring behind, which
+       is also what the generic rule in base.css does. */
+    .btn:focus-visible {
+        outline: 0;
+        box-shadow: var(--focus-ring);
+    }
+
+    .btn:disabled,
+    .btn.disabled {
+        pointer-events: none;
+        opacity: 0.65;
+    }
+
+    /* ---- Sizes ------------------------------------------------------------- */
+    .btn-sm,
+    .btn-group-sm > .btn {
+        --btn-padding-y: 0.25rem;
+        --btn-padding-x: 0.5rem;
+        --btn-font-size: 0.875rem;
+        --btn-radius: var(--radius-xs);
+    }
+
+    .btn-lg,
+    .btn-group-lg > .btn {
+        --btn-padding-y: 0.5rem;
+        --btn-padding-x: 1rem;
+        --btn-font-size: 1.25rem;
+        --btn-radius: var(--radius-md);
+    }
+
+    /* ---- Solid variants ---------------------------------------------------- */
+    .btn-success {
+        --btn-color: var(--color-white);
+        --btn-bg: var(--color-brand);
+        --btn-border: var(--color-brand);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-brand-strong);
+        --btn-hover-border: var(--color-brand-deep);
+        --btn-active-bg: var(--color-brand-deep);
+        --btn-active-border: #13653f;
+    }
+
+    .btn-secondary {
+        --btn-color: var(--color-white);
+        --btn-bg: var(--color-neutral);
+        --btn-border: var(--color-neutral);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: #5c636a;
+        --btn-hover-border: #565e64;
+        --btn-active-bg: #565e64;
+        --btn-active-border: #51585e;
+    }
+
+    .btn-primary {
+        --btn-color: var(--color-white);
+        --btn-bg: var(--color-primary);
+        --btn-border: var(--color-primary);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: #0b5ed7;
+        --btn-hover-border: var(--color-primary-strong);
+        --btn-active-bg: var(--color-primary-strong);
+        --btn-active-border: #0a53be;
+    }
+
+    .btn-danger {
+        --btn-color: var(--color-white);
+        --btn-bg: var(--color-danger);
+        --btn-border: var(--color-danger);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-danger-strong);
+        --btn-hover-border: #b02a37;
+        --btn-active-bg: #b02a37;
+        --btn-active-border: #a52834;
+    }
+
+    .btn-warning {
+        --btn-color: var(--color-black);
+        --btn-bg: var(--color-warning);
+        --btn-border: var(--color-warning);
+        --btn-hover-color: var(--color-black);
+        --btn-hover-bg: #ffca2c;
+        --btn-hover-border: #ffc720;
+        --btn-active-bg: #ffcd39;
+        --btn-active-border: #ffc720;
+    }
+
+    .btn-light {
+        --btn-color: var(--color-black);
+        --btn-bg: var(--color-gray-100);
+        --btn-border: var(--color-gray-100);
+        --btn-hover-color: var(--color-black);
+        --btn-hover-bg: #d3d4d5;
+        --btn-hover-border: #c6c7c8;
+        --btn-active-bg: #c6c7c8;
+        --btn-active-border: #babbbc;
+    }
+
+    .btn-dark {
+        --btn-color: var(--color-white);
+        --btn-bg: var(--color-gray-900);
+        --btn-border: var(--color-gray-900);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: #424649;
+        --btn-hover-border: #373b3e;
+        --btn-active-bg: #4d5154;
+        --btn-active-border: #373b3e;
+    }
+
+    /* ---- Outline variants -------------------------------------------------- */
+    /* Transparent with a coloured edge, filling with that colour on hover. */
+    .btn-outline-success {
+        --btn-color: var(--color-brand);
+        --btn-border: var(--color-brand);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-brand);
+        --btn-hover-border: var(--color-brand);
+        --btn-active-bg: var(--color-brand);
+        --btn-active-border: var(--color-brand);
+    }
+
+    .btn-outline-secondary {
+        --btn-color: var(--color-neutral);
+        --btn-border: var(--color-neutral);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-neutral);
+        --btn-hover-border: var(--color-neutral);
+        --btn-active-bg: var(--color-neutral);
+        --btn-active-border: var(--color-neutral);
+    }
+
+    .btn-outline-danger {
+        --btn-color: var(--color-danger);
+        --btn-border: var(--color-danger);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-danger);
+        --btn-hover-border: var(--color-danger);
+        --btn-active-bg: var(--color-danger);
+        --btn-active-border: var(--color-danger);
+    }
+
+    .btn-outline-primary {
+        --btn-color: var(--color-primary);
+        --btn-border: var(--color-primary);
+        --btn-hover-color: var(--color-white);
+        --btn-hover-bg: var(--color-primary);
+        --btn-hover-border: var(--color-primary);
+        --btn-active-bg: var(--color-primary);
+        --btn-active-border: var(--color-primary);
+    }
+
+    .btn-outline-light {
+        --btn-color: var(--color-gray-100);
+        --btn-border: var(--color-gray-100);
+        --btn-hover-color: var(--color-black);
+        --btn-hover-bg: var(--color-gray-100);
+        --btn-hover-border: var(--color-gray-100);
+        --btn-active-bg: var(--color-gray-100);
+        --btn-active-border: var(--color-gray-100);
+    }
+
+    /* ---- Link-styled button ------------------------------------------------ */
+    .btn-link {
+        --btn-color: var(--color-brand);
+        --btn-hover-color: var(--color-brand-strong);
+        text-decoration: underline;
+    }
+
+    .btn-link:disabled,
+    .btn-link.disabled {
+        --btn-color: var(--color-neutral);
+    }
+
+    /* ---- Close button ------------------------------------------------------ */
+    /* The glyph is a background image so it inherits nothing and stays crisp; the
+       dark theme inverts it rather than shipping a second asset. */
+    .btn-close {
+        box-sizing: content-box;
+        width: 1em;
+        height: 1em;
+        padding: 0.25em;
+        color: var(--color-black);
+        border: 0;
+        border-radius: var(--radius-sm);
+        opacity: 0.5;
+        cursor: pointer;
+        background: transparent
+            url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e")
+            center / 1em auto no-repeat;
+    }
+
+    .btn-close:hover {
+        opacity: 0.75;
+    }
+
+    .btn-close:focus-visible {
+        outline: 0;
+        box-shadow: var(--focus-ring);
+        opacity: 1;
+    }
+
+    :root[data-theme='dark'] .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    /* ---- Button group ------------------------------------------------------ */
+    /* Buttons butt together into one control: inner radii collapse and adjacent
+       borders overlap so the seam stays 1px. */
+    .btn-group {
+        display: inline-flex;
+        vertical-align: middle;
+    }
+
+    .btn-group > .btn {
+        position: relative;
+        flex: 1 1 auto;
+    }
+
+    .btn-group > .btn:not(:first-child) {
+        margin-left: -1px;
+    }
+
+    .btn-group > .btn:not(:last-child) {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .btn-group > .btn:not(:first-child) {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    /* Raise the focused/active member so its full border is visible over its
+       neighbour's overlapping edge. */
+    .btn-group > .btn:hover,
+    .btn-group > .btn:focus,
+    .btn-group > .btn.active {
+        z-index: 1;
+    }
+
+    /* ---- Toggle buttons ---------------------------------------------------- */
+    /* `.btn-check` is a visually hidden radio/checkbox whose label is a .btn —
+       used for the segmented filters. The input keeps keyboard semantics. */
+    .btn-check {
+        position: absolute;
+        clip: rect(0, 0, 0, 0);
+        pointer-events: none;
+    }
+
+    .btn-check:checked + .btn {
+        color: var(--btn-hover-color);
+        background-color: var(--btn-active-bg);
+        border-color: var(--btn-active-border);
+    }
+
+    .btn-check:focus-visible + .btn {
+        box-shadow: var(--focus-ring);
+    }
+}

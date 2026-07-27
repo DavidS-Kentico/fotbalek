@@ -1,6 +1,6 @@
 @* Compact card highlighting a notable partner or opponent for a player. *@
 
-<div class="panel panel--accent panel--@Variant panel--compact h-100 @(string.IsNullOrEmpty(PlayerName) ? "opacity-50" : "")">
+<div class="panel panel--accent panel--@Variant panel--compact h-full @(string.IsNullOrEmpty(PlayerName) ? "opacity-50" : "")">
     <div class="panel__head">
         @if (!string.IsNullOrEmpty(Icon))
         {
@@ -11,14 +11,14 @@
     <div class="panel__body text-center">
         @if (!string.IsNullOrEmpty(PlayerName))
         {
-            <div class="fw-semibold mb-1">@PlayerName</div>
-            <div class="fs-5 fw-bold @WinRateClass">@WinRate.ToString("F1")%</div>
-            <div class="text-muted small">@Games games</div>
+            <div class="font-semibold mb-1">@PlayerName</div>
+            <div class="text-h5 font-bold @WinRateClass">@WinRate.ToString("F1")%</div>
+            <div class="text-ink-muted text-small">@Games games</div>
         }
         else
         {
-            <div class="fw-semibold text-muted mb-1">—</div>
-            <div class="text-muted small fst-italic">Not enough data</div>
+            <div class="font-semibold text-ink-muted mb-1">—</div>
+            <div class="text-ink-muted text-small italic">Not enough data</div>
         }
     </div>
 </div>
@@ -32,5 +32,5 @@
     [Parameter] public int Games { get; set; }
     [Parameter] public bool HighlightWin { get; set; } = true;
 
-    private string WinRateClass => HighlightWin ? "text-success" : "text-danger";
+    private string WinRateClass => HighlightWin ? "text-brand" : "text-danger";
 }

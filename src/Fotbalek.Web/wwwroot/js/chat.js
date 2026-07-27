@@ -207,13 +207,13 @@ export async function initEmojiPicker(container, ref) {
     picker.dataSource = '/lib/emoji-picker-element/data.json';
 
     const syncTheme = () => {
-        const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
         picker.classList.toggle('dark', dark);
         picker.classList.toggle('light', !dark);
     };
     syncTheme();
     const themeObserver = new MutationObserver(syncTheme);
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
     picker.addEventListener('emoji-click', e => {
         const unicode = e.detail?.unicode;

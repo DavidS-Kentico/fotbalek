@@ -17,7 +17,7 @@
 else if (_player != null && _stats != null)
 {
     <PageContainer>
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="flex justify-between items-center flex-wrap gap-2 mb-4">
             <Breadcrumbs TeamCode="@TeamCode" Class="mb-0" Items="@(new Breadcrumbs.BreadcrumbItem[] {
                 new("Players", $"/team/{TeamCode}/players"),
                 new(_player.Name),
@@ -29,13 +29,13 @@ else if (_player != null && _stats != null)
         </div>
 
         @* ---------------- HERO ---------------- *@
-        <div class="card player-hero mb-4 @(_isMyPlayer ? "border-success" : "")">
+        <div class="card player-hero mb-6 @(_isMyPlayer ? "border-brand" : "")">
             <div class="card-body">
-                <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="flex items-center gap-4 flex-wrap">
                     <Avatar AvatarId="@_player.AvatarId" Size="xl" />
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <h2 class="mb-0 text-truncate">@_player.Name</h2>
+                    <div class="grow min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="mb-0 truncate">@_player.Name</h2>
                             @if (_isCaptainPlayer)
                             {
                                 <CaptainMark Class="captain-mark-lg" />
@@ -46,30 +46,30 @@ else if (_player != null && _stats != null)
                             }
                             @if (!_player.IsActive)
                             {
-                                <span class="badge bg-secondary">Inactive</span>
+                                <span class="badge bg-neutral">Inactive</span>
                             }
                         </div>
                         @if (!string.IsNullOrEmpty(_playerUserName))
                         {
-                            <div class="text-muted small">@($"@{_playerUserName.ToLowerInvariant()}")</div>
+                            <div class="text-ink-muted text-small">@($"@{_playerUserName.ToLowerInvariant()}")</div>
                         }
                     </div>
                     @if (_canEdit)
                     {
                         <button class="btn btn-sm btn-outline-secondary" @onclick="ShowEditModal" title="Edit name & avatar">
-                            <i class="bi bi-pencil"></i><span class="d-none d-sm-inline ms-1">Edit</span>
+                            <i class="bi bi-pencil"></i><span class="hidden sm:inline ms-1">Edit</span>
                         </button>
                     }
                 </div>
 
-                <div class="kpi-strip mt-3">
+                <div class="kpi-strip mt-4">
                     <div class="kpi">
-                        <div class="kpi-value text-success">@_stats.CurrentElo</div>
+                        <div class="kpi-value text-brand">@_stats.CurrentElo</div>
                         <div class="kpi-label">
                             @(_selectedSeason != null ? "Season ELO" : "ELO")
                             @if (_rank > 0)
                             {
-                                <span class="text-muted">· #@_rank of @_totalRanked</span>
+                                <span class="text-ink-muted">· #@_rank of @_totalRanked</span>
                             }
                         </div>
                     </div>
@@ -79,14 +79,14 @@ else if (_player != null && _stats != null)
                     </div>
                     <div class="kpi">
                         <div class="kpi-value">
-                            <span class="text-success">@_stats.Wins</span><span class="text-muted">–</span><span class="text-danger">@_stats.Losses</span>
+                            <span class="text-brand">@_stats.Wins</span><span class="text-ink-muted">–</span><span class="text-danger">@_stats.Losses</span>
                         </div>
                         <div class="kpi-label">Record</div>
                     </div>
                     <div class="kpi">
                         <div class="kpi-value">
-                            <span class="text-success">@_stats.HighestElo</span>
-                            <span class="text-muted small mx-1">/</span>
+                            <span class="text-brand">@_stats.HighestElo</span>
+                            <span class="text-ink-muted text-small mx-1">/</span>
                             <span class="text-danger">@_stats.LowestElo</span>
                         </div>
                         <div class="kpi-label">Peak / Low</div>
@@ -121,19 +121,19 @@ else if (_player != null && _stats != null)
         {
             @* Permanent achievements from closed seasons — deliberately separate from computed
                badges and not scoped by the season selector. *@
-            <Panel Class="mb-4" BodyClass="d-flex flex-wrap gap-2 py-2">
+            <Panel Class="mb-6" BodyClass="flex flex-wrap gap-2 py-2">
                 <Header>
                     <i class="bi bi-trophy"></i>
-                    <h2 class="panel__title">Trophy case <span class="text-muted small fw-normal">permanent season awards</span></h2>
+                    <h2 class="panel__title">Trophy case <span class="text-ink-muted text-small font-normal">permanent season awards</span></h2>
                 </Header>
                 <ChildContent>
                     @foreach (var award in _trophies)
                     {
-                        <span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-2 px-2" title="@AwardTooltip(award)">
+                        <span class="badge bg-gray-100 text-ink border dark:bg-surface-sunken inline-flex items-center gap-1 py-2 px-2" title="@AwardTooltip(award)">
                             <span>@(award.Rank switch { 1 => "🥇", 2 => "🥈", _ => "🥉" })</span>
                             <i class="@CategoryIcon(award.Category)"></i>
                             <span>@AwardLabel(award)</span>
-                            <span class="text-muted">· @award.SeasonName</span>
+                            <span class="text-ink-muted">· @award.SeasonName</span>
                         </span>
                     }
                 </ChildContent>
@@ -141,7 +141,7 @@ else if (_player != null && _stats != null)
         }
 
         @* ---------------- TABS ---------------- *@
-        <ul class="nav nav-tabs player-tabs mb-4" role="tablist">
+        <ul class="nav nav-tabs player-tabs mb-6" role="tablist">
             @TabButton("overview", "bi-speedometer2", "Overview")
             @TabButton("performance", "bi-graph-up", "Performance")
             @TabButton("positions", "bi-person-badge", "Positions")
@@ -156,24 +156,24 @@ else if (_player != null && _stats != null)
         @* ---------------- OVERVIEW ---------------- *@
         @if (_tab == "overview")
         {
-            <div class="row g-3">
+            <div class="grid grid-cols-12 gap-4">
                 @if (_stats.EloHistory.Count > 1)
                 {
-                    <div class="col-12 col-xl-8">
-                        <Panel Title="ELO history" Icon="bi bi-graph-up-arrow" Class="h-100">
+                    <div class="col-span-12 xl:col-span-8">
+                        <Panel Title="ELO history" Icon="bi bi-graph-up-arrow" Class="h-full">
                             <canvas id="eloChart" height="220"></canvas>
                         </Panel>
                     </div>
                 }
-                <div class="@(_stats.EloHistory.Count > 1 ? "col-12 col-xl-4" : "col-12")">
-                    <div class="row g-3">
-                        <div class="col-6 col-xl-12">
-                            <div class="card pd-stat-card h-100">
+                <div class="@(_stats.EloHistory.Count > 1 ? "col-span-12 xl:col-span-4" : "col-span-12")">
+                    <div class="grid grid-cols-12 gap-4">
+                        <div class="col-span-6 xl:col-span-12">
+                            <div class="card pd-stat-card h-full">
                                 <div class="card-body">
                                     <div class="stat-card-label"><i class="bi bi-bullseye me-1"></i>Goals</div>
                                     <div class="stat-card-value">
-                                        <span class="text-success">@_totalGoalsScored</span>
-                                        <span class="text-muted">/</span>
+                                        <span class="text-brand">@_totalGoalsScored</span>
+                                        <span class="text-ink-muted">/</span>
                                         <span class="text-danger">@_totalGoalsConceded</span>
                                     </div>
                                     <div class="stat-card-sub">
@@ -182,45 +182,45 @@ else if (_player != null && _stats != null)
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-xl-12">
-                            <div class="card pd-stat-card h-100">
+                        <div class="col-span-6 xl:col-span-12">
+                            <div class="card pd-stat-card h-full">
                                 <div class="card-body">
                                     <div class="stat-card-label"><i class="bi bi-fire me-1"></i>Streaks</div>
                                     <div class="stat-card-value">
                                         @if (Math.Abs(_stats.CurrentStreak) >= 2)
                                         {
-                                            <span class="@(_stats.CurrentStreak > 0 ? "text-success" : "text-danger")">
+                                            <span class="@(_stats.CurrentStreak > 0 ? "text-brand" : "text-danger")">
                                                 @(_stats.CurrentStreak > 0 ? $"+{_stats.CurrentStreak}" : _stats.CurrentStreak.ToString())
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="text-muted">—</span>
+                                            <span class="text-ink-muted">—</span>
                                         }
                                     </div>
                                     <div class="stat-card-sub">
-                                        Longest <span class="text-success">W @_stats.LongestWinStreak</span>
+                                        Longest <span class="text-brand">W @_stats.LongestWinStreak</span>
                                         · <span class="text-danger">L @_stats.LongestLossStreak</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-xl-12">
-                            <div class="card pd-stat-card h-100">
+                        <div class="col-span-6 xl:col-span-12">
+                            <div class="card pd-stat-card h-full">
                                 <div class="card-body">
                                     <div class="stat-card-label" title="Average opponent ELO minus your current ELO. Positive means you usually face harder opponents."><i class="bi bi-bar-chart-steps me-1"></i>Schedule strength</div>
-                                    <div class="stat-card-value @(_scheduleStrength >= 0 ? "text-success" : "text-danger")">
+                                    <div class="stat-card-value @(_scheduleStrength >= 0 ? "text-brand" : "text-danger")">
                                         @($"{(_scheduleStrength >= 0 ? "+" : "")}{_scheduleStrength}")
                                     </div>
                                     <div class="stat-card-sub">Avg opponent ELO @_stats.AvgOpponentElo</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-xl-12">
-                            <div class="card pd-stat-card h-100">
+                        <div class="col-span-6 xl:col-span-12">
+                            <div class="card pd-stat-card h-full">
                                 <div class="card-body">
                                     <div class="stat-card-label"><i class="bi bi-activity me-1"></i>Recent form</div>
-                                    <div class="stat-card-value @(_stats.RecentFormWinRate >= 50 ? "text-success" : "text-danger")">
+                                    <div class="stat-card-value @(_stats.RecentFormWinRate >= 50 ? "text-brand" : "text-danger")">
                                         @_stats.RecentFormWinRate.ToString("F0")%
                                     </div>
                                     <div class="stat-card-sub">Across last @_stats.RecentForm.Count matches</div>
@@ -230,13 +230,13 @@ else if (_player != null && _stats != null)
                     </div>
                 </div>
 
-                <div class="col-12 col-md-6">
-                    <div class="card pd-stat-card h-100">
+                <div class="col-span-12 md:col-span-6">
+                    <div class="card pd-stat-card h-full">
                         <div class="card-body">
                             <div class="stat-card-label" title="Actual wins minus the wins predicted by ELO at the time of each match."><i class="bi bi-magic me-1"></i>vs. ELO expectation</div>
-                            <div class="stat-card-value @(_stats.WinsVsExpected >= 0 ? "text-success" : "text-danger")">
+                            <div class="stat-card-value @(_stats.WinsVsExpected >= 0 ? "text-brand" : "text-danger")">
                                 @($"{(_stats.WinsVsExpected >= 0 ? "+" : "")}{_stats.WinsVsExpected:F1}")
-                                <span class="text-muted small">wins</span>
+                                <span class="text-ink-muted text-small">wins</span>
                             </div>
                             <div class="stat-card-sub">
                                 @_stats.Wins actual vs. @_stats.ExpectedWins.ToString("F1") expected
@@ -244,13 +244,13 @@ else if (_player != null && _stats != null)
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-6">
-                    <div class="card pd-stat-card h-100">
+                <div class="col-span-12 md:col-span-6">
+                    <div class="card pd-stat-card h-full">
                         <div class="card-body">
                             <div class="stat-card-label"><i class="bi bi-rulers me-1"></i>Goal margin</div>
                             <div class="stat-card-value">
-                                <span class="text-success">+@_stats.AvgWinMargin.ToString("F1")</span>
-                                <span class="text-muted small mx-1">/</span>
+                                <span class="text-brand">+@_stats.AvgWinMargin.ToString("F1")</span>
+                                <span class="text-ink-muted text-small mx-1">/</span>
                                 <span class="text-danger">-@_stats.AvgLossMargin.ToString("F1")</span>
                             </div>
                             <div class="stat-card-sub">Average goal margin per win / per loss</div>
@@ -262,9 +262,9 @@ else if (_player != null && _stats != null)
         @* ---------------- PERFORMANCE ---------------- *@
         else if (_tab == "performance")
         {
-            <div class="row g-3">
-                <div class="col-12 col-lg-6">
-                    <Panel Title="Win rate" Icon="bi bi-bullseye" Flush="true" Class="h-100">
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 lg:col-span-6">
+                    <Panel Title="Win rate" Icon="bi bi-bullseye" Flush="true" Class="h-full">
                         <ul class="list-group list-group-flush">
                             @StatRow("Overall win rate", $"{_stats.WinRate:F1}%")
                             @StatRow("Expected wins", _stats.ExpectedWins.ToString("F1"),
@@ -272,7 +272,7 @@ else if (_player != null && _stats != null)
                             @StatRow("Wins vs. expected",
                                      $"{(_stats.WinsVsExpected >= 0 ? "+" : "")}{_stats.WinsVsExpected:F1}",
                                      tooltip: "Actual wins minus expected wins. Positive = overperforming ELO.",
-                                     valueClass: _stats.WinsVsExpected >= 0 ? "text-success" : "text-danger")
+                                     valueClass: _stats.WinsVsExpected >= 0 ? "text-brand" : "text-danger")
                             @StatRow("WR vs. stronger opponents",
                                      _stats.GamesVsStronger > 0
                                          ? $"{_stats.WinRateVsStronger:F0}% ({_stats.WinsVsStronger}/{_stats.GamesVsStronger})"
@@ -286,30 +286,30 @@ else if (_player != null && _stats != null)
                         </ul>
                     </Panel>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <Panel Title="Scoring" Icon="bi bi-dribbble" Flush="true" Class="h-100">
+                <div class="col-span-12 lg:col-span-6">
+                    <Panel Title="Scoring" Icon="bi bi-dribbble" Flush="true" Class="h-full">
                         <ul class="list-group list-group-flush">
-                            @StatRow("Avg win margin", $"+{_stats.AvgWinMargin:F1} goals", valueClass: "text-success",
+                            @StatRow("Avg win margin", $"+{_stats.AvgWinMargin:F1} goals", valueClass: "text-brand",
                                      tooltip: "Average goal difference in matches you won.")
                             @StatRow("Avg loss margin", $"-{_stats.AvgLossMargin:F1} goals", valueClass: "text-danger",
                                      tooltip: "Average goal difference in matches you lost.")
                         </ul>
                     </Panel>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <Panel Title="ELO progression" Icon="bi bi-graph-up" Flush="true" Class="h-100">
+                <div class="col-span-12 lg:col-span-6">
+                    <Panel Title="ELO progression" Icon="bi bi-graph-up" Flush="true" Class="h-full">
                         <ul class="list-group list-group-flush">
-                            @StatRow("Highest ELO", _stats.HighestElo.ToString(), valueClass: "text-success")
+                            @StatRow("Highest ELO", _stats.HighestElo.ToString(), valueClass: "text-brand")
                             @StatRow("Lowest ELO", _stats.LowestElo.ToString(), valueClass: "text-danger")
                             @StatRow("Avg ELO / win", $"+{_stats.AvgEloChangeOnWin:F1}",
-                                     tooltip: "Average ELO gained per win.", valueClass: "text-success")
+                                     tooltip: "Average ELO gained per win.", valueClass: "text-brand")
                             @StatRow("Avg ELO / loss", _stats.AvgEloChangeOnLoss.ToString("F1"),
                                      tooltip: "Average ELO lost per loss.", valueClass: "text-danger")
                         </ul>
                     </Panel>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <Panel Title="Match context" Icon="bi bi-people" Flush="true" Class="h-100">
+                <div class="col-span-12 lg:col-span-6">
+                    <Panel Title="Match context" Icon="bi bi-people" Flush="true" Class="h-full">
                         <ul class="list-group list-group-flush">
                             @StatRow("Avg opponent ELO", _stats.AvgOpponentElo.ToString(),
                                      tooltip: "Average ELO of opponents at time of match.")
@@ -318,7 +318,7 @@ else if (_player != null && _stats != null)
                             @StatRow("Schedule strength",
                                      _stats.AvgOpponentElo > 0 ? (_stats.AvgOpponentElo - _stats.CurrentElo).ToString("+#;-#;0") : "—",
                                      tooltip: "Average opponent ELO relative to your current ELO. Positive = generally tougher opponents.",
-                                     valueClass: (_stats.AvgOpponentElo - _stats.CurrentElo) >= 0 ? "text-warning" : "text-muted")
+                                     valueClass: (_stats.AvgOpponentElo - _stats.CurrentElo) >= 0 ? "text-warning" : "text-ink-muted")
                         </ul>
                     </Panel>
                 </div>
@@ -335,7 +335,7 @@ else if (_player != null && _stats != null)
                     </ul>
                 </ChildContent>
                 <Footer>
-                    <div class="small text-muted d-flex flex-wrap gap-3">
+                    <div class="text-small text-ink-muted flex flex-wrap gap-4">
                         <span>Preferred: <strong>@_stats.PreferredPosition</strong></span>
                         @if (!string.IsNullOrEmpty(_stats.BetterPosition) && _stats.BetterPosition != "-")
                         {
@@ -343,7 +343,7 @@ else if (_player != null && _stats != null)
                         }
                         @if (_stats.GamesAsGk > 0)
                         {
-                            <span title="Matches as goalkeeper where opponents scored 0.">Clean sheets: <strong class="text-success">@_stats.CleanSheetsAsGk</strong></span>
+                            <span title="Matches as goalkeeper where opponents scored 0.">Clean sheets: <strong class="text-brand">@_stats.CleanSheetsAsGk</strong></span>
                         }
                     </div>
                 </Footer>
@@ -354,7 +354,7 @@ else if (_player != null && _stats != null)
         {
             <Panel Flush>
                 <Header>
-                  <div class="d-flex flex-wrap gap-2 align-items-center w-100">
+                  <div class="flex flex-wrap gap-2 items-center w-full">
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn @(_relMode == "partners" ? "btn-success" : "btn-outline-success")" @onclick='() => _relMode = "partners"'>
                             <i class="bi bi-people me-1"></i>Partners (@_stats.Partners.Count)
@@ -363,10 +363,10 @@ else if (_player != null && _stats != null)
                             <i class="bi bi-shield-shaded me-1"></i>Enemies (@_stats.Enemies.Count)
                         </button>
                     </div>
-                    <div class="ms-auto d-flex flex-wrap gap-2 align-items-center small">
-                        <label class="text-muted mb-0" for="relMinGames">Min games</label>
+                    <div class="ms-auto flex flex-wrap gap-2 items-center text-small">
+                        <label class="text-ink-muted mb-0" for="relMinGames">Min games</label>
                         <input id="relMinGames" type="number" min="1" max="100" class="form-control form-control-sm" style="width:5rem" @bind="_relMinGames" @bind:event="oninput" />
-                        <label class="text-muted mb-0" for="relSort">Sort</label>
+                        <label class="text-ink-muted mb-0" for="relSort">Sort</label>
                         <select id="relSort" class="form-select form-select-sm" style="width:auto" @bind="_relSort">
                             <option value="games">Most games</option>
                             <option value="winrate">Win rate</option>
@@ -402,13 +402,13 @@ else if (_player != null && _stats != null)
                         ? $"{_player.Name}'s average ELO change per match against this opponent."
                         : $"{_player.Name}'s average ELO change per match when partnered with this teammate.";
                 }
-                <div class="px-3 pt-2 small text-muted">
+                <div class="px-4 pt-2 text-small text-ink-muted">
                     <i class="bi bi-info-circle me-1"></i>All numbers are from <strong>@_player.Name</strong>'s perspective.
                 </div>
                 @if (rows.Count == 0)
                 {
-                    <div class="px-3 pb-3">
-                        <EmptyState Icon="bi bi-people" IconSize="md" Padding="py-3" Message="@emptyMsg" />
+                    <div class="px-4 pb-4">
+                        <EmptyState Icon="bi bi-people" IconSize="md" Padding="py-4" Message="@emptyMsg" />
                     </div>
                 }
                 else
@@ -418,10 +418,10 @@ else if (_player != null && _stats != null)
                             <thead class="table-light">
                                 <tr>
                                     <th>@(_relMode == "enemies" ? "Opponent" : "Teammate")</th>
-                                    <th class="text-end" title="@gamesTooltip">@gamesHeader</th>
-                                    <th class="text-end" title="Your wins – losses in this matchup.">W – L</th>
+                                    <th class="text-right" title="@gamesTooltip">@gamesHeader</th>
+                                    <th class="text-right" title="Your wins – losses in this matchup.">W – L</th>
                                     <th title="@wrTooltip">@wrHeader</th>
-                                    <th class="text-end" title="@eloTooltip">Avg ELO Δ (you)</th>
+                                    <th class="text-right" title="@eloTooltip">Avg ELO Δ (you)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -430,26 +430,26 @@ else if (_player != null && _stats != null)
                                     var widthPct = Math.Min(100, Math.Max(0, r.WinRate)).ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
                                     <tr>
                                         <td>
-                                            <a href="/team/@TeamCode/players/@r.PlayerId" class="d-inline-flex align-items-center gap-2 text-decoration-none">
+                                            <a href="/team/@TeamCode/players/@r.PlayerId" class="inline-flex items-center gap-2 no-underline">
                                                 <Avatar AvatarId="@r.AvatarId" Size="sm" />
                                                 <span>@r.Name</span>
                                             </a>
                                         </td>
-                                        <td class="text-end">@r.Games</td>
-                                        <td class="text-end">
-                                            <span class="text-success">@r.Wins</span>
-                                            <span class="text-muted">–</span>
+                                        <td class="text-right">@r.Games</td>
+                                        <td class="text-right">
+                                            <span class="text-brand">@r.Wins</span>
+                                            <span class="text-ink-muted">–</span>
                                             <span class="text-danger">@r.Losses</span>
                                         </td>
                                         <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="wr-bar flex-grow-1">
+                                            <div class="flex items-center gap-2">
+                                                <div class="wr-bar grow">
                                                     <div class="wr-bar-fill @(r.WinRate >= 50 ? "wr-bar-fill-win" : "wr-bar-fill-loss")" style="width:@(widthPct)%"></div>
                                                 </div>
-                                                <span class="@WinRateColor(r.WinRate) small fw-semibold" style="min-width:3rem;text-align:right">@r.WinRate.ToString("F0")%</span>
+                                                <span class="@WinRateColor(r.WinRate) text-small font-semibold" style="min-width:3rem;text-align:right">@r.WinRate.ToString("F0")%</span>
                                             </div>
                                         </td>
-                                        <td class="text-end @(r.AvgEloChange >= 0 ? "text-success" : "text-danger")">
+                                        <td class="text-right @(r.AvgEloChange >= 0 ? "text-brand" : "text-danger")">
                                             @($"{(r.AvgEloChange >= 0 ? "+" : "")}{r.AvgEloChange:F1}")
                                         </td>
                                     </tr>
@@ -471,17 +471,17 @@ else if (_player != null && _stats != null)
             // Display days starting Monday
             int[] dowOrder = [1, 2, 3, 4, 5, 6, 0];
 
-            <div class="row g-3 mb-3">
-                <div class="col-12 col-lg-7">
-                    <Panel Class="h-100">
+            <div class="grid grid-cols-12 gap-4 mb-4">
+                <div class="col-span-12 lg:col-span-7">
+                    <Panel Class="h-full">
                         <Header>
                             <i class="bi bi-bar-chart"></i>
-                            <h2 class="panel__title">Matches per month <span class="text-muted small fw-normal">last 12 months</span></h2>
+                            <h2 class="panel__title">Matches per month <span class="text-ink-muted text-small font-normal">last 12 months</span></h2>
                         </Header>
                         <ChildContent>
                             @if (_stats.MatchesByMonth.Sum(m => m.Games) == 0)
                             {
-                                <EmptyState Icon="bi bi-calendar-x" IconSize="md" Padding="py-3" Message="No matches in the last 12 months." />
+                                <EmptyState Icon="bi bi-calendar-x" IconSize="md" Padding="py-4" Message="No matches in the last 12 months." />
                             }
                             else
                             {
@@ -503,16 +503,16 @@ else if (_player != null && _stats != null)
                         </ChildContent>
                     </Panel>
                 </div>
-                <div class="col-12 col-lg-5">
-                    <Panel Title="By day of week" Icon="bi bi-calendar-week" Flush="true" Class="h-100">
+                <div class="col-span-12 lg:col-span-5">
+                    <Panel Title="By day of week" Icon="bi bi-calendar-week" Flush="true" Class="h-full">
                         <div class="table-responsive">
                             <table class="table table-sm mb-0 dow-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Day</th>
-                                        <th class="text-end">Games</th>
-                                        <th class="text-end">W – L</th>
-                                        <th class="text-end">Win rate</th>
+                                        <th class="text-right">Games</th>
+                                        <th class="text-right">W – L</th>
+                                        <th class="text-right">Win rate</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -520,20 +520,20 @@ else if (_player != null && _stats != null)
                                     {
                                         var d = _stats.MatchesByDayOfWeek.FirstOrDefault(x => (int)x.Day == idx)
                                                 ?? new DayOfWeekStat((DayOfWeek)idx, 0, 0);
-                                        <tr class="@(d.Games == 0 ? "text-muted" : "")">
+                                        <tr class="@(d.Games == 0 ? "text-ink-muted" : "")">
                                             <td>@d.Day.ToString().Substring(0, 3)</td>
-                                            <td class="text-end">@d.Games</td>
-                                            <td class="text-end">
+                                            <td class="text-right">@d.Games</td>
+                                            <td class="text-right">
                                                 @if (d.Games > 0)
                                                 {
-                                                    <span class="text-success">@d.Wins</span><span class="text-muted">–</span><span class="text-danger">@d.Losses</span>
+                                                    <span class="text-brand">@d.Wins</span><span class="text-ink-muted">–</span><span class="text-danger">@d.Losses</span>
                                                 }
                                                 else
                                                 {
                                                     <span>–</span>
                                                 }
                                             </td>
-                                            <td class="text-end @(d.Games > 0 ? WinRateColor(d.WinRate) : "")">
+                                            <td class="text-right @(d.Games > 0 ? WinRateColor(d.WinRate) : "")">
                                                 @(d.Games > 0 ? d.WinRate.ToString("F0") + "%" : "–")
                                             </td>
                                         </tr>
@@ -545,12 +545,12 @@ else if (_player != null && _stats != null)
                 </div>
             </div>
 
-            <div class="row g-3 mb-3">
-                <div class="col-12 col-md-4">
-                    <div class="card pd-stat-card h-100">
+            <div class="grid grid-cols-12 gap-4 mb-4">
+                <div class="col-span-12 md:col-span-4">
+                    <div class="card pd-stat-card h-full">
                         <div class="card-body">
                             <div class="stat-card-label"><i class="bi bi-lightning me-1"></i>Current streak</div>
-                            <div class="stat-card-value @(_stats.CurrentStreak > 0 ? "text-success" : _stats.CurrentStreak < 0 ? "text-danger" : "")">
+                            <div class="stat-card-value @(_stats.CurrentStreak > 0 ? "text-brand" : _stats.CurrentStreak < 0 ? "text-danger" : "")">
                                 @if (_stats.CurrentStreak > 0)
                                 {
                                     <text>@_stats.CurrentStreak W</text>
@@ -568,17 +568,17 @@ else if (_player != null && _stats != null)
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <div class="card pd-stat-card h-100">
+                <div class="col-span-12 md:col-span-4">
+                    <div class="card pd-stat-card h-full">
                         <div class="card-body">
                             <div class="stat-card-label"><i class="bi bi-trophy me-1"></i>Longest win streak</div>
-                            <div class="stat-card-value text-success">@_stats.LongestWinStreak</div>
+                            <div class="stat-card-value text-brand">@_stats.LongestWinStreak</div>
                             <div class="stat-card-sub">Consecutive wins</div>
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <div class="card pd-stat-card h-100">
+                <div class="col-span-12 md:col-span-4">
+                    <div class="card pd-stat-card h-full">
                         <div class="card-body">
                             <div class="stat-card-label"><i class="bi bi-x-octagon me-1"></i>Longest loss streak</div>
                             <div class="stat-card-value text-danger">@_stats.LongestLossStreak</div>
@@ -593,7 +593,7 @@ else if (_player != null && _stats != null)
                     @if (_totalMatchCount > Constants.Pagination.PlayerDetailRecentMatches)
                     {
                         @* Carry the selected scope into Match History ("all" = explicit all-matches view). *@
-                        <a href="/team/@TeamCode/matches?player=@PlayerId&season=@(_selectedSeason?.Id.ToString() ?? "all")" class="small">View all (@_totalMatchCount)</a>
+                        <a href="/team/@TeamCode/matches?player=@PlayerId&season=@(_selectedSeason?.Id.ToString() ?? "all")" class="text-small">View all (@_totalMatchCount)</a>
                     }
                 </Actions>
                 <ChildContent>
@@ -607,14 +607,14 @@ else if (_player != null && _stats != null)
                                 var playerTeamWon = (playerMatch.TeamNumber == 1 && match.Team1Score > match.Team2Score) ||
                                                    (playerMatch.TeamNumber == 2 && match.Team2Score > match.Team1Score);
                                 var eloDelta = _selectedSeason != null ? playerMatch.SeasonEloChange ?? 0 : playerMatch.EloChange;
-                                <div class="match-history-item mb-2 p-2 rounded @(playerTeamWon ? "bg-success bg-opacity-10" : "bg-danger bg-opacity-10")">
-                                    <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" />
-                                    <div class="d-flex justify-content-between align-items-center small px-2">
-                                        <span class="text-muted">
+                                <div class="mb-2 p-2 rounded-sm @(playerTeamWon ? "bg-brand/10" : "bg-danger/10")">
+                                    <MatchCard Match="@match" TeamCode="@TeamCode" Compact="true" Class="mb-4" />
+                                    <div class="flex justify-between items-center text-small px-2">
+                                        <span class="text-ink-muted">
                                             <i class="bi bi-calendar3 me-1"></i>
                                             <span class="match-date" data-utc="@match.PlayedAt.ToString("o")">@match.PlayedAt.ToString("MMM dd, yyyy")</span>
                                         </span>
-                                        <span class="@(playerTeamWon ? "text-success" : "text-danger") fw-bold">
+                                        <span class="@(playerTeamWon ? "text-brand" : "text-danger") font-bold">
                                             @(eloDelta > 0 ? $"+{eloDelta}" : eloDelta.ToString()) ELO
                                         </span>
                                     </div>
@@ -624,7 +624,7 @@ else if (_player != null && _stats != null)
                     }
                     else
                     {
-                        <EmptyState Icon="bi bi-calendar-x" IconSize="md" Padding="py-3" Message="No matches played yet." />
+                        <EmptyState Icon="bi bi-calendar-x" IconSize="md" Padding="py-4" Message="No matches played yet." />
                     }
                 </ChildContent>
             </Panel>
@@ -634,10 +634,10 @@ else if (_player != null && _stats != null)
         {
             @if (_playerBadges.Count > 0)
             {
-                <Panel Class="mb-3">
+                <Panel Class="mb-4">
                     <Header>
                         <i class="bi bi-patch-check"></i>
-                        <h2 class="panel__title">Badges <span class="text-muted small fw-normal">@_playerBadges.Count earned</span></h2>
+                        <h2 class="panel__title">Badges <span class="text-ink-muted text-small font-normal">@_playerBadges.Count earned</span></h2>
                     </Header>
                     <ChildContent>
                         <div class="badge-grid">
@@ -645,7 +645,7 @@ else if (_player != null && _stats != null)
                             {
                                 <div class="badge-card" title="@b.Stat.Description">
                                     <span class="badge @b.Stat.Badge!.CssClass badge-icon-pill"><i class="@b.Stat.Badge.IconClass"></i></span>
-                                    <div class="badge-text">
+                                    <div>
                                         <div class="badge-name">@b.Stat.Name</div>
                                         <div class="badge-desc">@b.Holder.DisplayValue</div>
                                     </div>
@@ -656,14 +656,14 @@ else if (_player != null && _stats != null)
                 </Panel>
             }
 
-            <div class="row g-3">
+            <div class="grid grid-cols-12 gap-4">
                 @if (_stats.PeakEloDate.HasValue)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label"><i class="bi bi-trophy me-1"></i>Peak ELO</div>
-                                <div class="stat-card-value text-success">@_stats.HighestElo</div>
+                                <div class="stat-card-value text-brand">@_stats.HighestElo</div>
                                 <div class="stat-card-sub">
                                     <span class="match-date" data-utc="@_stats.PeakEloDate.Value.ToString("o")">@_stats.PeakEloDate.Value.ToString("MMM dd, yyyy")</span>
                                 </div>
@@ -673,11 +673,11 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.BiggestEloGainDate.HasValue && _stats.BiggestEloGain > 0)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label"><i class="bi bi-arrow-up-right me-1"></i>Biggest ELO gain</div>
-                                <div class="stat-card-value text-success">+@_stats.BiggestEloGain</div>
+                                <div class="stat-card-value text-brand">+@_stats.BiggestEloGain</div>
                                 <div class="stat-card-sub">
                                     <span class="match-date" data-utc="@_stats.BiggestEloGainDate.Value.ToString("o")">@_stats.BiggestEloGainDate.Value.ToString("MMM dd, yyyy")</span>
                                 </div>
@@ -687,8 +687,8 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.BiggestEloLossDate.HasValue && _stats.BiggestEloLoss < 0)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label"><i class="bi bi-arrow-down-right me-1"></i>Biggest ELO loss</div>
                                 <div class="stat-card-value text-danger">@_stats.BiggestEloLoss</div>
@@ -701,8 +701,8 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.FirstMatchDate.HasValue)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label"><i class="bi bi-flag me-1"></i>First match</div>
                                 <div class="stat-card-value">
@@ -717,15 +717,15 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.UnderTableCount > 0 || _stats.TableSenderCount > 0)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label"><i class="bi bi-emoji-dizzy me-1"></i>Under the table</div>
                                 <div class="stat-card-value">
-                                    <span class="text-success">@_stats.TableSenderCount</span>
-                                    <span class="text-muted small mx-1">sent</span>
+                                    <span class="text-brand">@_stats.TableSenderCount</span>
+                                    <span class="text-ink-muted text-small mx-1">sent</span>
                                     <span class="text-danger">@_stats.UnderTableCount</span>
-                                    <span class="text-muted small">crawled</span>
+                                    <span class="text-ink-muted text-small">crawled</span>
                                 </div>
                                 <div class="stat-card-sub">Humiliations dealt vs. received</div>
                             </div>
@@ -734,15 +734,15 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.CarriedCount > 0 || _stats.CarryCount > 0)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label" title="A 'carry' is a win where a 20%+ stronger partner and both weaker opponents made the win expected."><i class="bi bi-arrow-up-circle me-1"></i>Carried vs. Carries</div>
                                 <div class="stat-card-value">
                                     <span class="text-warning">@_stats.CarriedCount</span>
-                                    <span class="text-muted small mx-1">carried</span>
-                                    <span class="text-success">@_stats.CarryCount</span>
-                                    <span class="text-muted small">carries</span>
+                                    <span class="text-ink-muted text-small mx-1">carried</span>
+                                    <span class="text-brand">@_stats.CarryCount</span>
+                                    <span class="text-ink-muted text-small">carries</span>
                                 </div>
                                 <div class="stat-card-sub">
                                     @if (_stats.Wins > 0)
@@ -756,8 +756,8 @@ else if (_player != null && _stats != null)
                 }
                 @if (_stats.HasEnoughGamesForVariety && _stats.ActiveRosterPartners >= 2)
                 {
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="card pd-stat-card h-100">
+                    <div class="col-span-12 md:col-span-6 xl:col-span-4">
+                        <div class="card pd-stat-card h-full">
                             <div class="card-body">
                                 <div class="stat-card-label" title="How evenly your games are spread across active teammates."><i class="bi bi-shuffle me-1"></i>Teammate variety</div>
                                 <div class="stat-card-value">@(Math.Round(_stats.TeammateVariety * 100))%</div>
@@ -773,11 +773,11 @@ else if (_player != null && _stats != null)
     <Modal Show="@(_showEditModal && _player != null)" Title="Edit player" OnClose="HideEditModal">
         <Body>
             <AlertMessage Message="@_editError" Variant="danger" />
-            <div class="mb-3">
+            <div class="mb-4">
                 <label for="editName" class="form-label">Name</label>
                 <input id="editName" class="form-control" @bind="_editName" maxlength="50" />
             </div>
-            <div class="mb-3">
+            <div class="mb-4">
                 <label class="form-label">Avatar</label>
                 <AvatarPicker @bind-Value="_editAvatar" />
             </div>
@@ -988,7 +988,7 @@ else
     private static string CategoryIcon(string category) => category switch
     {
         Constants.Seasons.AwardCategories.Player => "bi bi-star-fill text-warning",
-        Constants.Seasons.AwardCategories.Goalkeeper => "bi bi-shield-fill text-secondary",
+        Constants.Seasons.AwardCategories.Goalkeeper => "bi bi-shield-fill text-neutral",
         Constants.Seasons.AwardCategories.Attacker => "bi bi-bullseye text-danger",
         _ => "bi bi-people-fill text-primary"
     };
@@ -1073,7 +1073,7 @@ else
     }
 
     private static string WinRateColor(double wr) =>
-        wr >= 55 ? "text-success" : wr <= 45 ? "text-danger" : string.Empty;
+        wr >= 55 ? "text-brand" : wr <= 45 ? "text-danger" : string.Empty;
 
     private RenderFragment TabButton(string id, string icon, string label) => __builder =>
     {
@@ -1086,7 +1086,7 @@ else
 
     private static RenderFragment StatRow(string label, string value, string? tooltip = null, string? valueClass = null) => __builder =>
     {
-        <li class="list-group-item d-flex justify-content-between" title="@tooltip">
+        <li class="list-group-item flex justify-between" title="@tooltip">
             <span>@label</span>
             <strong class="@valueClass">@value</strong>
         </li>;
@@ -1095,20 +1095,20 @@ else
     private static RenderFragment PositionRow(string label, string icon, int games, int scored, int conceded, double winRate, int wins) => __builder =>
     {
         <li class="list-group-item">
-            <div class="d-flex justify-content-between mb-1">
+            <div class="flex justify-between mb-1">
                 <span><i class="@icon me-1"></i>As @label</span>
-                <small class="text-muted">@games games</small>
+                <small class="text-ink-muted">@games games</small>
             </div>
             @if (games > 0)
             {
-                <div class="small">
-                    <span class="text-success">Scored: @scored (@(((double)scored / games).ToString("F1"))/game)</span>
+                <div class="text-small">
+                    <span class="text-brand">Scored: @scored (@(((double)scored / games).ToString("F1"))/game)</span>
                     <span class="mx-2">|</span>
                     <span class="text-danger">Conceded: @conceded (@(((double)conceded / games).ToString("F1"))/game)</span>
                 </div>
-                <div class="small mt-1">
-                    <span class="@(winRate >= 50 ? "text-success" : "text-danger")">Win Rate: @winRate.ToString("F1")%</span>
-                    <span class="text-muted">(@wins W / @(games - wins) L)</span>
+                <div class="text-small mt-1">
+                    <span class="@(winRate >= 50 ? "text-brand" : "text-danger")">Win Rate: @winRate.ToString("F1")%</span>
+                    <span class="text-ink-muted">(@wins W / @(games - wins) L)</span>
                 </div>
             }
         </li>;

@@ -1,0 +1,204 @@
+/* ============================================================================
+   Overlays — dropdown menus and modals
+   ----------------------------------------------------------------------------
+   Dropdowns are driven by js/ui.js, which toggles `.show` on the wrapper.
+   Keeping open/closed state in a DOM class (rather than in component state) is
+   deliberate: a Blazor re-render of the menu contents can't close the menu.
+   ============================================================================ */
+
+@layer components {
+    /* ---- Dropdown ---------------------------------------------------------- */
+    .dropdown {
+        position: relative;
+    }
+
+    .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: var(--z-dropdown);
+        display: none;
+        min-width: 10rem;
+        padding: 0.5rem 0;
+        margin: 0.125rem 0 0;
+        font-size: 1rem;
+        color: var(--color-ink);
+        text-align: left;
+        list-style: none;
+        background-color: var(--color-surface);
+        background-clip: padding-box;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-menu);
+    }
+
+    .dropdown.show > .dropdown-menu,
+    .dropdown-menu.show {
+        display: block;
+    }
+
+    /* Right-aligned menu, for triggers near the end of a row. */
+    .dropdown-menu-end {
+        right: 0;
+        left: auto;
+    }
+
+    .dropdown-item {
+        display: block;
+        width: 100%;
+        padding: 0.25rem 1rem;
+        clear: both;
+        font-weight: 400;
+        color: var(--color-ink);
+        text-align: inherit;
+        text-decoration: none;
+        white-space: nowrap;
+        background-color: transparent;
+        border: 0;
+        cursor: pointer;
+    }
+
+    .dropdown-item:hover,
+    .dropdown-item:focus {
+        color: var(--color-ink);
+        background-color: var(--color-surface-muted);
+    }
+
+    .dropdown-item.active {
+        color: var(--color-white);
+        background-color: var(--color-brand);
+    }
+
+    .dropdown-item:disabled,
+    .dropdown-item.disabled {
+        color: var(--color-ink-faint);
+        pointer-events: none;
+        background-color: transparent;
+    }
+
+    .dropdown-header {
+        display: block;
+        padding: 0.5rem 1rem;
+        margin-bottom: 0;
+        font-size: 0.875rem;
+        color: var(--color-neutral);
+        white-space: nowrap;
+    }
+
+    .dropdown-divider {
+        height: 0;
+        margin: 0.5rem 0;
+        overflow: hidden;
+        border-top: 1px solid var(--color-line-strong);
+        opacity: 1;
+    }
+
+    /* Disclosure caret. */
+    .dropdown-toggle {
+        white-space: nowrap;
+    }
+
+    .dropdown-toggle::after {
+        display: inline-block;
+        margin-left: 0.255em;
+        vertical-align: 0.255em;
+        content: '';
+        border-top: 0.3em solid;
+        border-right: 0.3em solid transparent;
+        border-bottom: 0;
+        border-left: 0.3em solid transparent;
+    }
+
+    /* ---- Modal ------------------------------------------------------------- */
+    /* Rendered only while open (the Modal component gates the markup), so there
+       is no hidden state and no fade transition to manage. The scrim is part of
+       the .modal element itself rather than a separate backdrop node. */
+    .modal {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-modal);
+        width: 100%;
+        height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        outline: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-dialog {
+        position: relative;
+        width: auto;
+        max-width: 500px;
+        margin: 1.75rem auto;
+        pointer-events: none;
+    }
+
+    .modal-dialog-centered {
+        display: flex;
+        align-items: center;
+        min-height: calc(100% - 3.5rem);
+    }
+
+    .modal-sm { max-width: 300px; }
+    .modal-lg { max-width: 800px; }
+    .modal-xl { max-width: 1140px; }
+
+    .modal-content {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        pointer-events: auto;
+        background-color: var(--color-surface);
+        background-clip: padding-box;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-menu);
+        outline: 0;
+    }
+
+    .modal-header {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-line);
+        border-top-left-radius: inherit;
+        border-top-right-radius: inherit;
+    }
+
+    .modal-title {
+        margin-bottom: 0;
+        line-height: 1.5;
+    }
+
+    .modal-body {
+        position: relative;
+        flex: 1 1 auto;
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 1rem;
+        border-top: 1px solid var(--color-line);
+        border-bottom-right-radius: inherit;
+        border-bottom-left-radius: inherit;
+    }
+
+    @media (width < theme(--breakpoint-sm)) {
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        .modal-dialog-centered {
+            min-height: calc(100% - 1rem);
+        }
+    }
+}

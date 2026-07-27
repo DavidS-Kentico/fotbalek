@@ -1,11 +1,11 @@
 <div class="avatar-picker">
-    <div class="row row-cols-5 g-2">
+    <div class="grid grid-cols-5 gap-2">
         @for (int i = 1; i <= 20; i++)
         {
             var avatarId = i;
-            <div class="col">
+            <div>
                 <button type="button"
-                        class="btn w-100 p-2 @(Value == avatarId ? "btn-success" : "btn-outline-secondary")"
+                        class="btn w-full p-2 @(Value == avatarId ? "btn-success" : "btn-outline-secondary")"
                         @onclick="() => SelectAvatar(avatarId)">
                     <Avatar AvatarId="@avatarId" Size="md" />
                 </button>

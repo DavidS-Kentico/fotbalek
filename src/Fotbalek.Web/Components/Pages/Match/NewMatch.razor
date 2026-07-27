@@ -34,11 +34,11 @@ else
                     <input class="form-check-input" type="checkbox" id="seasonalToggle"
                            checked="@_seasonalToggle" @onchange="OnSeasonalToggleChanged" />
                     <label class="form-check-label" for="seasonalToggle">
-                        <i class="bi bi-trophy me-1 text-success"></i>Seasonal match
-                        <span class="fw-semibold">(@_activeSeason.Name)</span>
+                        <i class="bi bi-trophy me-1 text-brand"></i>Seasonal match
+                        <span class="font-semibold">(@_activeSeason.Name)</span>
                     </label>
                 </div>
-                <small class="text-muted ms-auto">
+                <small class="text-ink-muted ms-auto">
                     @(_seasonalToggle
                         ? "Counts toward the season ladder — ELO shown is seasonal."
                         : "Will be recorded off-season — only all-time ELO is affected.")
@@ -48,7 +48,7 @@ else
         else if (_hasAnySeason)
         {
             <div class="newmatch-season">
-                <small class="text-muted">
+                <small class="text-ink-muted">
                     <i class="bi bi-info-circle me-1"></i>No season is currently active — this match will be recorded <strong>off-season</strong>.
                 </small>
             </div>
@@ -80,7 +80,7 @@ else
                         </span>
                         @if (PlayersSelectedCount > 0)
                         {
-                            <button class="btn btn-link btn-sm text-muted text-decoration-none ms-auto p-0" @onclick="ResetMatch">
+                            <button class="btn btn-link btn-sm text-ink-muted no-underline ms-auto p-0" @onclick="ResetMatch">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> Clear
                             </button>
                         }
@@ -199,8 +199,8 @@ else
                         }
                         else
                         {
-                            <p class="result-hint text-muted small">
-                                <i class="bi bi-arrow-up d-lg-none me-1"></i><i class="bi bi-arrow-left d-none d-lg-inline me-1"></i>Pick all four players to see the win probability.
+                            <p class="result-hint text-ink-muted text-small">
+                                <i class="bi bi-arrow-up lg:hidden me-1"></i><i class="bi bi-arrow-left hidden lg:inline me-1"></i>Pick all four players to see the win probability.
                             </p>
                         }
 
@@ -217,20 +217,20 @@ else
                             <div class="score-card-inputs">
                                 <input type="number" class="form-control form-control-lg text-center score-input"
                                        min="0" max="10" @bind="Team1Score" />
-                                <span class="fs-3 text-muted">:</span>
+                                <span class="text-h3 text-ink-muted">:</span>
                                 <input type="number" class="form-control form-control-lg text-center score-input"
                                        min="0" max="10" @bind="Team2Score" />
                             </div>
                         </div>
 
-                        <SpinnerButton CssClass="btn-lg w-100 record-match-btn" Busy="_saving" Disabled="!IsValid()"
+                        <SpinnerButton CssClass="btn-lg w-full record-match-btn" Busy="_saving" Disabled="!IsValid()"
                                        Icon="bi bi-check-lg" OnClick="SubmitMatch">
                             Record Match
                         </SpinnerButton>
                         @if (!IsValid())
                         {
                             <div class="text-center mt-2">
-                                <small class="text-muted">@GetValidationMessage()</small>
+                                <small class="text-ink-muted">@GetValidationMessage()</small>
                             </div>
                         }
                     }
@@ -241,14 +241,14 @@ else
 
     <Modal Show="_showBalancePicker" Title="Balance Teams" Icon="bi bi-shuffle" Size="lg" OnClose="CloseBalancePicker">
         <Body>
-            <p class="text-muted small mb-3">Pick exactly 4 players. We'll split them into the most balanced 2v2 and assign positions.</p>
+            <p class="text-ink-muted text-small mb-4">Pick exactly 4 players. We'll split them into the most balanced 2v2 and assign positions.</p>
             <PlayerPickerGrid Players="@_players.OrderByDescending(p => p.Id == MyPlayerId).ThenBy(p => p.Name)"
                               SelectedIds="_balanceSelectedIds"
                               MyPlayerId="MyPlayerId"
                               OnSelect="ToggleBalanceSelection" />
         </Body>
         <Footer>
-            <span class="me-auto text-muted small">@_balanceSelectedIds.Count / 4 selected</span>
+            <span class="me-auto text-ink-muted text-small">@_balanceSelectedIds.Count / 4 selected</span>
             <button class="btn btn-secondary" @onclick="CloseBalancePicker">Cancel</button>
             <SpinnerButton Icon="bi bi-shuffle" Disabled="_balanceSelectedIds.Count != 4" OnClick="ApplyBalance">
                 Balance
@@ -658,13 +658,13 @@ else
             {
                 <span class="elo-delta">
                     <span class="gain">+@GetWinDelta(team)</span>
-                    <span class="text-muted">/</span>
+                    <span class="text-ink-muted">/</span>
                     <span class="loss">-@GetWinDelta(team)</span>
                 </span>
             }
             else
             {
-                <span class="elo-delta text-muted">pick lineup</span>
+                <span class="elo-delta text-ink-muted">pick lineup</span>
             }
         </button>;
     };

@@ -1,0 +1,55 @@
+@layer components {
+    /* Avatar Styles */
+    .avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: var(--color-gray-100);
+        border: 2px solid var(--color-gray-300);
+    }
+
+    .avatar-sm {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    .avatar-md {
+        width: 48px;
+        height: 48px;
+        font-size: 1.5rem;
+    }
+
+    .avatar-lg {
+        width: 64px;
+        height: 64px;
+        font-size: 2rem;
+    }
+
+    .avatar-xl {
+        width: 96px;
+        height: 96px;
+        font-size: 3rem;
+    }
+
+    /* Avatar Picker */
+    .avatar-picker .btn {
+        transition: all 0.2s ease;
+    }
+
+    .avatar-picker .btn:hover {
+        transform: scale(1.05);
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .avatar {
+        background-color: var(--color-surface-sunken);
+        border-color: var(--color-line);
+    }
+    :root[data-theme='dark'] .player-circle .avatar {
+        background-color: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+    }
+
+}

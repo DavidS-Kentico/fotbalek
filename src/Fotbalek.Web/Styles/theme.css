@@ -1,0 +1,289 @@
+/* ============================================================================
+   Design tokens
+   ----------------------------------------------------------------------------
+   The single source of truth for colour, type, radius, shadow and breakpoints.
+   Everything else in Styles/ and every utility class in markup resolves back to
+   a token defined here, so a change in this file reaches the whole app.
+
+   Two kinds of colour token:
+     * Fixed        — brand, semantic accents, team colours, the grey ramp.
+                      Identical in light and dark.
+     * Theme-aware  — surface / ink / line. Declared with light values in @theme
+                      and re-declared for dark at the bottom of this file. Every
+                      utility Tailwind generates from them emits var(--color-…),
+                      so flipping data-theme on <html> re-themes the whole app.
+
+   `static` emits every variable below whether or not the compiled stylesheet
+   references it. Without it Tailwind tree-shakes unreferenced @theme variables,
+   which silently breaks scoped `.razor.css` files: those are compiled by the
+   .NET SDK, so Tailwind cannot see their var() references and would drop the
+   tokens out from under them. Costs a few hundred bytes; buys the guarantee
+   that a token declared here is a token that ships.
+   ============================================================================ */
+
+@theme static {
+    /* Drop Tailwind's stock palette. The app's colours are all named below, so an
+       accidental `text-slate-400` should fail loudly rather than quietly ship an
+       off-palette grey. */
+    --color-*: initial;
+
+    /* ---- Type ------------------------------------------------------------- */
+    --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-mono: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+    /* Steps used across the app. `small` is deliberately em-based so it shrinks
+       relative to its container (matching how <small> behaves) — the rest are rem. */
+    --text-small: 0.875em;
+    --text-2xs: 0.62rem;
+    --text-xs: 0.7rem;
+    --text-sm: 0.8rem;
+    --text-base: 1rem;
+    --text-lg: 1.05rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.7rem;
+    --text-4xl: 1.9rem;
+    --text-5xl: 2rem;
+    --text-6xl: 3rem;
+
+    /* ---- Fixed colours ---------------------------------------------------- */
+    --color-white: #fff;
+    --color-black: #000;
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-inherit: inherit;
+
+    /* Grey ramp. Also the source for the theme-aware surface/ink tokens below. */
+    --color-gray-100: #f8f9fa;
+    --color-gray-200: #e9ecef;
+    --color-gray-300: #dee2e6;
+    --color-gray-400: #ced4da;
+    --color-gray-500: #adb5bd;
+    --color-gray-600: #6c757d;
+    --color-gray-700: #495057;
+    --color-gray-800: #343a40;
+    --color-gray-850: #2b3035;
+    --color-gray-900: #212529;
+
+    /* Brand green — primary action, links, "you"/mine highlights. */
+    --color-brand: #198754;
+    --color-brand-strong: #157347;
+    --color-brand-deep: #146c43;
+    --color-brand-light: #75b798;
+
+    /* Semantic accents. `neutral` is the app's grey accent (Bootstrap's old
+       "secondary"); renamed because "secondary" said nothing about intent. */
+    --color-primary: #0d6efd;
+    --color-primary-strong: #0a58ca;
+    --color-primary-light: #6ea8fe;
+    --color-info: #0dcaf0;
+    --color-info-strong: #0aa2c0;
+    --color-warning: #ffc107;
+    --color-warning-strong: #d39e00;
+    --color-warning-deep: #997404;
+    --color-warning-light: #ffda6a;
+    --color-danger: #dc3545;
+    --color-danger-strong: #bb2d3b;
+    --color-danger-light: #ea868f;
+    --color-neutral: #6c757d;
+    --color-purple: #6f42c1;
+
+    /* Team accents. App-wide convention: team 1 / side A is amber, team 2 /
+       side B is blue. `-ink` variants are the legible-as-text versions. */
+    --color-team-a: #ffc107;
+    --color-team-a-strong: #d39e00;
+    --color-team-a-ink: #997404;
+    --color-team-b: #0d6efd;
+    --color-team-b-strong: #0a58ca;
+    --color-team-b-ink: #0d6efd;
+
+    /* Recurring translucent tints. Kept as explicit rgba() rather than opacity
+       modifiers so the composited result is exactly what it has always been. */
+    --color-brand-tint: rgba(25, 135, 84, 0.12);
+    --color-brand-tint-soft: rgba(25, 135, 84, 0.06);
+    --color-brand-tint-strong: rgba(25, 135, 84, 0.35);
+    --color-brand-ring: rgba(25, 135, 84, 0.5);
+    --color-primary-tint: rgba(13, 110, 253, 0.12);
+    --color-info-tint: rgba(13, 202, 240, 0.15);
+    /* NB: a deeper amber than --color-warning (#ffc107), not a tint of it. This
+       is the long-standing value for warning panels and stat cards, kept as-is.
+       Elements that tint from the warning colour proper (the captain armband in
+       badge.css) use rgba(255, 193, 7, …) instead — the two are deliberately
+       different, so don't "unify" them without a design decision. */
+    --color-warning-tint: rgba(245, 158, 11, 0.15);
+    --color-warning-ring: rgba(255, 193, 7, 0.6);
+    --color-danger-tint: rgba(220, 53, 69, 0.12);
+    --color-neutral-tint: rgba(108, 117, 125, 0.15);
+    --color-purple-tint: rgba(111, 66, 193, 0.1);
+
+    /* Subtle trio per accent — a tinted fill, a matching edge, and a text
+       colour dark enough to sit on that fill. Used by alerts and status chips.
+       These are theme-aware (dark values at the foot of this file). */
+    --color-brand-subtle: #d1e7dd;
+    --color-brand-subtle-edge: #a3cfbb;
+    --color-brand-subtle-ink: #0a3622;
+    --color-warning-subtle: #fff3cd;
+    --color-warning-subtle-edge: #ffe69c;
+    --color-warning-subtle-ink: #664d03;
+    --color-danger-subtle: #f8d7da;
+    --color-danger-subtle-edge: #f1aeb5;
+    --color-danger-subtle-ink: #58151c;
+    --color-info-subtle: #cff4fc;
+    --color-info-subtle-edge: #9eeaf9;
+    --color-info-subtle-ink: #055160;
+    --color-neutral-subtle: #e2e3e5;
+    --color-neutral-subtle-edge: #c4c8cb;
+    --color-neutral-subtle-ink: #2b2f32;
+    --color-light-subtle: #fcfcfd;
+    --color-light-subtle-edge: var(--color-gray-200);
+    --color-light-subtle-ink: var(--color-gray-700);
+
+    /* ---- Theme-aware colours (light values; dark block at the foot) ------- */
+    /* Drawn from the grey ramp above rather than repeating its hex values, so the
+       ramp stays the one place a grey is defined. The two rgba() entries are alpha
+       composites of gray-900 and cannot be expressed as a var(). */
+    --color-surface: var(--color-white);            /* page and panel background */
+    --color-surface-muted: var(--color-gray-100);   /* subtle fill: table heads, chips */
+    --color-surface-sunken: var(--color-gray-200);  /* deeper fill: tracks, inactive states */
+    --color-ink: var(--color-gray-900);             /* body text                */
+    --color-ink-strong: var(--color-black);         /* headline numbers, emphasis */
+    --color-ink-muted: rgba(33, 37, 41, 0.75);  /* secondary copy           */
+    --color-ink-faint: rgba(33, 37, 41, 0.5);   /* hints, placeholder-ish   */
+    --color-line: var(--color-gray-300);            /* borders and dividers     */
+    --color-line-strong: rgba(0, 0, 0, 0.175);  /* dropdown/menu edges      */
+    /* App-bar chrome sits a touch lower-contrast than body copy. */
+    --color-navbar-ink: rgba(33, 37, 41, 0.65);
+
+    /* ---- Radii ------------------------------------------------------------ */
+    --radius-xs: 0.25rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 0.875rem;
+    --radius-3xl: 1rem;
+    --radius-4xl: 1.125rem;
+    --radius-full: 9999px;
+
+    /* ---- Shadows ---------------------------------------------------------- */
+    --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --shadow-row: 0 0.35rem 0.9rem rgba(0, 0, 0, 0.08);
+    --shadow-card: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    --shadow-lift: 0 6px 14px rgba(0, 0, 0, 0.1);
+    --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.07);
+    --shadow-playbar: 0 6px 18px rgba(0, 0, 0, 0.05);
+    --shadow-menu: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --shadow-overlay: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+
+    /* ---- Breakpoints ------------------------------------------------------ */
+    /* Deliberately not Tailwind's defaults. These are the widths the app's
+       layouts were designed and tested against, so `md:`/`lg:` keep switching
+       exactly where they always have. */
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --breakpoint-2xl: 1400px;
+
+    /* ---- Layout ----------------------------------------------------------- */
+    /* Page width tiers, consumed by .page / .page--focused (layout.css). */
+    --container-page-sm: 540px;
+    --container-page-md: 720px;
+    --container-page-lg: 960px;
+    --container-page-xl: 1140px;
+    --container-page-2xl: 1320px;
+    --container-focused: 960px;
+
+    /* Height every control in the team app bar shares. */
+    --size-control: 38px;
+}
+
+/* ============================================================================
+   Runtime-only tokens
+   ----------------------------------------------------------------------------
+   These are deliberately OUTSIDE @theme, because putting them in would mint
+   utilities that make no sense: `--color-brand-rgb` in the --color-* namespace
+   generates `bg-brand-rgb`, i.e. `background-color: 25, 135, 84`. They are
+   values only hand-written CSS reads through var(), never something markup
+   should reach through a utility class.
+
+   Note this is NOT about tree-shaking: `@theme static` above emits every theme
+   variable whether the compiled stylesheet references it or not, so a token in
+   @theme is safe for scoped `.razor.css` to read even though Tailwind cannot
+   see those files.
+
+   Rule of thumb: a value that markup should reach through a utility
+   (`bg-brand`, `text-ink-muted`) belongs in @theme; a value only hand-written
+   CSS reads through var() belongs here.
+   ============================================================================ */
+:root {
+    /* Comma-separated triplets for rgba() alpha compositing in scoped CSS.
+       Must track the corresponding --color-* tokens above. */
+    --color-brand-rgb: 25, 135, 84;      /* --color-brand   #198754 */
+    --color-primary-rgb: 13, 110, 253;   /* --color-primary #0d6efd */
+    --color-warning-rgb: 255, 193, 7;    /* --color-warning #ffc107 */
+
+    /* Stacking order. These numbers were inherited from Bootstrap's ladder; with
+       Bootstrap gone they are only meaningful relative to each other, so they
+       live here as one ordered set rather than as literals scattered across
+       files (the chat dock in particular sits between the app bar and modals). */
+    --z-dropdown: 1000;
+    --z-sticky: 1030;
+    --z-chat: 1035;
+    --z-chat-overlay: 1036;
+    /* Blazor's unhandled-error bar. Above the chat dock — it is the last thing
+       the user can still act on, and the dock is full-screen on a phone. */
+    --z-error: 1040;
+    --z-modal: 1055;
+}
+
+/* Dark theme. `data-theme` is set on <html> before first paint (inline script in
+   App.razor) and maintained by window.fotbalekTheme in app.js. Only the
+   theme-aware tokens are re-declared — brand, team and semantic accents are
+   intentionally identical in both themes, with `-light`/`-ink` variants used
+   where a value needed lifting for contrast. */
+:root[data-theme='dark'] {
+    color-scheme: dark;
+
+    --color-surface: var(--color-gray-900);
+    --color-surface-muted: var(--color-gray-850);
+    --color-surface-sunken: var(--color-gray-800);
+    --color-ink: var(--color-gray-300);
+    --color-ink-strong: var(--color-white);
+    --color-ink-muted: rgba(222, 226, 230, 0.75);
+    --color-ink-faint: rgba(222, 226, 230, 0.5);
+    --color-line: var(--color-gray-700);
+    --color-line-strong: rgba(255, 255, 255, 0.15);
+    --color-navbar-ink: rgba(255, 255, 255, 0.65);
+
+    /* Amber and blue label text need lifting to stay legible on a dark surface —
+       which is exactly what the `-light` accents above are for. */
+    --color-team-a-ink: var(--color-warning-light);
+    --color-team-b-ink: var(--color-primary-light);
+
+    /* Subtle trio inverts: near-black fills with lifted text. The lifted inks are
+       the `-light` accents; the near-black fills and mid edges are one-offs. */
+    --color-brand-subtle: #051b11;
+    --color-brand-subtle-edge: #0f5132;
+    --color-brand-subtle-ink: var(--color-brand-light);
+    --color-warning-subtle: #332701;
+    --color-warning-subtle-edge: var(--color-warning-deep);
+    --color-warning-subtle-ink: var(--color-warning-light);
+    --color-danger-subtle: #2c0b0e;
+    --color-danger-subtle-edge: #842029;
+    --color-danger-subtle-ink: var(--color-danger-light);
+    --color-info-subtle: #032830;
+    --color-info-subtle-edge: #087990;
+    --color-info-subtle-ink: #6edff6;
+    --color-neutral-subtle: #161719;
+    --color-neutral-subtle-edge: #41464b;
+    --color-neutral-subtle-ink: #a7acb1;
+    --color-light-subtle: var(--color-gray-800);
+    --color-light-subtle-edge: var(--color-gray-700);
+    --color-light-subtle-ink: var(--color-gray-100);
+}
+
+/* `dark:` variant follows the same attribute rather than the OS preference —
+   the app resolves "system" to a concrete light/dark value itself. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

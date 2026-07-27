@@ -28,7 +28,7 @@ else
 
         @if (_isCaptain && _seasons.Any(s => s.ClosedAt == null && s.EndsAt == null))
         {
-            <div class="alert alert-light border py-2 small">
+            <div class="alert alert-light border py-2 text-small">
                 <i class="bi bi-info-circle me-1"></i>
                 The current season is <strong>open-ended</strong> — starting a <em>later</em> season requires ending it (or setting its end date) first.
                 Creating a season entirely in the past (backfill) remains possible.
@@ -37,7 +37,7 @@ else
 
         @if (_seasons.Count == 0)
         {
-            <EmptyState Icon="bi bi-award" IconSize="xl" Padding="py-5"
+            <EmptyState Icon="bi bi-award" IconSize="xl" Padding="py-12"
                         Title="No seasons yet"
                         Message="Seasons group matches into named periods with their own ELO ladder, champions and awards.">
                 @if (_isCaptain)
@@ -54,20 +54,20 @@ else
                 var matchCount = _matchCounts.GetValueOrDefault(season.Id);
                 _champions.TryGetValue(season.Id, out var champion);
 
-                <Panel Class="@(season.IsActiveAt(now) ? "border-success" : null)">
-                        <div class="d-flex flex-wrap align-items-center gap-3">
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <a href="/team/@TeamCode/seasons/@season.Id" class="text-decoration-none">
-                                        <h5 class="mb-0 d-inline">@season.Name</h5>
+                <Panel Class="@(season.IsActiveAt(now) ? "border-brand" : null)">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div class="grow min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <a href="/team/@TeamCode/seasons/@season.Id" class="no-underline">
+                                        <h5 class="mb-0 inline">@season.Name</h5>
                                     </a>
                                     @StatusBadge(season, now)
                                 </div>
                                 @if (!string.IsNullOrEmpty(season.Description))
                                 {
-                                    <div class="text-muted small mt-1">@season.Description</div>
+                                    <div class="text-ink-muted text-small mt-1">@season.Description</div>
                                 }
-                                <div class="text-muted small mt-1">
+                                <div class="text-ink-muted text-small mt-1">
                                     <i class="bi bi-calendar-range me-1"></i>@FormatPeriod(season)
                                     <span class="mx-1">·</span>
                                     <i class="bi bi-controller me-1"></i>@matchCount match@(matchCount == 1 ? "" : "es")
@@ -76,15 +76,15 @@ else
 
                             @if (season.IsClosed && champion != null)
                             {
-                                <a href="/team/@TeamCode/players/@champion.PlayerId" class="text-decoration-none d-flex align-items-center gap-2"
+                                <a href="/team/@TeamCode/players/@champion.PlayerId" class="no-underline flex items-center gap-2"
                                    title="@(champion.IsAwardHolder ? "Season champion (Player award)" : "Season standings leader")">
-                                    <span class="fs-4">🏆</span>
+                                    <span class="text-h4">🏆</span>
                                     <Avatar AvatarId="@champion.AvatarId" Size="sm" />
-                                    <span class="fw-semibold">@champion.Name</span>
+                                    <span class="font-semibold">@champion.Name</span>
                                 </a>
                             }
 
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="flex items-center gap-2">
                                 <a href="/team/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-success">
                                     @(season.IsClosed ? "Results" : "Details")
                                 </a>
@@ -150,22 +150,22 @@ else
     {
         @if (season.IsActiveAt(now))
         {
-            <span class="badge bg-success"><span class="live-dot me-1">●</span>Live</span>
+            <span class="badge bg-brand"><span class="live-dot me-1">●</span>Live</span>
         }
         else if (season.IsScheduledAt(now))
         {
             var startsIn = (int)Math.Ceiling((season.StartsAt - now).TotalDays);
-            <span class="badge bg-info text-dark" title="@($"Starts {Tz.ToLocalTime(season.StartsAt):f}")">
+            <span class="badge bg-info text-gray-900" title="@($"Starts {Tz.ToLocalTime(season.StartsAt):f}")">
                 Scheduled · starts in @startsIn day@(startsIn == 1 ? "" : "s")
             </span>
         }
         else if (season.IsClosed)
         {
-            <span class="badge bg-secondary">Closed</span>
+            <span class="badge bg-neutral">Closed</span>
         }
         else
         {
-            <span class="badge bg-warning text-dark">Ended · closing…</span>
+            <span class="badge bg-warning text-gray-900">Ended · closing…</span>
         }
     };
 }

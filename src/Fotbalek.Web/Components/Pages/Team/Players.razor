@@ -16,7 +16,7 @@
 else
 {
     <PageContainer>
-        <PageHeader Title="Players" Icon="bi bi-people" Class="mb-3"
+        <PageHeader Title="Players" Icon="bi bi-people" Class="mb-4"
                     Subtitle="@($"{_activePlayers.Count} active{(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")} · {(_activeSeason != null ? "Season" : "All-time")} ELO")">
             <Actions>
                 @if (_isCaptain)
@@ -34,7 +34,7 @@ else
         <AlertMessage Message="@_message" Variant="@(_messageIsError ? "danger" : "success")"
                       Dismissible="true" OnDismiss="() => _message = null" />
 
-        <div class="d-flex toolbar mb-3 align-items-center">
+        <div class="flex toolbar mb-4 items-center">
             <div class="search-wrap">
                 <i class="bi bi-search"></i>
                 <input type="search" class="form-control" placeholder="Search players…"
@@ -66,7 +66,7 @@ else
         }
         else
         {
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3 mb-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
                 @foreach (var player in visibleActive)
                 {
                     @RenderPlayerCard(player, isInactive: false)
@@ -76,7 +76,7 @@ else
 
         @if (_isCaptain && _inactivePlayers.Count > 0)
         {
-            <div class="mb-3">
+            <div class="mb-4">
                 <button class="inactive-toggle" @onclick="() => _showInactive = !_showInactive">
                     <i class="bi @(_showInactive ? "bi-chevron-down" : "bi-chevron-right")"></i>
                     Inactive players (@_inactivePlayers.Count)
@@ -86,7 +86,7 @@ else
             @if (_showInactive)
             {
                 var visibleInactive = FilterAndSort(_inactivePlayers);
-                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     @foreach (var player in visibleInactive)
                     {
                         @RenderPlayerCard(player, isInactive: true)
@@ -100,11 +100,11 @@ else
         <Body>
             <EditForm Model="@_formModel" OnValidSubmit="SavePlayer" id="addPlayerForm">
                 <AlertMessage Message="@_modalError" Variant="danger" />
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="playerName" class="form-label">Name</label>
                     <InputText id="playerName" @bind-Value="_formModel.Name" class="form-control" placeholder="Player name" maxlength="50" />
                 </div>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">Avatar</label>
                     <AvatarPicker @bind-Value="_formModel.AvatarId" />
                 </div>
@@ -121,7 +121,7 @@ else
         <Body>
             <AlertMessage Message="@_deactivateError" Variant="danger" />
             <p>Are you sure you want to deactivate <strong>@_playerToDeactivate?.Name</strong>?</p>
-            <p class="text-muted small">Deactivated players won't appear in match dropdowns but their history will be preserved.</p>
+            <p class="text-ink-muted text-small">Deactivated players won't appear in match dropdowns but their history will be preserved.</p>
         </Body>
         <Footer>
             <button type="button" class="btn btn-secondary" @onclick="() => _showDeactivateConfirm = false">Cancel</button>
@@ -132,12 +132,12 @@ else
     <Modal Show="_showInviteModal" Title="Invite Players" Icon="bi bi-person-plus"
            OnClose="() => _showInviteModal = false">
         <Body>
-            <p class="text-muted">Share this link so teammates can join your team without a password:</p>
+            <p class="text-ink-muted">Share this link so teammates can join your team without a password:</p>
             @if (_generatingToken)
             {
-                <div class="text-center py-3">
-                    <div class="spinner-border spinner-border-sm text-success" role="status">
-                        <span class="visually-hidden">Generating link...</span>
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-brand" role="status">
+                        <span class="sr-only">Generating link...</span>
                     </div>
                 </div>
             }
@@ -152,9 +152,9 @@ else
                 </div>
                 @if (_inviteCopied)
                 {
-                    <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
+                    <small class="text-brand mt-2 block">Link copied to clipboard!</small>
                 }
-                <small class="text-muted mt-2 d-block">
+                <small class="text-ink-muted mt-2 block">
                     <i class="bi bi-clock me-1"></i>This link expires in @Constants.TimeThresholds.ShareTokenExpirationHours hours.
                 </small>
             }
@@ -230,8 +230,8 @@ else
         var visibleBadgeCount = badges.Count <= maxBadges ? badges.Count : maxBadges - 1;
         var hiddenBadgeCount = badges.Count - visibleBadgeCount;
 
-        <div class="col">
-            <div class="card player-card h-100 @(isMine ? "is-me" : "") @(isInactive ? "is-inactive" : "")">
+        <div>
+            <div class="card player-card h-full @(isMine ? "is-me" : "") @(isInactive ? "is-inactive" : "")">
                 @if (rank.HasValue)
                 {
                     <span class="@rankClass" title="Rank by ELO">#@rank</span>
@@ -280,7 +280,7 @@ else
                         }
                         else
                         {
-                            <span class="elo-value text-muted" title="No seasonal match yet">—</span>
+                            <span class="elo-value text-ink-muted" title="No seasonal match yet">—</span>
                         }
                     </div>
                     @if (summary.Games > 0)
@@ -290,7 +290,7 @@ else
                             <span class="wr-pct @winRateClass">@summary.WinRate.ToString("F0")%</span>
                         </div>
                         <div class="stat-line">
-                            @summary.Wins<span class="text-success">W</span>–@summary.Losses<span class="text-danger">L</span>
+                            @summary.Wins<span class="text-brand">W</span>–@summary.Losses<span class="text-danger">L</span>
                             <span class="dot">·</span>
                             @summary.Games @(summary.Games == 1 ? "game" : "games")
                             <span class="dot">·</span>

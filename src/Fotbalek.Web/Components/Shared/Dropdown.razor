@@ -1,8 +1,14 @@
-@* Reusable Bootstrap dropdown: a trigger button that reveals a panel of
-   arbitrary content. Bootstrap's bundled dropdown JS handles open/close,
-   outside-click dismissal and keyboard nav via the data-api — no init needed,
-   and it keeps working across Blazor re-renders (the .show state lives on the
-   DOM, not in the render output, so live content updates don't close it).
+@* Reusable dropdown: a trigger button that reveals a panel of arbitrary content.
+   js/ui.js drives it from a delegated document listener keyed on
+   `data-toggle="dropdown"` — open/close, outside-click dismissal and Escape.
+   Nothing is initialised, so it keeps working across Blazor re-renders (the
+   .show state lives on the DOM, not in the render output, so live content
+   updates don't close it).
+
+   Keyboard: Tab moves through the panel's own links and buttons once it is open,
+   and Escape closes it. There is no arrow-key roving focus — Bootstrap's JS used
+   to provide that and ui.js does not replace it. Worth adding if a menu ever
+   grows long enough for tabbing through it to feel slow.
 
    Use for any "click a chip/button to reveal a small list or panel" affordance
    (e.g. the live-game viewers list, the navbar online-players list).
@@ -19,7 +25,7 @@
      Title         — native tooltip / accessible label on the trigger *@
 
 <div class="dropdown @Class">
-    <button type="button" class="@TriggerClass" data-bs-toggle="dropdown" aria-expanded="false"
+    <button type="button" class="@TriggerClass" data-toggle="dropdown" aria-expanded="false"
             title="@Title" aria-label="@Title">
         @Trigger
     </button>

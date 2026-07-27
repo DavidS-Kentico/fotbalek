@@ -1,6 +1,7 @@
 @* Standard page content wrapper — the single source of truth for page width.
-   Wraps Bootstrap's .container and applies one of the app's width tiers so every
-   page stays consistent. Put it on the primary content container of a page.
+   Renders the .page width container (Styles/components/layout.css) in one of the
+   app's width tiers so every page stays consistent. Put it on a page's primary
+   content container.
 
    Tiers:
      default   — data / dashboard pages; keeps the responsive container width.
@@ -30,7 +31,7 @@
     {
         get
         {
-            var cls = $"container {Padding} page";
+            var cls = $"page {Padding}";
             if (Focused) cls += " page--focused";
             if (!string.IsNullOrEmpty(Class)) cls += $" {Class}";
             return cls;

@@ -11,7 +11,7 @@ public class NewcomerStat : StatBase
     public override string Emoji => "✨";
     public override StatTheme Theme => StatTheme.Special;
     public override string Description => $"Joined in the last {Constants.TimeThresholds.RecentActivityDays} days";
-    public override StatBadge? Badge => new("bi bi-stars", "bg-success");
+    public override StatBadge? Badge => new("bi bi-stars", "bg-brand");
 
     public override bool Applies(StatContext context) => context.IsAllTime;
 

@@ -19,36 +19,36 @@
 
                 <AlertMessage Message="@_error" Variant="danger" />
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="name" class="form-label">Team name</label>
                     <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Office League" />
                     <ValidationMessage For="@(() => _model.Name)" class="text-danger" />
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="codeName" class="form-label">Team URL code</label>
                     <div class="input-group">
                         <span class="input-group-text">/</span>
                         <InputText id="codeName" @bind-Value="_model.CodeName" class="form-control" placeholder="e.g., office-league" @oninput="OnCodeNameInput" />
                     </div>
                     <ValidationMessage For="@(() => _model.CodeName)" class="text-danger" />
-                    <small class="text-muted">This will be your team's URL. Only lowercase letters, numbers, and hyphens allowed.</small>
+                    <small class="text-ink-muted">This will be your team's URL. Only lowercase letters, numbers, and hyphens allowed.</small>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="password" class="form-label">Password</label>
                     <InputText id="password" @bind-Value="_model.Password" type="password" class="form-control" placeholder="Min 4 characters" />
                     <ValidationMessage For="@(() => _model.Password)" class="text-danger" />
-                    <small class="text-muted">Team members will use this password to join.</small>
+                    <small class="text-ink-muted">Team members will use this password to join.</small>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="confirmPassword" class="form-label">Confirm password</label>
                     <InputText id="confirmPassword" @bind-Value="_model.ConfirmPassword" type="password" class="form-control" />
                     <ValidationMessage For="@(() => _model.ConfirmPassword)" class="text-danger" />
                 </div>
 
-                <div class="d-grid gap-2 mt-4">
+                <div class="grid gap-2 mt-6">
                     <SpinnerButton Type="submit" Busy="_loading" CssClass="btn-lg">Create team</SpinnerButton>
                     <a href="/" class="btn btn-outline-secondary">Cancel</a>
                 </div>

@@ -1,0 +1,482 @@
+@layer components {
+    /* ===== Live Game (online foosball mini-game) ===== */
+    .live-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: var(--color-danger);
+        animation: live-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes live-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); }
+        70% { box-shadow: 0 0 0 7px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+
+    .game-canvas-wrap {
+        position: relative;
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        line-height: 0; /* no phantom gap under the canvas */
+    }
+
+    .game-canvas-wrap canvas {
+        display: block;
+        width: 100%;
+    }
+
+    .game-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.35);
+        line-height: 1.5;
+    }
+
+    .game-overlay-box {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: var(--radius-xl);
+        padding: 1.25rem 2rem;
+        box-shadow: var(--shadow-overlay);
+        text-align: center;
+        max-width: 90%;
+    }
+
+    .game-connection-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(33, 37, 41, 0.75);
+        color: var(--color-white);
+        font-weight: 600;
+        line-height: 1.5;
+        z-index: 5;
+    }
+
+    /* ============================================================
+       Live game — page chrome (redesign)
+       The canvas (game.js) stays the in-field HUD (score, clock,
+       GOAL flash); everything below is the lobby shell around it.
+       Surfaces reuse the themed .card, so light/dark come for free;
+       only the team-tinted accents need explicit vars.
+       ============================================================ */
+    .live-game {
+        /* Local aliases for the app-wide team accents (theme.css: A amber,
+           B blue). Solid values drive dots/rails; the -ink values are the
+           legible-as-label-text pair and already flip for dark, so this needs
+           no dark override of its own. */
+        --lg-a: var(--color-team-a);
+        --lg-b: var(--color-team-b);
+        --lg-a-text: var(--color-team-a-ink);
+        --lg-b-text: var(--color-team-b-ink);
+        --lg-accent: var(--color-brand);
+    }
+
+    /* ── Scoreboard ── */
+    .lg-scorebar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.55rem 1rem;
+    }
+    .lg-scorebar__left { justify-self: start; display: flex; align-items: center; gap: 0.4rem; }
+    .lg-scorebar__center { justify-self: center; }
+    .lg-scorebar__right { justify-self: end; }
+
+    /* The scorebar is a flush panel (overflow:hidden clips its rounded corners),
+       which would also clip the viewers dropdown — let this one panel overflow. */
+    .panel--flush.lg-scorebar-panel { overflow: visible; }
+
+    /* Narrow screens can't hold three fixed sections on one row — let them wrap,
+       score centered, chips/end-game flowing above/below. */
+    @media (width < theme(--breakpoint-sm)) {
+        .lg-scorebar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            row-gap: 0.6rem;
+        }
+        .lg-scorebar__left { flex: 1 1 auto; }
+        .lg-scorebar__right { flex: 0 0 auto; }
+        .lg-scorebar__center { flex: 1 1 100%; order: 3; display: flex; justify-content: center; }
+    }
+
+    .lg-score {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .lg-score__team {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        letter-spacing: 0.01em;
+    }
+    .lg-score__team--a { color: var(--lg-a-text); }
+    .lg-score__team--b { color: var(--lg-b-text); }
+    .lg-score__value {
+        font-weight: 800;
+        font-size: 1.7rem;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: var(--color-ink-strong);
+    }
+    .lg-score__sep { margin: 0 0.35rem; color: var(--color-ink-faint); }
+
+    /* ── Chips / dots ── */
+    .lg-dot {
+        display: inline-block;
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 50%;
+        flex: 0 0 auto;
+    }
+    .lg-dot--a { background: var(--lg-a); }
+    .lg-dot--b { background: var(--lg-b); }
+
+    .lg-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--color-ink-muted);
+        background: var(--color-surface-sunken);
+        border-radius: var(--radius-full);
+        padding: 0.3rem 0.7rem;
+    }
+    .lg-chip--live { color: var(--color-danger); }
+
+    /* Chip rendered as a button (the clickable viewers count → dropdown). */
+    .lg-chip--btn {
+        border: 0;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background-color 0.12s ease, color 0.12s ease;
+    }
+    .lg-chip--btn:hover,
+    .lg-chip--btn[aria-expanded="true"] {
+        background: var(--color-line);
+        color: var(--color-ink);
+    }
+
+    /* Viewers dropdown panel */
+    .lg-viewers-menu {
+        min-width: 12rem;
+        max-height: 16rem;
+        overflow-y: auto;
+        padding: 0.35rem;
+    }
+    .lg-viewer-row {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.3rem 0.5rem;
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+    .lg-viewer-row + .lg-viewer-row { margin-top: 0.1rem; }
+    .lg-viewers-empty {
+        padding: 0.3rem 0.5rem;
+        color: var(--color-ink-muted);
+        font-size: 0.85rem;
+    }
+
+    /* ── Lineup ── */
+    .lg-lineup { display: flex; flex-direction: column; gap: 0.9rem; }
+    .lg-team-group__head {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0.15rem 0.45rem;
+        color: var(--color-ink-muted);
+    }
+    .lg-team-group--a .lg-team-group__head { color: var(--lg-a-text); }
+    .lg-team-group--b .lg-team-group__head { color: var(--lg-b-text); }
+    .lg-seats { display: flex; flex-direction: column; gap: 0.45rem; }
+
+    .lg-seat {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid var(--color-line);
+        border-left: 3px solid var(--lg-seat-accent, var(--color-line));
+        border-radius: var(--radius-xl);
+        background: var(--color-surface-muted);
+    }
+    .lg-team-group--a .lg-seat { --lg-seat-accent: var(--lg-a); }
+    .lg-team-group--b .lg-seat { --lg-seat-accent: var(--lg-b); }
+    .lg-seat.is-open { background: transparent; }
+    .lg-seat.is-mine {
+        background: rgba(25, 135, 84, 0.10);
+        border-color: rgba(25, 135, 84, 0.35);
+    }
+    .lg-seat.is-offline { opacity: 0.55; }
+
+    .lg-seat__glyph {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        background: var(--color-surface-sunken);
+        color: var(--color-ink-faint);
+    }
+    .lg-seat__main { flex: 1 1 auto; min-width: 0; line-height: 1.25; }
+    .lg-seat__role {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-ink-faint);
+    }
+    .lg-seat__name {
+        font-weight: 600;
+        font-size: 0.92rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .lg-seat__name--open { color: var(--color-ink-muted); font-weight: 500; }
+    .lg-seat__actions { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: 0.3rem; }
+
+    /* Inline difficulty picker occupies its own row within the tile */
+    .lg-seat__picker { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; }
+    .lg-seat__picker-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-ink-faint);
+    }
+
+    /* ── Compact buttons ── */
+    .lg-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid var(--color-line);
+        background: var(--color-surface);
+        color: var(--color-ink);
+        border-radius: var(--radius-md);
+        padding: 0.22rem 0.55rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.4;
+        white-space: nowrap;
+        transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .lg-btn:hover { background: var(--color-surface-sunken); }
+    .lg-btn--icon { padding: 0.28rem 0.4rem; }
+    .lg-btn--primary { background: var(--color-brand); border-color: var(--color-brand-strong); color: var(--color-white); }
+    .lg-btn--primary:hover { background: var(--color-brand-strong); border-color: var(--color-brand-deep); color: var(--color-white); }
+    .lg-btn--danger { color: var(--color-danger); }
+    .lg-btn--danger:hover { background: rgba(220, 53, 69, 0.12); border-color: rgba(220, 53, 69, 0.4); color: var(--color-danger); }
+
+    /* ── Segmented control (bot difficulty) ── */
+    .lg-seg { display: inline-flex; border: 1px solid var(--color-line); border-radius: var(--radius-md); overflow: hidden; }
+    .lg-seg button {
+        border: 0;
+        background: var(--color-surface);
+        color: var(--color-ink);
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.22rem 0.55rem;
+        transition: background-color 0.12s ease;
+    }
+    .lg-seg button + button { border-left: 1px solid var(--color-line); }
+    .lg-seg button:hover { background: var(--lg-accent); color: var(--color-white); }
+
+    /* ── Small tag (bot level) ── */
+    .lg-tag {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-ink-muted);
+        background: var(--color-surface-sunken);
+        border-radius: var(--radius-sm);
+        padding: 0.08rem 0.35rem;
+    }
+
+    /* ── Floating spectators (viewers bobbing over the pitch corner) ── */
+    /* Sits inside .game-canvas-wrap, before the waiting/game-over overlays in the
+       DOM so those (same auto z-index, later in source) still paint on top. Purely
+       decorative — pointer-events off so it never blocks the canvas; the live count
+       also lives in the scorebar chip. */
+    .lg-spectators {
+        position: absolute;
+        left: 0.6rem;
+        bottom: 0.6rem;
+        display: flex;
+        align-items: flex-end;
+        gap: 0.25rem;
+        pointer-events: none;
+    }
+    /* Each avatar re-enables pointer events (the container is off) so hovering it
+       can reveal the name and pause the bob. */
+    .lg-spectator {
+        position: relative;
+        pointer-events: auto;
+        cursor: default;
+        user-select: none;
+        animation: lg-spectator-bob 2.4s ease-in-out infinite;
+    }
+    .lg-spectator:hover { animation-play-state: paused; }
+    .lg-spectator .avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 0.95rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+    .lg-spectator--more {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(33, 37, 41, 0.85);
+        color: var(--color-white);
+        font-size: 0.72rem;
+        font-weight: 700;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+    /* Name tooltip on hover (custom, so it's instant and themed). Sits above the
+       avatar, inside the canvas bounds so .game-canvas-wrap's overflow won't clip. */
+    .lg-spectator[data-name]::after {
+        content: attr(data-name);
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 0.3rem 0.5rem;
+        border-radius: var(--radius-sm);
+        background: rgba(33, 37, 41, 0.95);
+        color: var(--color-white);
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+        z-index: 3;
+    }
+    .lg-spectator:hover::after { opacity: 1; }
+    @keyframes lg-spectator-bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .lg-spectator { animation: none; }
+    }
+
+    /* ── Settings rows (built to grow — one .lg-setting per option) ── */
+    .lg-setting { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0; }
+    .lg-setting + .lg-setting { border-top: 1px solid var(--color-line); }
+    .lg-setting:first-child { padding-top: 0; }
+    .lg-setting:last-child { padding-bottom: 0; }
+    .lg-setting__text { flex: 1 1 auto; min-width: 0; }
+    .lg-setting__label { font-weight: 600; font-size: 0.9rem; }
+    .lg-setting__desc { color: var(--color-ink-muted); font-size: 0.78rem; margin-top: 0.1rem; }
+    .lg-setting .form-switch { flex: 0 0 auto; padding-left: 2.75em; margin: 0; min-height: auto; }
+    .lg-setting .form-switch .form-check-input { width: 2.25em; height: 1.15em; margin-left: -2.75em; cursor: pointer; }
+
+    /* Grouped settings (Display / Match rules subsections in one panel) */
+    .lg-setting-group + .lg-setting-group { margin-top: 1.1rem; }
+    .lg-setting-group__label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-ink-faint);
+        margin-bottom: 0.1rem;
+    }
+
+    /* ── In-game control bar ── */
+    /* Lives directly under the canvas so the reset/leave actions are always in view
+       while seated (no scrolling into the sidebar). The keyboard legend sits below,
+       split off by a divider. */
+    .lg-playbar {
+        margin-top: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-2xl);
+        background: var(--color-surface);
+        box-shadow: var(--shadow-playbar);
+    }
+    .lg-playbar__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .lg-btn--lg { padding: 0.45rem 0.85rem; font-size: 0.85rem; border-radius: var(--radius-lg); }
+
+    /* ── Controls legend (keycaps) ── */
+    .lg-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem 0.5rem;
+        margin-top: 0.6rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--color-line);
+        color: var(--color-ink-muted);
+        font-size: 0.82rem;
+    }
+    .lg-controls .lg-sep { opacity: 0.5; }
+    .lg-key {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.7em;
+        height: 1.7em;
+        padding: 0 0.4em;
+        border-radius: var(--radius-sm);
+        background: var(--color-surface);
+        border: 1px solid var(--color-line);
+        border-bottom-width: 2px;
+        color: var(--color-ink);
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-family: inherit;
+        box-shadow: var(--shadow-xs);
+    }
+
+    /* ── Empty / ended hero ── */
+    .lg-hero { text-align: center; padding: 3rem 1.5rem; }
+    .lg-hero__icon { font-size: 3rem; line-height: 1; }
+    .lg-hero h4 { margin-top: 0.75rem; font-weight: 700; }
+    .lg-hero p { color: var(--color-ink-muted); max-width: 34rem; margin: 0.25rem auto 1.25rem; }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .game-overlay-box {
+        background: rgba(33, 37, 41, 0.96);
+    }
+
+}

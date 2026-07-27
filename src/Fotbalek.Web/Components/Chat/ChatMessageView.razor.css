@@ -6,7 +6,7 @@
 }
 
 .chat-msg:hover {
-    background: var(--bs-tertiary-bg);
+    background: var(--color-surface-muted);
 }
 
 .chat-msg-first {
@@ -15,20 +15,20 @@
 
 /* Own messages read at a glance via a soft tint + a thin accent bar, not a faint border. */
 .chat-msg-own {
-    background: rgba(var(--bs-success-rgb), .07);
-    box-shadow: inset 2px 0 0 rgba(var(--bs-success-rgb), .5);
+    background: rgba(var(--color-brand-rgb), .07);
+    box-shadow: inset 2px 0 0 rgba(var(--color-brand-rgb), .5);
 }
 
 .chat-msg-own:hover {
-    background: rgba(var(--bs-success-rgb), .12);
+    background: rgba(var(--color-brand-rgb), .12);
 }
 
 .chat-msg-mentions-me {
-    background: rgba(var(--bs-warning-rgb), .12);
+    background: rgba(var(--color-warning-rgb), .12);
 }
 
 .chat-msg-mentions-me:hover {
-    background: rgba(var(--bs-warning-rgb), .18);
+    background: rgba(var(--color-warning-rgb), .18);
 }
 
 .chat-msg-header {
@@ -45,7 +45,7 @@
 
 .chat-msg-time {
     font-size: .7rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 .chat-msg-body {
@@ -63,23 +63,23 @@
 }
 
 .chat-msg-tombstone {
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-style: italic;
     font-size: .85rem;
     padding-left: var(--chat-gutter);
 }
 
 .chat-mention {
-    background: rgba(var(--bs-primary-rgb), .12);
-    color: var(--bs-primary);
+    background: rgba(var(--color-primary-rgb), .12);
+    color: var(--color-primary);
     border-radius: .25rem;
     padding: 0 .15rem;
     font-weight: 500;
 }
 
 .chat-mention-me {
-    background: rgba(var(--bs-warning-rgb), .3);
-    color: var(--bs-body-color);
+    background: rgba(var(--color-warning-rgb), .3);
+    color: var(--color-ink);
 }
 
 .chat-msg-reactions {
@@ -94,21 +94,21 @@
     display: inline-flex;
     align-items: center;
     gap: .25rem;
-    border: 1px solid var(--bs-border-color);
-    background: var(--bs-body-bg);
-    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    border-radius: var(--radius-full);
     font-size: .75rem;
     padding: .05rem .45rem;
-    color: var(--bs-body-color);
+    color: var(--color-ink);
 }
 
 .chat-reaction-chip:hover {
-    border-color: var(--bs-success);
+    border-color: var(--color-brand);
 }
 
 .chat-reaction-chip.mine {
-    border-color: var(--bs-success);
-    background: rgba(var(--bs-success-rgb), .1);
+    border-color: var(--color-brand);
+    background: rgba(var(--color-brand-rgb), .1);
 }
 
 .chat-reaction-count {
@@ -123,9 +123,9 @@
     right: .4rem;
     gap: .05rem;
     align-items: center;
-    background: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-full);
     padding: .1rem .2rem;
     box-shadow: 0 .35rem .9rem rgba(0, 0, 0, .28);
     z-index: 2;
@@ -151,7 +151,7 @@
 }
 
 .chat-action-btn:hover {
-    background: var(--bs-tertiary-bg);
+    background: var(--color-surface-muted);
     transform: scale(1.12);
 }
 
@@ -166,7 +166,7 @@
 }
 
 .chat-action-more {
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 /* Options menu (author-only edit/delete), anchored under the action row. */
@@ -176,8 +176,8 @@
     right: 0;
     margin-top: .15rem;
     min-width: 9rem;
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
     border-radius: .5rem;
     box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .18);
     padding: .25rem;
@@ -197,25 +197,25 @@
     padding: .3rem .5rem;
     text-align: left;
     font-size: .82rem;
-    color: var(--bs-body-color);
+    color: var(--color-ink);
     white-space: nowrap;
 }
 
 .chat-msg-menu-item:hover {
-    background: var(--bs-tertiary-bg);
+    background: var(--color-surface-muted);
 }
 
 .chat-msg-menu-delete {
-    color: var(--bs-danger);
+    color: var(--color-danger);
 }
 
 .chat-msg-menu-delete.confirming {
-    background: var(--bs-danger);
-    color: #fff;
+    background: var(--color-danger);
+    color: var(--color-white);
 }
 
 .chat-msg-menu-delete.confirming:hover {
-    background: var(--bs-danger);
+    background: var(--color-danger);
     filter: brightness(1.1);
 }
 
@@ -239,13 +239,13 @@
 
 .chat-msg-edit-hint {
     font-size: .7rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 .chat-msg-edited {
     margin-left: .3rem;
     font-size: .7rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 /* "Seen by" — a quiet row under the sender's own last message (Messenger-style): a tick that
@@ -257,7 +257,7 @@
     margin-top: .2rem;
     padding-left: var(--chat-gutter);
     font-size: .68rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     cursor: default;
     user-select: none;
 }
@@ -269,7 +269,7 @@
 }
 
 .chat-seen.all .chat-seen-tick {
-    color: var(--bs-success);
+    color: var(--color-brand);
     opacity: 1;
 }
 
@@ -289,7 +289,7 @@
     height: 16px;
     font-size: .56rem;
     border-width: 1px;
-    box-shadow: 0 0 0 2px var(--bs-body-bg);
+    box-shadow: 0 0 0 2px var(--color-surface);
 }
 
 .chat-seen-avatars ::deep .avatar.chat-seen-avatar + .avatar.chat-seen-avatar {

@@ -11,14 +11,14 @@
     if (group != groupKey)
     {
         group = groupKey;
-        <div class="day-group fw-semibold @HeaderMarginClass">
+        <div class="day-group font-semibold @HeaderMarginClass">
             <i class="bi bi-calendar-event me-1"></i>@DateFilterDisplay.FormatDayGroup(groupKey, Tz.Today)
         </div>
     }
 
     @if (Actions != null)
     {
-        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
+        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
                    ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
                    DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
                    DateTitle="@Tz.FormatLocalDate(match.PlayedAt)">
@@ -27,7 +27,7 @@
     }
     else
     {
-        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact"
+        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
                    ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
                    DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
                    DateTitle="@Tz.FormatLocalDate(match.PlayedAt)" />
@@ -51,4 +51,7 @@
 
     /// <summary>Margin utilities for the day-group headers (history uses more top space than the dashboard).</summary>
     [Parameter] public string HeaderMarginClass { get; set; } = "mt-4 mb-2";
+
+    /// <summary>Margin utilities between cards (the dashboard feed packs them tighter than history).</summary>
+    [Parameter] public string CardMarginClass { get; set; } = "mb-4";
 }

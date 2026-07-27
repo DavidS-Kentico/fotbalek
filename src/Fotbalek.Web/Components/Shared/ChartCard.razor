@@ -1,7 +1,7 @@
 @* Card containing a Chart.js canvas with a header and a fallback when there's no
    data. Built on the shared Panel surface so it matches every other card in the app. *@
 
-<Panel Class="h-100">
+<Panel Class="h-full">
     <Header>
         @if (!string.IsNullOrEmpty(Icon))
         {
@@ -11,7 +11,7 @@
             <h2 class="panel__title">@Title</h2>
             @if (!string.IsNullOrEmpty(Subtitle))
             {
-                <div class="text-muted small">@Subtitle</div>
+                <div class="text-ink-muted text-small">@Subtitle</div>
             }
         </div>
     </Header>
@@ -22,7 +22,7 @@
         }
         else
         {
-            <p class="text-muted text-center mb-0">No data available</p>
+            <p class="text-ink-muted text-center mb-0">No data available</p>
         }
     </ChildContent>
 </Panel>

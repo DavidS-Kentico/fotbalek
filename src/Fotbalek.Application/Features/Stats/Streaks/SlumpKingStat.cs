@@ -10,7 +10,7 @@ public class SlumpKingStat : StatBase
     public override string Emoji => "\U0001F926";
     public override StatTheme Theme => StatTheme.Streaks;
     public override string Description => "Longest losing streak in the period (min 3 losses)";
-    public override StatBadge? Badge => new("bi bi-thermometer-snow", "bg-dark");
+    public override StatBadge? Badge => new("bi bi-thermometer-snow", "bg-gray-900");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {

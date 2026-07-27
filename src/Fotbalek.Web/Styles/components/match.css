@@ -1,0 +1,144 @@
+/* NB: `.match-date` in the markup is intentionally style-free — it is the hook
+   js/app.js:16 queries to rewrite a UTC timestamp into browser-local time. Do
+   not "clean up" that class because nothing here matches it. */
+
+@layer components {
+    /* Match history: keep filter bar visible while scrolling long lists */
+    .match-history-filters {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+
+    /* Day-group heading with an accent stripe — shared by Match History and the
+       dashboard Recent Matches feed. Margins come from utilities per context
+       (MatchDayList.HeaderMarginClass), including the dashboard's `first:mt-0`
+       so the first heading hugs the panel top. */
+    .day-group {
+        font-size: .8rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--color-ink-muted);
+        border-left: 3px solid var(--color-brand);
+        padding: .15rem .25rem .15rem .6rem;
+    }
+
+    /* Match card: subtle hover lift so the row feels clickable */
+    .match-card {
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .match-card:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-row);
+    }
+
+    /* Match card (full/non-compact): tighter body + slim meta line so history rows
+       stay low-profile — the day is already shown in the group header, so the meta
+       line only carries the time and the margin/season chips. */
+    .match-card-body {
+        padding: .7rem 1rem;
+    }
+    .match-card-meta {
+        margin-top: .4rem;
+        font-size: .8rem;
+        line-height: 1.15;
+    }
+
+    /* Shared "+N" overflow pill for capped badge lists (player cards, rankings rows). */
+    .badge-more {
+        display: inline-block;
+        background: var(--color-surface-muted);
+        color: var(--color-ink-muted);
+        font-size: .7rem;
+        padding: .25rem .4rem;
+        border-radius: .375rem;
+        font-weight: 500;
+    }
+
+    /* Dashboard Rankings panel — middle-aligned rows, tabular ELO, and a compact
+       win-rate meter beneath the percentage so standings scan at a glance. */
+    .rankings-table td,
+    .rankings-table th { vertical-align: middle; }
+    .rankings-table .elo-cell {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    .rank-wr {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .2rem;
+    }
+    .rank-wr__pct {
+        font-size: .85rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--color-ink-muted);
+    }
+    .rank-wr__pct.good { color: var(--color-brand); }
+    .rank-wr__pct.bad { color: var(--color-danger); }
+    .rank-wr__track {
+        width: 52px;
+        height: 4px;
+        border-radius: var(--radius-full);
+        background: var(--color-surface-muted);
+        overflow: hidden;
+    }
+    .rank-wr__fill {
+        display: block;
+        height: 100%;
+        border-radius: var(--radius-full);
+        background: var(--color-brand);
+    }
+    .rank-wr__fill.bad {
+        background: var(--color-danger);
+    }
+
+    /* Dashboard panels: cap the list height so the panel stays compact regardless of
+       roster/match count; "Load more" reveals the next chunk within this scroll area. */
+    .panel-scroll {
+        max-height: 30rem;
+        overflow-y: auto;
+    }
+    /* Keep the rankings header pinned while its rows scroll. */
+    .rankings-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--color-surface-muted);
+    }
+    /* Shared "Load more" action (LoadMoreButton) — centered with breathing room so it
+       reads consistently below a page list, a flush panel's table, or a padded feed. */
+    .load-more {
+        text-align: center;
+        padding: .85rem;
+    }
+
+    /* Team | score | team. The row layout lives here rather than as utilities in
+       MatchCard.razor so the narrow-screen override below can win on specificity
+       alone — a rule in this layer can never outrank a utility class in markup,
+       which is what used to force !important on every one of these properties. */
+    .match-card-grid {
+        display: flex;
+        align-items: center;
+    }
+
+    /* Match card: stack teams above/below the score on narrow screens */
+    @media (width < theme(--breakpoint-sm)) {
+        .match-card .match-card-grid {
+            flex-direction: column;
+            align-items: stretch;
+            gap: .5rem;
+        }
+        /* .match-team is a flex *item*, not a container — the flex row is the div
+           inside it, which keeps its own end/start alignment from markup. So only
+           text-align applies here; a justify-content declaration would be inert.
+           (One was here, kept alive by an !important that could not help it.) */
+        .match-card .match-card-grid > .match-team {
+            text-align: center;
+        }
+        .match-card .match-card-score {
+            order: -1; /* score on top */
+        }
+    }
+}

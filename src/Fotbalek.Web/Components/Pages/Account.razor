@@ -6,7 +6,7 @@
 
 <PageTitle>My account - Foosball Manager</PageTitle>
 
-<PageContainer Focused Padding="py-4 py-lg-5">
+<PageContainer Focused Padding="py-6 lg:py-12">
     <PageHeader Title="My account" Icon="bi bi-person-circle">
         <Actions>
             <a href="/" class="btn btn-sm btn-outline-secondary">
@@ -30,14 +30,14 @@
                 <h2 class="panel__title">Profile</h2>
             </div>
             <div class="panel__body">
-                <div class="d-flex justify-content-between flex-wrap gap-3">
+                <div class="flex justify-between flex-wrap gap-4">
                     <div>
-                        <div class="text-muted small">Username</div>
-                        <div class="fw-semibold">@_user.UserName</div>
+                        <div class="text-ink-muted text-small">Username</div>
+                        <div class="font-semibold">@_user.UserName</div>
                     </div>
                     <div>
-                        <div class="text-muted small">Member since</div>
-                        <div class="fw-semibold">@Tz.FormatLocalDate(_user.CreatedAt)</div>
+                        <div class="text-ink-muted text-small">Member since</div>
+                        <div class="font-semibold">@Tz.FormatLocalDate(_user.CreatedAt)</div>
                     </div>
                 </div>
             </div>
@@ -49,7 +49,7 @@
                 <h2 class="panel__title">Appearance</h2>
             </div>
             <div class="panel__body">
-                <div class="text-muted small mb-3">Choose how Foosball Manager looks on this device.</div>
+                <div class="text-ink-muted text-small mb-4">Choose how Foosball Manager looks on this device.</div>
                 <div class="btn-group" role="group" aria-label="Colour theme">
                     <button type="button" class="btn @ThemeButtonClass("light")" @onclick="@(() => SetTheme("light"))">
                         <i class="bi bi-sun-fill me-1"></i>Light
@@ -84,35 +84,35 @@
                 <div class="list-group list-group-flush">
                     @foreach (var m in _memberships)
                     {
-                        <div class="list-group-item py-3">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="list-group-item py-4">
+                            <div class="flex justify-between items-center flex-wrap gap-2">
                                 <div>
-                                    <a href="/team/@m.Team.CodeName" class="text-decoration-none fw-semibold">
-                                        <i class="bi bi-shield-fill text-success me-1"></i>@m.Team.Name
+                                    <a href="/team/@m.Team.CodeName" class="no-underline font-semibold">
+                                        <i class="bi bi-shield-fill text-brand me-1"></i>@m.Team.Name
                                     </a>
-                                    <small class="text-muted ms-1">@@@m.Team.CodeName</small>
+                                    <small class="text-ink-muted ms-1">@@@m.Team.CodeName</small>
                                     @if (m.IsCaptain)
                                     {
-                                        <span class="badge bg-warning text-dark ms-2">Captain</span>
+                                        <span class="badge bg-warning text-gray-900 ms-2">Captain</span>
                                     }
-                                    <div class="text-muted small mt-1">Joined @Tz.FormatLocalDate(m.JoinedAt)</div>
+                                    <div class="text-ink-muted text-small mt-1">Joined @Tz.FormatLocalDate(m.JoinedAt)</div>
                                 </div>
-                                <div class="text-end">
+                                <div class="text-right">
                                     @if (m.MyPlayer != null)
                                     {
-                                        <div class="d-flex align-items-center gap-2 justify-content-end">
+                                        <div class="flex items-center gap-2 justify-end">
                                             <Avatar AvatarId="@m.MyPlayer.AvatarId" Size="sm" />
-                                            <span class="fw-semibold">@m.MyPlayer.Name</span>
+                                            <span class="font-semibold">@m.MyPlayer.Name</span>
                                             <EloBadge Elo="@m.MyPlayer.Elo" />
                                             @if (!m.MyPlayer.IsActive)
                                             {
-                                                <span class="badge bg-secondary">Inactive</span>
+                                                <span class="badge bg-neutral">Inactive</span>
                                             }
                                         </div>
                                     }
                                     else
                                     {
-                                        <span class="text-muted small">
+                                        <span class="text-ink-muted text-small">
                                             No player claimed —
                                             <a href="/team/@m.Team.CodeName/claim">claim one</a>
                                         </span>
@@ -134,18 +134,18 @@
                 <form method="post" action="/account/change-password">
                     <AntiforgeryToken />
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="currentPassword" class="form-label">Current password</label>
                         <input id="currentPassword" name="currentPassword" type="password" class="form-control" autocomplete="current-password" required />
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="newPassword" class="form-label">New password</label>
                         <input id="newPassword" name="newPassword" type="password" class="form-control" autocomplete="new-password" required minlength="6" />
                         <div class="form-text">At least 6 characters.</div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="confirmPassword" class="form-label">Confirm new password</label>
                         <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" autocomplete="new-password" required minlength="6" />
                     </div>

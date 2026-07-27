@@ -1,0 +1,8 @@
+# Compiled Tailwind output. Committed so a build without Node still works (see
+# Fotbalek.Web.csproj), but it is generated and minified onto a single line:
+# reviewing its diff is pointless and merging it by hand is worse. Regenerate
+# instead — `npm run css` in src/Fotbalek.Web.
+src/Fotbalek.Web/wwwroot/app.css -diff -merge linguist-generated=true
+
+# Vendored third-party browser assets (npm run vendor).
+src/Fotbalek.Web/wwwroot/lib/** -diff linguist-vendored=true

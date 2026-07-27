@@ -11,7 +11,7 @@ public class BestGoalkeeperStat : StatBase
     public override string Emoji => "\U0001F92F";
     public override StatTheme Theme => StatTheme.Positions;
     public override string Description => $"Lowest goals conceded per match as GK (min {Constants.TimeThresholds.MinGamesForPositionBadge} games)";
-    public override StatBadge? Badge => new("bi bi-shield-fill", "bg-secondary");
+    public override StatBadge? Badge => new("bi bi-shield-fill", "bg-neutral");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {

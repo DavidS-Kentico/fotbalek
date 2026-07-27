@@ -1,0 +1,270 @@
+/* ============================================================================
+   Form controls
+   ----------------------------------------------------------------------------
+   .form-label, .form-control, .form-select, .form-check (+ .form-switch),
+   .input-group. All of them share one focus treatment: a brand-green border and
+   ring. (Text inputs used to focus to a light-blue Bootstrap border with a green
+   ring over it — the two never matched. Unified on brand green here.)
+   ============================================================================ */
+
+@layer components {
+    /* inline-block, not the default inline: a <label> ignores margin-bottom while
+       it is inline, and the gap above the field is part of the field group. */
+    .form-label {
+        display: inline-block;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ---- Text inputs and selects ------------------------------------------- */
+    .form-control,
+    .form-select {
+        display: block;
+        width: 100%;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--color-ink);
+        appearance: none;
+        background-color: var(--color-surface);
+        background-clip: padding-box;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-control {
+        padding: 0.375rem 0.75rem;
+    }
+
+    /* Extra right padding leaves room for the chevron. */
+    .form-select {
+        padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+        background-image: var(--select-chevron);
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+
+        --select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    }
+
+    /* Light chevron on a dark surface. */
+    :root[data-theme='dark'] .form-select {
+        --select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23dee2e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--color-brand);
+        outline: 0;
+        box-shadow: var(--focus-ring);
+    }
+
+    .form-control:disabled,
+    .form-select:disabled {
+        background-color: var(--color-surface-sunken);
+        opacity: 1;
+    }
+
+    .form-control-sm {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        border-radius: var(--radius-xs);
+    }
+
+    .form-select-sm {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        padding-left: 0.5rem;
+        font-size: 0.875rem;
+        border-radius: var(--radius-xs);
+    }
+
+    .form-control-lg {
+        min-height: calc(1.5em + 1rem + 2px);
+        padding: 0.5rem 1rem;
+        font-size: 1.25rem;
+        border-radius: var(--radius-md);
+    }
+
+    /* Helper text under a field. em-based so it tracks the field's own size. */
+    .form-text {
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: var(--color-ink-muted);
+    }
+
+    textarea.form-control {
+        min-height: calc(1.5em + 0.75rem + 2px);
+    }
+
+    /* ---- Checkboxes, radios, switches -------------------------------------- */
+    /* The control is a 1em box drawn with a background image, so it scales with
+       the surrounding text instead of being pinned to a pixel size. */
+    .form-check {
+        display: block;
+        min-height: 1.5rem;
+        padding-left: 1.5em;
+        margin-bottom: 0.125rem;
+    }
+
+    .form-check-input {
+        flex-shrink: 0;
+        width: 1em;
+        height: 1em;
+        margin-top: 0.25em;
+        margin-left: -1.5em;
+        vertical-align: top;
+        appearance: none;
+        background-color: var(--color-surface);
+        background-image: var(--check-glyph, none);
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        border: 1px solid var(--color-line);
+        print-color-adjust: exact;
+        cursor: pointer;
+    }
+
+    .form-check-input[type='checkbox'] {
+        border-radius: 0.25em;
+    }
+
+    .form-check-input[type='radio'] {
+        border-radius: 50%;
+    }
+
+    .form-check-input:checked {
+        background-color: var(--color-brand);
+        border-color: var(--color-brand);
+    }
+
+    .form-check-input:checked[type='checkbox'] {
+        --check-glyph: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+    }
+
+    .form-check-input:checked[type='radio'] {
+        --check-glyph: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+    }
+
+    .form-check-input:focus {
+        border-color: var(--color-brand);
+        outline: 0;
+        box-shadow: var(--focus-ring);
+    }
+
+    .form-check-input:disabled {
+        pointer-events: none;
+        filter: none;
+        opacity: 0.5;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+    }
+
+    /* A switch is the same input widened into a pill, with the knob drawn as a
+       circle that slides from left to right when checked. */
+    .form-switch {
+        padding-left: 2.5em;
+    }
+
+    .form-switch .form-check-input {
+        width: 2em;
+        margin-left: -2.5em;
+        background-image: var(--switch-knob);
+        background-position: left center;
+        background-size: contain;
+        border-radius: 2em;
+        transition: background-position 0.15s ease-in-out;
+
+        --switch-knob: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%280, 0, 0, 0.25%29'/%3e%3c/svg%3e");
+    }
+
+    :root[data-theme='dark'] .form-switch .form-check-input:not(:checked) {
+        --switch-knob: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255, 255, 255, 0.25%29'/%3e%3c/svg%3e");
+    }
+
+    .form-switch .form-check-input:checked {
+        background-position: right center;
+
+        --switch-knob: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .form-switch .form-check-input {
+            transition: none;
+        }
+    }
+
+    /* ---- Input groups ------------------------------------------------------ */
+    /* Input plus adornment (button or text) welded into one control: the seam
+       radii collapse and the borders overlap by 1px. */
+    .input-group {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .input-group > .form-control,
+    .input-group > .form-select {
+        position: relative;
+        flex: 1 1 auto;
+        width: 1%;
+        min-width: 0;
+    }
+
+    /* Lift the focused field so its ring is not clipped by its neighbour. */
+    .input-group > .form-control:focus,
+    .input-group > .form-select:focus,
+    .input-group > .btn:focus {
+        z-index: 5;
+    }
+
+    .input-group-text {
+        display: flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--color-ink);
+        text-align: center;
+        white-space: nowrap;
+        background-color: var(--color-surface-muted);
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+    }
+
+    .input-group > :not(:last-child) {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .input-group > :not(:first-child) {
+        margin-left: -1px;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    /* Size the whole group in one place rather than each child. */
+    .input-group-sm > .form-control,
+    .input-group-sm > .form-select,
+    .input-group-sm > .input-group-text,
+    .input-group-sm > .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        border-radius: var(--radius-xs);
+    }
+
+    .input-group-lg > .form-control,
+    .input-group-lg > .form-select,
+    .input-group-lg > .input-group-text,
+    .input-group-lg > .btn {
+        padding: 0.5rem 1rem;
+        font-size: 1.25rem;
+        border-radius: var(--radius-md);
+    }
+}

@@ -1,6 +1,6 @@
 @if (!string.IsNullOrEmpty(Message) || ChildContent != null)
 {
-    <div class="alert alert-@Variant @(Dismissible ? "alert-dismissible fade show" : "")">
+    <div class="alert alert-@Variant @(Dismissible ? "alert-dismissible" : "")">
         @if (!string.IsNullOrEmpty(Icon))
         {
             <i class="@Icon me-2"></i>

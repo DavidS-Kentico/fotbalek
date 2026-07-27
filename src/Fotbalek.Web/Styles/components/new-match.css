@@ -1,0 +1,478 @@
+@layer components {
+    /* ===== New Match Page ===== */
+    /* Seasonal / off-season context strip above the two columns */
+    .newmatch-season {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        padding: 10px 16px;
+        margin-bottom: 16px;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-xl);
+        background: var(--color-surface-muted);
+    }
+    .newmatch-season.is-seasonal {
+        border-color: var(--color-brand-tint-strong);
+        background: var(--color-brand-tint-soft);
+    }
+
+    /* Two logical columns: left = who plays, right = the result. */
+    .newmatch-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1.25rem;
+        align-items: start;
+    }
+    /* The grid gap owns the spacing between panels in both axes. */
+    .newmatch-grid .panel + .panel {
+        margin-top: 0;
+    }
+
+    /* Lineup status line inside the left panel */
+    .lineup-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        color: var(--color-ink-muted);
+        margin-bottom: 1rem;
+    }
+    .lineup-status .status-icon {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 0.95rem;
+        background: rgba(108, 117, 125, 0.15);
+        color: var(--color-neutral);
+        flex: 0 0 auto;
+    }
+    .lineup-status.ready {
+        color: var(--color-brand);
+    }
+    .lineup-status.ready .status-icon {
+        background: rgba(25, 135, 84, 0.15);
+        color: var(--color-brand);
+    }
+
+    /* Labeled sections inside the result panel */
+    .result-section {
+        margin-bottom: 1.1rem;
+    }
+    .section-label {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    .result-hint {
+        margin-bottom: 1.1rem;
+    }
+
+    /* Team labels with avg ELO */
+    .team-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .team-avg-elo {
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--color-gray-900);
+        border-radius: var(--radius-xl);
+        padding: 2px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-shadow: none;
+        letter-spacing: 0.02em;
+    }
+
+    /* Match preview / win probability — a highlighted sub-section of the result panel
+       (no card chrome of its own; it already sits inside a .panel). */
+    .match-preview {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.07), rgba(13, 110, 253, 0.07));
+        border-radius: var(--radius-xl);
+        padding: 12px 14px;
+    }
+
+    .elo-comparison {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .elo-side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+    }
+
+    .elo-side .label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--color-neutral);
+        letter-spacing: 0.04em;
+    }
+
+    .elo-side .value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .elo-side.team-1 .value { color: var(--color-team-a-strong); }
+    .elo-side.team-2 .value { color: var(--color-team-b-strong); }
+
+    .elo-vs {
+        font-size: 0.85rem;
+        color: var(--color-neutral);
+        font-style: italic;
+        font-weight: 600;
+    }
+
+    .win-probability-bar {
+        height: 32px;
+        border-radius: var(--radius-3xl);
+        background: var(--color-gray-200);
+        overflow: hidden;
+        display: flex;
+        position: relative;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .win-probability-bar .prob-fill {
+        display: flex;
+        align-items: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        transition: width 0.4s ease;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .win-probability-bar .prob-fill.team-1 {
+        background: linear-gradient(90deg, var(--color-team-a), #ffb300);
+        color: #4a3500;
+        padding-left: 12px;
+    }
+
+    .win-probability-bar .prob-fill.team-2 {
+        background: linear-gradient(90deg, var(--color-team-b), var(--color-team-b-strong));
+        color: white;
+        justify-content: flex-end;
+        padding-right: 12px;
+    }
+
+    .match-preview-footer {
+        text-align: center;
+        color: var(--color-neutral);
+        font-size: 0.75rem;
+        margin-top: 8px;
+    }
+
+    /* Outcome selector cards */
+    .outcome-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .outcome-card {
+        border: 2px solid var(--color-gray-300);
+        border-radius: var(--radius-xl);
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: white;
+        text-align: center;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        font-family: inherit;
+    }
+
+    .outcome-card:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lift);
+    }
+
+    .outcome-card.team-1 { border-color: var(--color-team-a); }
+    .outcome-card.team-1.active {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.18), rgba(255, 193, 7, 0.08));
+        border-color: #ffb300;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.25);
+    }
+
+    .outcome-card.team-2 { border-color: var(--color-team-b); }
+    .outcome-card.team-2.active {
+        background: linear-gradient(135deg, rgba(13, 110, 253, 0.18), rgba(13, 110, 253, 0.08));
+        border-color: var(--color-team-b-strong);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+    }
+
+    .outcome-card .trophy-icon {
+        font-size: 1.25rem;
+    }
+
+    .outcome-card.team-1 .trophy-icon { color: var(--color-team-a-strong); }
+    .outcome-card.team-2 .trophy-icon { color: var(--color-team-b-strong); }
+
+    .outcome-card .outcome-label {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--color-gray-900);
+    }
+
+    .outcome-card .elo-delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        background: var(--color-gray-100);
+        padding: 3px 10px;
+        border-radius: var(--radius-xl);
+    }
+
+    .outcome-card .elo-delta .gain {
+        color: var(--color-brand);
+        font-weight: 700;
+    }
+
+    .outcome-card .elo-delta .loss {
+        color: var(--color-danger);
+        font-weight: 700;
+    }
+
+    .outcome-card:disabled,
+    .outcome-card.disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    .score-card-inputs {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    /* ===== Player picker (Select Player / Balance Teams modals) ===== */
+    .picker-search {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+    .picker-search .form-control {
+        padding-left: 2.25rem;
+        padding-right: 2.25rem;
+        border-radius: var(--radius-lg);
+    }
+    .picker-search-icon {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-ink-faint);
+        pointer-events: none;
+        font-size: 0.9rem;
+    }
+    .picker-search-clear {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 50%;
+        background: var(--color-surface-sunken);
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+    .picker-search-clear:hover {
+        background: var(--color-surface-muted);
+        color: var(--color-ink);
+    }
+
+    .picker-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+        gap: 10px;
+    }
+
+    .player-pick {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 8px 10px;
+        border: 2px solid var(--color-line);
+        border-radius: var(--radius-2xl);
+        background: var(--color-surface);
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        font-family: inherit;
+    }
+    .player-pick:hover:not(:disabled) {
+        transform: translateY(-2px);
+        border-color: var(--color-brand);
+        box-shadow: var(--shadow-lift);
+    }
+    .player-pick.is-me {
+        border-color: rgba(25, 135, 84, 0.5);
+    }
+    .player-pick.selected {
+        border-color: var(--color-brand);
+        background: rgba(25, 135, 84, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(25, 135, 84, 0.35);
+    }
+    .player-pick:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .player-pick .pick-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.15;
+        text-align: center;
+        color: var(--color-ink);
+        overflow-wrap: anywhere;
+    }
+    .player-pick .pick-elo {
+        font-size: 0.72rem;
+        color: var(--color-ink-muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .player-pick .pick-check {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-brand);
+        color: var(--color-white);
+        border: 2px solid var(--color-surface);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .picker-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 2rem 1rem;
+        color: var(--color-ink-muted);
+        font-size: 0.9rem;
+    }
+    .picker-empty > .bi {
+        font-size: 1.5rem;
+        opacity: 0.6;
+    }
+
+    /* Record button */
+    .record-match-btn {
+        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.25);
+    }
+
+    /* In-context "match recorded" state (replaces the result panel body in place, so
+       the confirmation appears exactly where the Record button was — never at the
+       top of the page). */
+    .match-recorded {
+        text-align: center;
+        padding: 0.75rem 0.25rem;
+    }
+    .match-recorded__icon {
+        font-size: 3rem;
+        line-height: 1;
+        color: var(--color-brand);
+        margin-bottom: 0.5rem;
+        animation: recorded-pop 0.4s ease;
+    }
+    @keyframes recorded-pop {
+        0%   { transform: scale(0.4); opacity: 0; }
+        60%  { transform: scale(1.12); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .match-recorded__title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+    .match-recorded__msg {
+        color: var(--color-ink-muted);
+        margin-bottom: 1.25rem;
+    }
+    .match-recorded__actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.85rem;
+    }
+    .match-recorded__link {
+        display: inline-block;
+        font-size: 0.85rem;
+        text-decoration: none;
+        color: var(--color-brand);
+        font-weight: 600;
+    }
+    .match-recorded__link:hover {
+        text-decoration: underline;
+    }
+
+    /* Stack the two columns before the panels get too cramped for the pitch. */
+    @media (width < theme(--breakpoint-lg)) {
+        .newmatch-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (width < theme(--breakpoint-sm)) {
+        .elo-side .value {
+            font-size: 1.3rem;
+        }
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .win-probability-bar {
+        background: var(--color-surface-sunken);
+    }
+    :root[data-theme='dark'] .outcome-card {
+        background: var(--color-surface-sunken);
+        border-color: var(--color-line);
+    }
+    :root[data-theme='dark'] .outcome-card .outcome-label {
+        color: var(--color-ink);
+    }
+    :root[data-theme='dark'] .outcome-card .elo-delta {
+        background: var(--color-surface-muted);
+    }
+    :root[data-theme='dark'] .elo-side.team-2 .value {
+        color: var(--color-team-b-ink);
+    }
+
+}

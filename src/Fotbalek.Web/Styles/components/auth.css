@@ -1,0 +1,119 @@
+@layer components {
+    /* ============================================================
+       Auth & onboarding pages (sign in / sign up / create / join /
+       account). Clean, modern surfaces that echo the overview hero:
+       green brand accent, soft rounded panels, a subtle green glow.
+       All surfaces use theme-aware tokens (surface / ink / line) so dark mode
+       is automatic.
+       ============================================================ */
+
+    /* Centered shell behind login / register / create / join */
+    .auth-shell {
+        position: relative;
+        min-height: calc(100vh - 4rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2.5rem 1rem;
+        overflow: hidden;
+    }
+    .auth-shell::before {
+        content: "";
+        position: absolute;
+        top: -140px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, 130vw);
+        height: 420px;
+        background: radial-gradient(closest-side, rgba(25, 135, 84, 0.20), transparent 72%);
+        pointer-events: none;
+    }
+    .auth-shell__inner {
+        position: relative;
+        width: 100%;
+        max-width: 440px;
+    }
+
+    /* Brand wordmark above the panel */
+    .auth-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        text-decoration: none;
+    }
+    .auth-brand__mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--color-brand);
+    }
+    .auth-brand__mark .bi {
+        color: var(--color-warning);
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.15));
+    }
+    .auth-brand__sub {
+        margin: 0;
+        color: var(--color-ink-muted);
+        font-size: 0.95rem;
+    }
+
+
+    /* Centered head for auth panels: icon badge + title + sub */
+    .auth-panel__head {
+        padding: 1.75rem 1.5rem 0;
+        text-align: center;
+    }
+    .auth-panel__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        margin-bottom: 0.85rem;
+        border-radius: var(--radius-3xl);
+        background: rgba(25, 135, 84, 0.12);
+        color: var(--color-brand);
+        font-size: 1.5rem;
+    }
+    .auth-panel__title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .auth-panel__sub {
+        margin: 0.35rem 0 0;
+        color: var(--color-ink-muted);
+        font-size: 0.9rem;
+    }
+
+    /* Footer note inside a panel body (alt action / help text) */
+    .auth-foot {
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-line);
+        text-align: center;
+        color: var(--color-ink-muted);
+        font-size: 0.875rem;
+    }
+    .auth-foot p {
+        margin: 0;
+    }
+    .auth-foot p + p {
+        margin-top: 0.5rem;
+    }
+    .auth-foot a {
+        font-weight: 600;
+    }
+
+    /* Admin variant: neutral badge with a gold shield instead of green */
+    .auth-panel--admin .auth-panel__icon {
+        background: var(--color-surface-muted);
+        color: var(--color-warning-deep);
+    }
+}

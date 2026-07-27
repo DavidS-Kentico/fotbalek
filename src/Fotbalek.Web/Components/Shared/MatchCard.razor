@@ -22,69 +22,69 @@
     string? marginLabel = null;
     string? marginCss = null;
     string? marginIcon = null;
-    if (margin >= 8) { marginLabel = "Blowout"; marginCss = "bg-warning-subtle text-warning-emphasis"; marginIcon = "bi-fire"; }
-    else if (margin == 1) { marginLabel = "Nail-biter"; marginCss = "bg-info-subtle text-info-emphasis"; marginIcon = "bi-lightning-charge"; }
+    if (margin >= 8) { marginLabel = "Blowout"; marginCss = "bg-warning-subtle text-warning-subtle-ink"; marginIcon = "bi-fire"; }
+    else if (margin == 1) { marginLabel = "Nail-biter"; marginCss = "bg-info-subtle text-info-subtle-ink"; marginIcon = "bi-lightning-charge"; }
 
-    string DeltaClass(int delta) => delta > 0 ? "bg-success-subtle text-success"
+    string DeltaClass(int delta) => delta > 0 ? "bg-brand-subtle text-brand"
         : delta < 0 ? "bg-danger-subtle text-danger"
-        : "bg-secondary-subtle text-secondary";
+        : "bg-neutral-subtle text-neutral";
     string DeltaText(int delta) => (delta > 0 ? "+" : "") + delta.ToString();
 }
 
-<div class="card match-card mb-3 position-relative @(Compact ? "" : "shadow-sm") @(meWon ? "border-success" : meLost ? "border-danger" : "")">
+<div class="card match-card relative @Class @(Compact ? "" : "shadow-sm") @(meWon ? "border-brand" : meLost ? "border-danger" : "")">
     @if (Actions != null)
     {
-        <div class="position-absolute top-0 end-0 mt-1 me-1" style="z-index: 2;">
+        <div class="absolute top-0 right-0 mt-1 me-1" style="z-index: 2;">
             @Actions
         </div>
     }
     <div class="card-body @(Compact ? "p-2" : "match-card-body")">
-        <div class="d-flex align-items-center match-card-grid">
-            <div class="flex-fill match-team match-team-1">
-                <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap @(team1Won ? "fw-bold text-success" : "text-muted")">
+        <div class="match-card-grid">
+            <div class="flex-1 match-team">
+                <div class="flex items-center justify-end gap-2 flex-wrap @(team1Won ? "font-bold text-brand" : "text-ink-muted")">
                     @foreach (var mp in team1Players.OrderBy(p => p.Position))
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
-                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none text-end @(team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
+                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="no-underline text-right @(team1Won ? "text-brand" : "text-ink-muted") @(isMe ? "font-bold" : "")">
                             <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
-                            <span class="ms-1 @(Compact ? "small" : "")">@mp.PlayerName</span>
+                            <span class="ms-1 @(Compact ? "text-small" : "")">@mp.PlayerName</span>
                         </a>
                     }
                 </div>
             </div>
 
-            <div class="text-center px-3 match-card-score">
-                <a href="/team/@TeamCode/matches/@Match.Id" class="text-decoration-none d-block">
-                    <div class="d-flex align-items-center justify-content-center gap-2">
-                        <span class="badge @DeltaClass(team1Change) @(Compact ? "small" : "")" title="Team 1 ELO change">
+            <div class="text-center px-4 match-card-score">
+                <a href="/team/@TeamCode/matches/@Match.Id" class="no-underline block">
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="badge @DeltaClass(team1Change)" title="Team 1 ELO change">
                             @DeltaText(team1Change)
                         </span>
                         @if (team1Won)
                         {
                             <i class="bi bi-trophy-fill text-warning" title="Team 1 won"></i>
                         }
-                        <span class="fs-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@Match.Team1Score</span>
-                        <span class="fs-4 text-muted">:</span>
-                        <span class="fs-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@Match.Team2Score</span>
+                        <span class="text-h4 font-bold @(team1Won ? "text-brand" : "text-ink-muted")">@Match.Team1Score</span>
+                        <span class="text-h4 text-ink-muted">:</span>
+                        <span class="text-h4 font-bold @(!team1Won ? "text-brand" : "text-ink-muted")">@Match.Team2Score</span>
                         @if (!team1Won)
                         {
                             <i class="bi bi-trophy-fill text-warning" title="Team 2 won"></i>
                         }
-                        <span class="badge @DeltaClass(team2Change) @(Compact ? "small" : "")" title="Team 2 ELO change">
+                        <span class="badge @DeltaClass(team2Change)" title="Team 2 ELO change">
                             @DeltaText(team2Change)
                         </span>
                     </div>
                 </a>
             </div>
 
-            <div class="flex-fill match-team match-team-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap @(!team1Won ? "fw-bold text-success" : "text-muted")">
+            <div class="flex-1 match-team">
+                <div class="flex items-center gap-2 flex-wrap @(!team1Won ? "font-bold text-brand" : "text-ink-muted")">
                     @foreach (var mp in team2Players.OrderBy(p => p.Position))
                     {
                         var isMe = mp.PlayerId == MyPlayerId;
-                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="text-decoration-none @(!team1Won ? "text-success" : "text-muted") @(isMe ? "fw-bold" : "")">
+                        <a href="/team/@TeamCode/players/@mp.PlayerId" class="no-underline @(!team1Won ? "text-brand" : "text-ink-muted") @(isMe ? "font-bold" : "")">
                             <Avatar AvatarId="@mp.PlayerAvatarId" Size="sm" />
-                            <span class="ms-1 @(Compact ? "small" : "")">@mp.PlayerName</span>
+                            <span class="ms-1 @(Compact ? "text-small" : "")">@mp.PlayerName</span>
                         </a>
                     }
                 </div>
@@ -93,16 +93,16 @@
 
         @if (!Compact)
         {
-            <div class="match-card-meta d-flex align-items-center justify-content-center gap-2 flex-wrap">
+            <div class="match-card-meta flex items-center justify-center gap-2 flex-wrap">
                 @if (DateLabel != null)
                 {
-                    <small class="text-muted" title="@DateTitle">
+                    <small class="text-ink-muted" title="@DateTitle">
                         <i class="bi bi-clock me-1"></i>@DateLabel
                     </small>
                 }
                 else
                 {
-                    <small class="text-muted">
+                    <small class="text-ink-muted">
                         <i class="bi bi-calendar3 me-1"></i>
                         <span class="match-date" data-utc="@Match.PlayedAt.ToString("o")">@Match.PlayedAt.ToString("g")</span>
                     </small>
@@ -117,13 +117,13 @@
                 {
                     @if (SeasonName != null)
                     {
-                        <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match">
+                        <span class="badge bg-brand-subtle text-brand-subtle-ink" title="Seasonal match">
                             <i class="bi bi-award me-1"></i>@SeasonName
                         </span>
                     }
                     else
                     {
-                        <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
+                        <span class="badge bg-neutral-subtle text-neutral" title="Not part of any season">off-season</span>
                     }
                 }
             </div>
@@ -136,6 +136,14 @@
     [Parameter] public string? TeamCode { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>
+    /// Extra classes for the card's root — in practice the outer margin. The card owns no
+    /// spacing of its own: how far apart two cards sit is the containing feed's decision,
+    /// and baking a margin in here meant every denser list had to override it with
+    /// <c>!important</c> (utilities outrank the components layer).
+    /// </summary>
+    [Parameter] public string? Class { get; set; }
 
     /// <summary>Show the season / off-season chip (pages enable this once the team has seasons).</summary>
     [Parameter] public bool ShowSeasonChip { get; set; }

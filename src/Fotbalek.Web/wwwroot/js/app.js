@@ -32,7 +32,7 @@ window.getBrowserTimeZone = function () {
 
 // ===== Colour theme (light / dark / system) =====
 // Preference is stored per-browser in the `fotbalek-theme` cookie and applied
-// as data-bs-theme on <html>. The no-flash bootstrap of this lives inline in
+// as data-theme on <html>. The pre-paint version of this lives inline in
 // App.razor; this module is the runtime the account page talks to.
 window.fotbalekTheme = (function () {
     var COOKIE = 'fotbalek-theme';
@@ -47,7 +47,7 @@ window.fotbalekTheme = (function () {
         return media.matches ? 'dark' : 'light';
     }
     function apply(pref) {
-        document.documentElement.setAttribute('data-bs-theme', resolve(pref));
+        document.documentElement.setAttribute('data-theme', resolve(pref));
     }
     // Keep "system" tracking the OS setting while the app is open.
     media.addEventListener('change', function () {
@@ -63,9 +63,9 @@ window.fotbalekTheme = (function () {
 })();
 
 // Theme-aware colours for Chart.js (grid lines, axis ticks, pie borders) read
-// at render time from the active data-bs-theme.
+// at render time from the active data-theme.
 function chartThemeColors() {
-    var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
     return {
         grid: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
         tick: dark ? '#adb5bd' : '#666',

@@ -1,0 +1,103 @@
+/* ============================================================================
+   Fotbálek — stylesheet entry point
+   ----------------------------------------------------------------------------
+   Compiled by Tailwind into wwwroot/app.css. Do not edit the compiled file.
+
+       npm run css          build once (minified)
+       npm run css:watch    rebuild on change
+
+   `dotnet build` also runs the build when Node is available (see the csproj).
+
+   Reading order, and where to make a change:
+     theme.css          colours, type scale, radii, shadows, breakpoints.
+                        Change a token here and it lands everywhere.
+     base.css           bare-element defaults (headings, paragraphs, links).
+     components/        one file per reusable thing. Primitives first
+                        (button, form, surface, table…), then app-specific
+                        surfaces (panel, stat-card, pitch, live-game…).
+     utilities.css      extra utility classes markup can use directly.
+
+   Layout, spacing and one-off colour belong in the markup as Tailwind
+   utilities — not here. This file is for things reused across pages.
+
+   Here vs. a scoped .razor.css
+     Here          anything two or more components share, and anything that
+                   needs a Tailwind build-time feature (`theme()` in a media
+                   query, an @utility, a token that markup reaches through a
+                   utility class).
+     Scoped        styling that belongs to exactly one component and would be
+                   noise in the global sheet.
+   Scoped files are compiled by the .NET SDK, not Tailwind, so inside them:
+   `theme()` and @apply do not work, and breakpoints must be written as literals.
+   They can still read any design token through var(): `@theme static`
+   in theme.css emits every token whether or not this stylesheet references it,
+   which is exactly what keeps scoped files working — do not drop `static`.
+   Scoped files are also unlayered, so they win against everything in this
+   stylesheet — including utilities in markup.
+   ============================================================================ */
+
+@layer theme, base, components, utilities;
+
+/* Tailwind's default theme, then ours on top (ours resets the colour palette
+   entirely — see theme.css). */
+@import 'tailwindcss/theme.css' layer(theme);
+@import './theme.css';
+
+/* Tailwind's reset, then the element defaults the app relies on. */
+@import 'tailwindcss/preflight.css' layer(base);
+@import './base.css';
+
+/* ---- Primitives -------------------------------------------------------- */
+@import './components/button.css';
+@import './components/form.css';
+@import './components/surface.css';
+@import './components/table.css';
+@import './components/overlay.css';
+@import './components/nav.css';
+@import './components/feedback.css';
+@import './components/layout.css';
+
+/* ---- App surfaces ------------------------------------------------------ */
+@import './components/panel.css';
+@import './components/stat-card.css';
+@import './components/badge.css';
+@import './components/avatar.css';
+@import './components/auth.css';
+@import './components/team-navbar.css';
+
+/* ---- Feature areas ----------------------------------------------------- */
+@import './components/pitch.css';
+@import './components/new-match.css';
+@import './components/match.css';
+@import './components/stats.css';
+@import './components/live-game.css';
+
+/* ---- Utilities --------------------------------------------------------- */
+@import './utilities.css';
+/* `source(none)` switches OFF Tailwind's automatic content detection, so the
+   @source list below is the ONLY thing scanned. Without it Tailwind also sweeps
+   the whole repository (everything git tracks) on top of these globs, and words
+   in ordinary prose mint utilities: `.invisible` used to ship purely because the
+   word appears in admin.md, Program.cs and ChatMessageContent.cs, and
+   chart.umd.js in wwwroot/lib produced a stray `.resize`. Opting out is what
+   makes the globs below mean what they say. */
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+/* Where to look for class names. Scoped .razor.css files are compiled by the
+   .NET SDK, not Tailwind, so they are not sources — but classes referenced from
+   C# (e.g. a variant name built in a @code block) are, hence the .cs sweep. */
+@source './../Components/**/*.{razor,cs}';
+@source './../Services/**/*.cs';
+/* Hand-written JS also names classes (ui.js toggles `.show`, chat.js swaps
+   `.dark`/`.light`). Nothing there needs a generated utility today, but leaving
+   the directory out is a trap: the first `classList.add('bg-danger')` would
+   silently produce no CSS. */
+@source './../wwwroot/js/**/*.js';
+/* Stat badges declare their own colour classes in the Application layer
+   (e.g. StatBadge("bi bi-fire", "bg-danger")), so those files are sources too.
+   Scoped to Features/Stats rather than the whole layer: sweeping every .cs file
+   mints utilities from ordinary English words that happen to match a utility
+   name (`container`, `collapse`, `blur`, `ring`…). If a class name ever has to
+   live elsewhere in Application, widen this glob AND the matching
+   <TailwindSource> entry in Fotbalek.Web.csproj — they must stay in step. */
+@source './../../Fotbalek.Application/Features/Stats/**/*.cs';

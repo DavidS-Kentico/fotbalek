@@ -14,16 +14,16 @@
    render tree, so theirs wins once @Body renders). *@
 <PageTitle>@(_team != null ? $"{_team.Name} - Foosball Manager" : "Foosball Manager")</PageTitle>
 
-<div class="min-vh-100 d-flex flex-column">
+<div class="min-h-screen flex flex-col">
     @if (_team != null && _user != null)
     {
-        <header class="navbar navbar-expand-lg bg-body border-bottom shadow-sm team-navbar">
-            <div class="container">
+        <header class="navbar navbar-expand-lg bg-surface border-b shadow-sm team-navbar">
+            <div class="page">
                 @* ── Left: team (workspace) switcher ── *@
-                <div class="dropdown team-switcher order-0 order-lg-1">
-                    <button class="btn team-switcher-btn dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="@_team.Name">
-                        <i class="bi bi-trophy-fill text-success"></i>
-                        <span class="team-switcher-name text-truncate">@_team.Name</span>
+                <div class="dropdown team-switcher order-0 lg:order-1">
+                    <button class="btn team-switcher-btn dropdown-toggle flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" title="@_team.Name">
+                        <i class="bi bi-trophy-fill text-brand"></i>
+                        <span class="team-switcher-name truncate">@_team.Name</span>
                     </button>
                     <ul class="dropdown-menu">
                         <li><h6 class="dropdown-header">Your teams</h6></li>
@@ -31,12 +31,12 @@
                         {
                             var chatUnread = ChatUi.GetUnread(team.Id);
                             <li>
-                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 @(team.Id == _team.Id ? "active" : "")" @onclick="() => SwitchTeam(team.CodeName)">
+                                <button type="button" class="dropdown-item flex items-center gap-2 @(team.Id == _team.Id ? "active" : "")" @onclick="() => SwitchTeam(team.CodeName)">
                                     <i class="bi bi-trophy"></i>
-                                    <span class="text-truncate">@team.Name</span>
+                                    <span class="truncate">@team.Name</span>
                                     @if (chatUnread > 0)
                                     {
-                                        <span class="badge rounded-pill text-bg-danger ms-auto">@(chatUnread > 99 ? "99+" : chatUnread.ToString())</span>
+                                        <span class="badge rounded-full bg-danger text-white ms-auto">@(chatUnread > 99 ? "99+" : chatUnread.ToString())</span>
                                     }
                                     @if (team.Id == _team.Id)
                                     {
@@ -54,19 +54,19 @@
                 </div>
 
                 @* Sections toggler (mobile only) *@
-                <button class="navbar-toggler order-1 order-lg-1 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#teamSections" aria-controls="teamSections" aria-expanded="false" aria-label="Toggle sections">
+                <button class="navbar-toggler order-1 lg:order-1 ms-2" type="button" data-toggle="collapse" data-target="#teamSections" aria-controls="teamSections" aria-expanded="false" aria-label="Toggle sections">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 @* ── Right: actions + account ── *@
-                <div class="d-flex align-items-center gap-2 navbar-actions order-2 order-lg-3 ms-auto ms-lg-0">
+                <div class="flex items-center gap-2 navbar-actions order-2 lg:order-3 ms-auto lg:ms-0">
                     @{
                         var onlinePlayers = GetOnlinePlayers();
                     }
                     @if (onlinePlayers.Count > 0)
                     {
-                        <div class="dropdown presence-dropdown d-none d-md-block">
-                            <button class="btn presence-chip d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="@($"{onlinePlayers.Count} online")">
+                        <div class="dropdown hidden md:block">
+                            <button class="btn presence-chip flex items-center gap-1" type="button" data-toggle="dropdown" aria-expanded="false" title="@($"{onlinePlayers.Count} online")">
                                 <i class="bi bi-people-fill"></i>
                                 <span>@onlinePlayers.Count</span>
                             </button>
@@ -75,9 +75,9 @@
                                 @foreach (var p in onlinePlayers)
                                 {
                                     <li>
-                                        <a class="dropdown-item d-flex align-items-center gap-2" href="/team/@_team.CodeName/players/@p.Id">
+                                        <a class="dropdown-item flex items-center gap-2" href="/team/@_team.CodeName/players/@p.Id">
                                             <span class="presence-avatar-wrap"><Avatar AvatarId="@p.AvatarId" Size="sm" Title="@p.Name" /><span class="presence-dot"></span></span>
-                                            <span class="text-truncate">@p.Name</span>
+                                            <span class="truncate">@p.Name</span>
                                         </a>
                                     </li>
                                 }
@@ -88,26 +88,26 @@
                     @if (GameRooms.GetForTeam(_team.Id) is { } liveRoom)
                     {
                         var seated = liveRoom.GetState().Seats.Count(s => s.Occupied);
-                        <a href="/team/@_team.CodeName/game" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 live-pill"
+                        <a href="/team/@_team.CodeName/game" class="btn btn-outline-danger btn-sm flex items-center gap-2 live-pill"
                            title="@(seated < 4 ? "Live game — join or watch" : "Live game — watch")">
                             <span class="live-dot"></span>
-                            <span class="d-none d-sm-inline">@seated/4 · @(seated < 4 ? "Join" : "Watch")</span>
-                            <span class="d-sm-none">@seated/4</span>
+                            <span class="hidden sm:inline">@seated/4 · @(seated < 4 ? "Join" : "Watch")</span>
+                            <span class="sm:hidden">@seated/4</span>
                         </a>
                     }
                     else
                     {
-                        <button class="btn btn-outline-secondary btn-icon d-none d-md-inline-flex" title="Start live game" aria-label="Start live game" @onclick="StartLiveGame">
+                        <button class="btn btn-outline-secondary btn-icon hidden md:inline-flex" title="Start live game" aria-label="Start live game" @onclick="StartLiveGame">
                             <i class="bi bi-controller"></i>
                         </button>
                     }
 
-                    <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-success d-flex align-items-center gap-1" aria-label="New match">
-                        <i class="bi bi-plus-lg"></i> <span class="d-none d-lg-inline">New match</span>
+                    <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-success flex items-center gap-1" aria-label="New match">
+                        <i class="bi bi-plus-lg"></i> <span class="hidden lg:inline">New match</span>
                     </a>
 
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle account-btn d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-label="Account menu">
+                        <button class="btn btn-outline-secondary dropdown-toggle account-btn flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
                             @if (_myPlayer != null)
                             {
                                 <Avatar AvatarId="@_myPlayer.AvatarId" Size="sm" />
@@ -116,16 +116,16 @@
                             {
                                 <i class="bi bi-person-circle"></i>
                             }
-                            <span class="d-none d-xl-inline">@DisplayName</span>
+                            <span class="hidden xl:inline">@DisplayName</span>
                             @if (_isCaptain)
                             {
-                                <span class="badge bg-warning text-dark d-none d-xl-inline">Captain</span>
+                                <span class="badge bg-warning text-gray-900 hidden xl:inline">Captain</span>
                             }
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li class="px-3 py-1">
-                                <div class="fw-semibold text-truncate">@DisplayName</div>
-                                <div class="small text-muted text-truncate">@_user?.UserName</div>
+                            <li class="px-4 py-1">
+                                <div class="font-semibold truncate">@DisplayName</div>
+                                <div class="text-small text-ink-muted truncate">@_user?.UserName</div>
                             </li>
                             <li><hr class="dropdown-divider" /></li>
                             @if (_myPlayer != null)
@@ -155,7 +155,7 @@
                 </div>
 
                 @* ── Center: sections (collapsible) ── *@
-                <div class="collapse navbar-collapse team-sections order-3 order-lg-2" id="teamSections">
+                <div class="collapsible navbar-collapse team-sections order-3 lg:order-2" id="teamSections">
                     <ul class="navbar-nav">
                         <li class="nav-item">
                             <NavLink class="nav-link" href="@($"/team/{_team.CodeName}")" Match="NavLinkMatch.All">
@@ -163,7 +163,7 @@
                             </NavLink>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @(SectionActive("rankings", "stats", "matches") ? "active" : "")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle @(SectionActive("rankings", "stats", "matches") ? "active" : "")" href="#" role="button" data-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-graph-up-arrow me-1"></i> Insights
                             </a>
                             <ul class="dropdown-menu">
@@ -173,7 +173,7 @@
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @(SectionActive("players", "seasons", "settings") ? "active" : "")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle @(SectionActive("players", "seasons", "settings") ? "active" : "")" href="#" role="button" data-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-people me-1"></i> Team
                             </a>
                             <ul class="dropdown-menu">
@@ -194,8 +194,8 @@
 
         @if (_team.CaptainUserId == null)
         {
-            <div class="alert alert-warning rounded-0 mb-0">
-                <div class="container d-flex justify-content-between align-items-center">
+            <div class="alert alert-warning rounded-none mb-0">
+                <div class="page flex justify-between items-center">
                     <span><i class="bi bi-exclamation-triangle me-2"></i>This team has no captain yet.</span>
                     <button class="btn btn-sm btn-warning" @onclick="ClaimCaptain" disabled="@_claimingCaptain">
                         @if (_claimingCaptain)
@@ -208,7 +208,7 @@
             </div>
         }
 
-        <main class="flex-grow-1 bg-body-tertiary">
+        <main class="grow bg-surface-muted">
             <CascadingValue Value="_myPlayer?.Id" Name="MyPlayerId">
                 @Body
             </CascadingValue>
@@ -221,12 +221,12 @@
 
         <Modal Show="_showShareModal" Title="Share Team" Icon="bi bi-share" OnClose="() => _showShareModal = false">
             <Body>
-                <p class="text-muted">Share this link with your teammates so they can join without entering a password:</p>
+                <p class="text-ink-muted">Share this link with your teammates so they can join without entering a password:</p>
                 @if (_generatingToken)
                 {
-                    <div class="text-center py-3">
-                        <div class="spinner-border spinner-border-sm text-success" role="status">
-                            <span class="visually-hidden">Generating link...</span>
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-brand" role="status">
+                            <span class="sr-only">Generating link...</span>
                         </div>
                     </div>
                 }
@@ -241,14 +241,14 @@
                     </div>
                     @if (_copied)
                     {
-                        <small class="text-success mt-2 d-block">Link copied to clipboard!</small>
+                        <small class="text-brand mt-2 block">Link copied to clipboard!</small>
                     }
-                    <small class="text-muted mt-2 d-block">
+                    <small class="text-ink-muted mt-2 block">
                         <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
                     </small>
                 }
                 <hr />
-                <p class="text-muted mb-2 small">Or share the team URL (requires password + login):</p>
+                <p class="text-ink-muted mb-2 text-small">Or share the team URL (requires password + login):</p>
                 <div class="input-group input-group-sm">
                     <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
                     <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
@@ -267,7 +267,7 @@
     }
 </div>
 
-<div id="blazor-error-ui" data-nosnippet class="alert alert-danger position-fixed bottom-0 start-50 translate-middle-x mb-3" style="display: none;">
+<div id="blazor-error-ui" data-nosnippet class="alert alert-danger fixed bottom-0 left-1/2 -translate-x-1/2 mb-4" style="display: none;">
     An unhandled error has occurred.
     <a href="." class="alert-link">Reload</a>
     <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'"></button>

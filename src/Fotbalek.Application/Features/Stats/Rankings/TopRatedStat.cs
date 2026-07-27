@@ -10,7 +10,7 @@ public class TopRatedStat : StatBase
     public override string Emoji => "⭐";
     public override StatTheme Theme => StatTheme.Rankings;
     public override string Description => "Player with the highest current ELO";
-    public override StatBadge? Badge => new("bi bi-star-fill", "bg-warning text-dark");
+    public override StatBadge? Badge => new("bi bi-star-fill", "bg-warning text-gray-900");
 
     // "Current ELO of the selected ladder" is well-defined for a full season too.
     public override bool Applies(StatContext context) => context.IsFullScope;

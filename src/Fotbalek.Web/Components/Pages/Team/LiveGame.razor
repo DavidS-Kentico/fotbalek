@@ -35,7 +35,7 @@ else if (_team != null && _user != null)
         }
         else
         {
-            <Panel Flush="true" Class="mb-3 lg-scorebar-panel">
+            <Panel Flush="true" Class="mb-4 lg-scorebar-panel">
                 <div class="lg-scorebar">
                     <div class="lg-scorebar__left">
                         <span class="lg-chip lg-chip--live"><span class="live-dot"></span> LIVE</span>
@@ -80,8 +80,8 @@ else if (_team != null && _user != null)
                 </div>
             </Panel>
 
-            <div class="row g-3">
-                <div class="col-lg-8">
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 lg:col-span-8">
                     <div class="game-canvas-wrap">
                         <canvas @ref="_canvas" data-room-id="@_room?.RoomId"></canvas>
 
@@ -110,12 +110,12 @@ else if (_team != null && _user != null)
                                 <div class="game-overlay-box">
                                     @if (WaitingForReconnect is { Count: > 0 } names)
                                     {
-                                        <div class="fs-5">⏸️ Waiting for @string.Join(" & ", names) to reconnect…</div>
+                                        <div class="text-h5">⏸️ Waiting for @string.Join(" & ", names) to reconnect…</div>
                                     }
                                     else
                                     {
-                                        <div class="fs-5">Waiting for opponents…</div>
-                                        <div class="text-muted small mt-1">Ball rolls once each side has a player.</div>
+                                        <div class="text-h5">Waiting for opponents…</div>
+                                        <div class="text-ink-muted text-small mt-1">Ball rolls once each side has a player.</div>
                                     }
                                 </div>
                             </div>
@@ -124,7 +124,7 @@ else if (_team != null && _user != null)
                         {
                             <div class="game-overlay">
                                 <div class="game-overlay-box text-center">
-                                    <div class="fs-4">
+                                    <div class="text-h4">
                                         🏆
                                         @for (var i = 0; i < _state.Winners.Count; i++)
                                         {
@@ -139,7 +139,7 @@ else if (_team != null && _user != null)
                                     </div>
                                     @if (IsSeated)
                                     {
-                                        <button class="btn btn-success mt-3" @onclick="Rematch">
+                                        <button class="btn btn-success mt-4" @onclick="Rematch">
                                             <i class="bi bi-arrow-repeat me-1"></i> Rematch
                                         </button>
                                     }
@@ -177,7 +177,7 @@ else if (_team != null && _user != null)
                     }
                 </div>
 
-                <div class="col-lg-4">
+                <div class="col-span-12 lg:col-span-4">
                     <Panel Title="Lineup" Icon="bi bi-people-fill" BodyClass="lg-lineup">
                         @foreach (var (side, label, dot) in new[] { (0, "Team A", "lg-dot--a"), (1, "Team B", "lg-dot--b") })
                             {
@@ -196,7 +196,7 @@ else if (_team != null && _user != null)
                                                     <div class="lg-seat__main">
                                                         <div class="lg-seat__role">@SeatRole(seat.Seat)</div>
                                                         <div class="lg-seat__name">
-                                                            <span class="text-truncate">@seat.Name</span>
+                                                            <span class="truncate">@seat.Name</span>
                                                             @if (isMine)
                                                             {
                                                                 <span class="badge-you">you</span>

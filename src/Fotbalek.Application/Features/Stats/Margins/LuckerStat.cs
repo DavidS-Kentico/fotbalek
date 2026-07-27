@@ -10,7 +10,7 @@ public class LuckerStat : StatBase
     public override string Emoji => "\U0001F340";
     public override StatTheme Theme => StatTheme.Margins;
     public override string Description => "Most 1-10 losses (one goal scored)";
-    public override StatBadge? Badge => new("bi bi-life-preserver", "bg-warning text-dark");
+    public override StatBadge? Badge => new("bi bi-life-preserver", "bg-warning text-gray-900");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {

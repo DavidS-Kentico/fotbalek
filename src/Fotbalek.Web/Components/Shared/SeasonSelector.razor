@@ -1,7 +1,7 @@
 @* Season scope selector: current season (default when active) / past seasons / all-time. *@
 
-<div class="d-flex align-items-center gap-2">
-    <span class="text-muted small"><i class="bi bi-award me-1"></i>Season:</span>
+<div class="flex items-center gap-2">
+    <span class="text-ink-muted text-small"><i class="bi bi-award me-1"></i>Season:</span>
     <select class="form-select form-select-sm w-auto" value="@(Value?.ToString() ?? AllTimeValue)" @onchange="OnChanged">
         @if (ActiveSeason != null)
         {

@@ -11,7 +11,7 @@
     align-items: center;
     gap: .55rem;
     padding: .5rem .6rem .5rem .75rem;
-    border-bottom: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--color-line);
     flex: 0 0 auto;
     min-height: 3.25rem;
 }
@@ -26,7 +26,7 @@
     justify-content: center;
     font-size: .72rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--color-white);
 }
 
 .chat-conv-heading {
@@ -46,7 +46,7 @@
 }
 
 .chat-conv-online {
-    color: var(--bs-success);
+    color: var(--color-brand);
     font-size: .72rem;
     display: inline-flex;
     align-items: center;
@@ -57,7 +57,7 @@
     flex: 0 0 auto;
     border: 0;
     background: none;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: .95rem;
     width: 32px;
     height: 32px;
@@ -68,15 +68,15 @@
 }
 
 .chat-conv-close:hover {
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-body-color);
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
 }
 
 .chat-online-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--bs-success);
+    background: var(--color-brand);
     display: inline-block;
 }
 
@@ -89,7 +89,7 @@
 
 .chat-floor {
     text-align: center;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: .78rem;
     padding: .6rem 0;
 }
@@ -98,7 +98,7 @@
     display: flex;
     align-items: center;
     gap: .5rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: .72rem;
     margin: .6rem 0 .25rem;
 }
@@ -107,7 +107,7 @@
 .chat-day-divider::after {
     content: "";
     flex: 1;
-    border-top: 1px solid var(--bs-border-color);
+    border-top: 1px solid var(--color-line);
 }
 
 .chat-new-pill {
@@ -117,9 +117,9 @@
     transform: translateX(-50%);
     z-index: 4;
     border: 0;
-    border-radius: 999px;
-    background: var(--bs-success);
-    color: #fff;
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
+    color: var(--color-white);
     font-size: .78rem;
     font-weight: 600;
     padding: .3rem .8rem;
@@ -130,20 +130,20 @@
     min-height: 1.15rem;
     padding: 0 .75rem;
     font-size: .74rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     flex: 0 0 auto;
 }
 
 .chat-send-error {
     padding: 0 .75rem .25rem;
     font-size: .75rem;
-    color: var(--bs-danger);
+    color: var(--color-danger);
     flex: 0 0 auto;
 }
 
 .chat-composer {
     position: relative;
-    border-top: 1px solid var(--bs-border-color);
+    border-top: 1px solid var(--color-line);
     padding: .5rem;
     flex: 0 0 auto;
 }
@@ -153,16 +153,16 @@
     display: flex;
     align-items: flex-end;
     gap: .15rem;
-    background: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-line);
     border-radius: 1.25rem;
     padding: .2rem .25rem .2rem .3rem;
     transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 .chat-composer-row:focus-within {
-    border-color: var(--bs-success);
-    box-shadow: 0 0 0 .2rem rgba(var(--bs-success-rgb), .18);
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 .2rem rgba(var(--color-brand-rgb), .18);
 }
 
 .chat-composer-input {
@@ -174,20 +174,20 @@
     background: none;
     border: 0;
     outline: 0;
-    color: var(--bs-body-color);
+    color: var(--color-ink);
     font-size: .9rem;
     line-height: 1.35;
     padding: .4rem .25rem;
 }
 
 .chat-composer-input::placeholder {
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 .chat-composer-btn {
     border: 0;
     background: none;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: 1.15rem;
     width: 2rem;
     height: 2rem;
@@ -199,26 +199,26 @@
 }
 
 .chat-composer-btn:hover:not(:disabled) {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    background: var(--color-surface-sunken);
+    color: var(--color-ink);
 }
 
 /* Send is a filled accent circle when there's something to send. */
 .chat-composer-send {
-    background: var(--bs-success);
-    color: #fff;
+    background: var(--color-brand);
+    color: var(--color-white);
     font-size: 1rem;
 }
 
 .chat-composer-send:hover:not(:disabled) {
-    background: var(--bs-success);
-    color: #fff;
+    background: var(--color-brand);
+    color: var(--color-white);
     filter: brightness(1.08);
 }
 
 .chat-composer-send:disabled {
     background: none;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     opacity: .55;
 }
 
@@ -228,8 +228,8 @@
     left: .5rem;
     right: .5rem;
     margin-bottom: .25rem;
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
     border-radius: .5rem;
     box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
     z-index: 6;
@@ -245,12 +245,12 @@
     background: none;
     padding: .4rem .6rem;
     text-align: left;
-    color: var(--bs-body-color);
+    color: var(--color-ink);
     font-size: .875rem;
 }
 
 .chat-mention-option:hover {
-    background: var(--bs-tertiary-bg);
+    background: var(--color-surface-muted);
 }
 
 /* The emoji picker web component lives inside the (child) EmojiPicker component. */

@@ -1,0 +1,204 @@
+@layer components {
+    /* Foosball Table Styles */
+    .foosball-table-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .foosball-table {
+        background: linear-gradient(180deg, #2e7d32 0%, #388e3c 50%, #2e7d32 100%);
+        border-radius: var(--radius-3xl);
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+        border: 8px solid #5d4037;
+    }
+
+    .team-side {
+        padding: 15px;
+    }
+
+    .team-1-side {
+        background: rgba(255, 193, 7, 0.1);
+        border-radius: var(--radius-md) 8px 0 0;
+        border-bottom: none;
+    }
+
+    .team-2-side {
+        background: rgba(13, 110, 253, 0.1);
+        border-radius: 0 0 8px 8px;
+        border-top: none;
+    }
+
+    .team-label {
+        text-align: center;
+        font-weight: bold;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        margin-bottom: 10px;
+    }
+
+    .team-2-side .team-label {
+        margin-bottom: 0;
+        margin-top: 10px;
+    }
+
+    .player-positions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .player-slot {
+        flex: 0 0 auto;
+        position: relative;
+    }
+
+    .player-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: white;
+        border: 3px dashed var(--color-gray-500);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 5px;
+    }
+
+    .player-circle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .player-circle.team-1 {
+        border-color: var(--color-team-a);
+    }
+
+    .player-circle.team-2 {
+        border-color: var(--color-team-b);
+    }
+
+    .player-circle.filled {
+        border-style: solid;
+        background: white;
+    }
+
+    .player-circle.is-me {
+        box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.65), 0 4px 12px rgba(25, 135, 84, 0.25);
+    }
+
+    .player-circle .player-name {
+        font-size: 0.7rem;
+        font-weight: bold;
+        color: var(--color-gray-900);
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 70px;
+    }
+
+    .player-circle .position-label {
+        font-size: 0.7rem;
+        color: var(--color-neutral);
+    }
+
+    .player-circle i {
+        font-size: 1.5rem;
+        color: var(--color-gray-500);
+    }
+
+    .swap-btn {
+        background: white;
+        border: 2px solid var(--color-gray-300);
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .swap-btn:hover {
+        background: var(--color-brand);
+        color: white;
+        border-color: var(--color-brand);
+    }
+
+    .midfield-line {
+        height: 4px;
+        background: white;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .score-input {
+        width: 100px;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    /* Position badge on player circles */
+    .position-badge {
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.6rem;
+        padding: 2px 6px;
+        border-radius: var(--radius-lg);
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .position-badge.gk {
+        background-color: var(--color-neutral);
+        color: white;
+    }
+
+    .position-badge.atk {
+        background-color: var(--color-danger);
+        color: white;
+    }
+
+    /* Remove player button */
+    .remove-player-btn {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-danger);
+        color: white;
+        border: 2px solid white;
+        font-size: 0.7rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .player-slot:hover .remove-player-btn {
+        opacity: 1;
+    }
+
+    .remove-player-btn:hover {
+        background: var(--color-danger-strong);
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .swap-btn {
+        color: var(--color-gray-900);
+    }
+
+}

@@ -10,7 +10,7 @@ public class LastPlaceStat : StatBase
     public override string Emoji => "\U0001F4A8";
     public override StatTheme Theme => StatTheme.Rankings;
     public override string Description => "Player with the lowest current ELO";
-    public override StatBadge? Badge => new("bi bi-arrow-down", "bg-dark");
+    public override StatBadge? Badge => new("bi bi-arrow-down", "bg-gray-900");
 
     // "Current ELO of the selected ladder" is well-defined for a full season too.
     public override bool Applies(StatContext context) => context.IsFullScope;

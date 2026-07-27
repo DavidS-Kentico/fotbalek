@@ -10,7 +10,7 @@ public class TableSenderStat : StatBase
     public override string Emoji => "\U0001F4AA";
     public override StatTheme Theme => StatTheme.Margins;
     public override string Description => "Most 10-0 wins";
-    public override StatBadge? Badge => new("bi bi-box-arrow-up", "bg-success");
+    public override StatBadge? Badge => new("bi bi-box-arrow-up", "bg-brand");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {

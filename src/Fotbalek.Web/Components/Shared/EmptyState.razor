@@ -1,9 +1,9 @@
 @* Centered empty state with optional icon, title, message, and action slot. *@
 
-<div class="text-center text-muted @PaddingClass">
+<div class="text-center text-ink-muted @PaddingClass">
     @if (!string.IsNullOrEmpty(Icon))
     {
-        <i class="@Icon @IconSizeClass d-block mb-2"></i>
+        <i class="@Icon @IconSizeClass block mb-2"></i>
     }
     @if (!string.IsNullOrEmpty(Title))
     {
@@ -26,10 +26,10 @@
 
     private string IconSizeClass => IconSize switch
     {
-        "sm" => "fs-3",
-        "lg" => "fs-1",
-        "xl" => "display-1",
-        _ => "fs-2"
+        "sm" => "text-h3",
+        "lg" => "text-h1",
+        "xl" => "text-display-lg",
+        _ => "text-h2"
     };
 
     private string PaddingClass => Padding;

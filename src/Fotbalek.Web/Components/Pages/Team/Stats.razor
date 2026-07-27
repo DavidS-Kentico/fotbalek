@@ -26,7 +26,7 @@ else
         </PageHeader>
 
         <Panel BodyClass="py-2">
-            <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="flex flex-wrap items-center gap-4">
                 <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
                                   @bind-CustomStartDate="_customStartDate"
                                   @bind-CustomEndDate="_customEndDate"
@@ -36,34 +36,34 @@ else
 
                 @if (_selectedPeriod != "all")
                 {
-                    <span class="badge bg-secondary">@GetFilterDescription()</span>
+                    <span class="badge bg-neutral">@GetFilterDescription()</span>
                 }
             </div>
         </Panel>
 
-        <Panel Title="Stats" Icon="bi bi-trophy" Class="mb-4" BodyClass="py-2">
+        <Panel Title="Stats" Icon="bi bi-trophy" Class="mb-6" BodyClass="py-2">
                 @foreach (var themeGroup in _stats.GroupBy(s => s.Theme).OrderBy(g => (int)g.Key))
                 {
                     <div class="stats-theme-row">
-                        <small class="text-muted fw-semibold stats-theme-label">
+                        <small class="text-ink-muted font-semibold stats-theme-label">
                             <i class="@themeGroup.Key.Icon() me-1"></i>@themeGroup.Key.DisplayName()
                         </small>
                         <div class="stats-theme-pills">
                             @foreach (var stat in themeGroup)
                             {
                                 var hasHolders = stat.Holders.Count > 0;
-                                <div class="d-flex align-items-center gap-1 px-2 py-1 rounded small @(hasHolders ? StatPillCss(stat) : "bg-secondary bg-opacity-10 opacity-50")"
+                                <div class="flex items-center gap-1 px-2 py-1 rounded-sm text-small @(hasHolders ? StatPillCss(stat) : "bg-neutral/10 opacity-50")"
                                      title="@stat.Description">
                                     <span>@stat.Emoji</span>
-                                    <span class="fw-semibold">@stat.Name:</span>
+                                    <span class="font-semibold">@stat.Name:</span>
                                     @if (hasHolders)
                                     {
                                         <span>@string.Join(", ", stat.Holders.Select(h => h.PlayerName).Distinct())</span>
-                                        <span class="text-muted">(@stat.Holders[0].DisplayValue)</span>
+                                        <span class="text-ink-muted">(@stat.Holders[0].DisplayValue)</span>
                                     }
                                     else
                                     {
-                                        <span class="text-muted fst-italic">—</span>
+                                        <span class="text-ink-muted italic">—</span>
                                     }
                                 </div>
                             }
@@ -72,31 +72,31 @@ else
                 }
         </Panel>
 
-        <div class="row mb-4">
-            <div class="col-md-3 mb-3">
+        <div class="grid grid-cols-12 gap-x-6 mb-6">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="success" Icon="bi bi-people"
                           Value="@_filteredPlayerCount.ToString()"
                           Label="@(_selectedPeriod == "all" ? "Active Players" : "Players in Period")" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="primary" Icon="bi bi-controller"
                           Value="@_filteredMatchCount.ToString()"
                           Label="@(_selectedPeriod == "all" ? "Total Matches" : "Matches in Period")" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="info" Icon="bi bi-bullseye"
                           Value="@_filteredTotalGoals.ToString()"
                           Label="@(_selectedPeriod == "all" ? "Total Goals" : "Goals in Period")" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="warning" Icon="bi bi-calculator"
                           Value="@_filteredAvgGoalsPerMatch.ToString("F1")"
                           Label="Avg Goals/Match" />
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 mb-6">
                 <ChartCard CanvasId="eloTrajectoryChart"
                            Title="ELO Trajectory" Icon="bi bi-activity"
                            Subtitle="Each player's ELO after every match. Click legend entries to toggle players."
@@ -105,41 +105,41 @@ else
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-lg-6 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="eloDistributionChart" Title="@(IsSeasonScope ? "Seasonal ELO Distribution" : "ELO Distribution")" Icon="bi bi-graph-up-arrow"
                            HasData="@(IsSeasonScope ? _seasonEloByPlayer.Count > 0 : _rankings.Count > 0)" />
             </div>
-            <div class="col-lg-6 mb-4">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="winRateChart" Title="Win Rate Distribution" Icon="bi bi-pie-chart"
                            HasData="_filteredRankings.Count > 0" />
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-lg-6 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="gamesPerPlayerChart" Title="Games per Player" Icon="bi bi-person-lines-fill"
                            HasData="_filteredRankings.Count > 0" />
             </div>
-            <div class="col-lg-6 mb-4">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="matchesOverTimeChart" Title="Matches Over Time" Icon="bi bi-calendar-week"
                            HasData="_matchesOverTime.Count > 0" />
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-lg-6 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="dayOfWeekChart" Title="Activity by Day of Week" Icon="bi bi-calendar3"
                            HasData="_dayOfWeekStats.Any(d => d > 0)" />
             </div>
-            <div class="col-lg-6 mb-4">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <ChartCard CanvasId="commonPairsChart" Title="Most Common Pairs" Icon="bi bi-people-fill"
                            HasData="_filteredPairStats.Count > 0" />
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 mb-6">
                 <PlayerMatrix Rows="_h2hMatrix"
                               Title="Head-to-Head Matrix" Icon="bi bi-grid-3x3"
                               Subtitle="Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size."
@@ -147,8 +147,8 @@ else
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 mb-6">
                 <PlayerMatrix Rows="_teammateMatrix"
                               Title="Teammate Matrix" Icon="bi bi-people"
                               Subtitle="Win rate when row player teams up with column player. Cell brightness reflects sample size."
@@ -550,19 +550,19 @@ else
     private static string StatPillCss(StatResult stat)
     {
         // Tint badge-eligible stats with their badge color so the page mirrors how they appear elsewhere.
-        // bg-body-tertiary (not bg-light) so the neutral pill stays readable in dark mode.
-        if (stat.Badge == null) return "bg-body-tertiary";
+        // bg-surface-muted (a theme-aware token) so the neutral pill stays readable in dark mode.
+        if (stat.Badge == null) return "bg-surface-muted";
 
         var css = stat.Badge.CssClass;
-        if (css.Contains("bg-warning"))   return "bg-warning bg-opacity-10";
-        if (css.Contains("bg-danger"))    return "bg-danger bg-opacity-10";
-        if (css.Contains("bg-info"))      return "bg-info bg-opacity-10";
-        if (css.Contains("bg-success"))   return "bg-success bg-opacity-10";
-        if (css.Contains("bg-primary"))   return "bg-primary bg-opacity-10";
-        if (css.Contains("bg-dark"))      return "bg-dark bg-opacity-10";
-        if (css.Contains("bg-secondary")) return "bg-secondary bg-opacity-10";
-        if (css.Contains("bg-purple"))    return "bg-purple-subtle";
-        return "bg-body-tertiary";
+        if (css.Contains("bg-warning"))  return "bg-warning/10";
+        if (css.Contains("bg-danger"))   return "bg-danger/10";
+        if (css.Contains("bg-info"))     return "bg-info/10";
+        if (css.Contains("bg-brand"))    return "bg-brand/10";
+        if (css.Contains("bg-primary"))  return "bg-primary/10";
+        if (css.Contains("bg-gray-900")) return "bg-gray-900/10";
+        if (css.Contains("bg-neutral"))  return "bg-neutral/10";
+        if (css.Contains("bg-purple"))   return "bg-purple-tint";
+        return "bg-surface-muted";
     }
 
     private async Task RenderCharts()

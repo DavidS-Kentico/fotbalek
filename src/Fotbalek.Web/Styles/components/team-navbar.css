@@ -1,0 +1,147 @@
+@layer components {
+    /* ===== Team navbar (three-zone app bar) ===== */
+    /* Stays pinned while scrolling long pages (rankings, stats, match history) so
+       navigation and the New-match CTA are always one reach away. */
+    .team-navbar {
+        position: sticky;
+        top: 0;
+        z-index: var(--z-sticky);
+    }
+
+    /* Button labels never wrap onto a second line. */
+    .team-navbar .btn {
+        white-space: nowrap;
+    }
+
+    /* Every control in the bar shares one height for a crisp baseline. */
+    .team-navbar .navbar-actions .btn,
+    .team-navbar .team-switcher-btn {
+        height: var(--size-control);
+    }
+    /* The account chip carries an avatar; shrink it so the chip matches the row
+       height instead of stretching the whole bar taller than its neighbours. */
+    .team-navbar .account-btn .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 0.85rem;
+    }
+
+    /* Team (workspace) switcher */
+    .team-navbar .team-switcher-btn {
+        border: 1px solid var(--color-gray-300);
+        background-color: var(--color-white);
+        color: var(--color-brand);
+        font-weight: 700;
+        max-width: 240px;
+    }
+    .team-navbar .team-switcher-btn:hover,
+    .team-navbar .team-switcher-btn:focus {
+        background-color: var(--color-gray-100);
+    }
+    .team-navbar .team-switcher-name {
+        max-width: 160px;
+        display: inline-block;
+        vertical-align: bottom;
+    }
+    /* On phones, collapse the switcher to just the crest so the action row stays
+       on a single line; the full name still shows in the dropdown. */
+    @media (width < theme(--breakpoint-sm)) {
+        .team-navbar .team-switcher-name {
+            display: none;
+        }
+    }
+    .team-navbar .team-switcher .dropdown-menu {
+        min-width: 240px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .team-navbar .team-switcher .dropdown-item .truncate {
+        max-width: 170px;
+    }
+
+    /* Section links + grouped dropdown toggles */
+    .team-navbar .navbar-nav .nav-link {
+        font-weight: 500;
+    }
+    .team-navbar .navbar-nav .nav-link.active,
+    .team-navbar .navbar-nav .nav-item.dropdown.show > .nav-link {
+        color: var(--color-brand);
+    }
+
+    /* Square icon-only buttons (e.g. start live game) line up with the CTA height */
+    .team-navbar .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--size-control);
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /* Online-players chip + popover */
+    .team-navbar .presence-chip {
+        border: 1px solid var(--color-gray-300);
+        background-color: var(--color-gray-100);
+        color: var(--color-gray-700);
+        font-weight: 600;
+        border-radius: var(--radius-full);
+        padding: 0.35rem 0.7rem;
+    }
+    .team-navbar .presence-chip:hover {
+        background-color: var(--color-gray-200);
+    }
+    .presence-menu {
+        min-width: 230px;
+        max-height: 340px;
+        overflow-y: auto;
+    }
+    .presence-menu .presence-avatar-wrap {
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 auto;
+    }
+    .presence-menu .presence-dot {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background-color: var(--color-brand);
+        border: 2px solid var(--color-white);
+    }
+
+    /* Contextual live-game pill */
+    .team-navbar .live-pill {
+        border-radius: var(--radius-full);
+        font-weight: 600;
+    }
+
+    /* Collapsed (mobile) sections drawer */
+    @media (width < theme(--breakpoint-lg)) {
+        .team-navbar .team-sections {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.075);
+        }
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .team-navbar .team-switcher-btn {
+        background-color: var(--color-surface);
+        border-color: var(--color-line);
+    }
+    :root[data-theme='dark'] .team-navbar .team-switcher-btn:hover,
+    :root[data-theme='dark'] .team-navbar .team-switcher-btn:focus {
+        background-color: var(--color-surface-muted);
+    }
+    :root[data-theme='dark'] .team-navbar .presence-chip {
+        background-color: var(--color-surface-muted);
+        border-color: var(--color-line);
+        color: var(--color-ink-muted);
+    }
+    :root[data-theme='dark'] .team-navbar .presence-chip:hover {
+        background-color: var(--color-surface-sunken);
+    }
+
+}

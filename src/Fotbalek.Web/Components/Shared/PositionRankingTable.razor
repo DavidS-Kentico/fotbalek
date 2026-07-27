@@ -1,6 +1,6 @@
 @* Position-specific ranking table (Goalkeepers / Attackers). *@
 
-<Panel Class="h-100" Flush>
+<Panel Class="h-full" Flush>
     <Header>
         @if (!string.IsNullOrEmpty(Icon))
         {
@@ -10,7 +10,7 @@
             @Title
             @if (!string.IsNullOrEmpty(HeaderHint))
             {
-                <small class="text-muted fw-normal">@HeaderHint</small>
+                <small class="text-ink-muted font-normal">@HeaderHint</small>
             }
         </h2>
     </Header>
@@ -23,8 +23,8 @@
                         <tr>
                             <th class="text-center" style="width: 60px;">Rank</th>
                             <th>Player</th>
-                            <th class="text-end">Games</th>
-                            <th class="text-end" title="@AverageColumnTooltip">@AverageColumnLabel</th>
+                            <th class="text-right">Games</th>
+                            <th class="text-right" title="@AverageColumnTooltip">@AverageColumnLabel</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -36,7 +36,7 @@
                                     <RankBadge Rank="@p.Rank" Large="true" />
                                 </td>
                                 <td>
-                                    <a href="/team/@TeamCode/players/@p.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                    <a href="/team/@TeamCode/players/@p.PlayerId" class="no-underline flex items-center gap-2">
                                         <Avatar AvatarId="@p.AvatarId" Size="sm" />
                                         <span>@p.PlayerName</span>
                                         @if (p.PlayerId == CaptainPlayerId)
@@ -49,8 +49,8 @@
                                         }
                                     </a>
                                 </td>
-                                <td class="text-end">@p.Games</td>
-                                <td class="text-end fw-bold @AverageColumnClass">@p.AverageGoals.ToString("F1")</td>
+                                <td class="text-right">@p.Games</td>
+                                <td class="text-right font-bold @AverageColumnClass">@p.AverageGoals.ToString("F1")</td>
                             </tr>
                         }
                     </tbody>
@@ -74,7 +74,7 @@
     [Parameter] public int? CaptainPlayerId { get; set; }
     [Parameter] public string AverageColumnLabel { get; set; } = "Avg";
     [Parameter] public string? AverageColumnTooltip { get; set; }
-    [Parameter] public string AverageColumnClass { get; set; } = "text-secondary";
+    [Parameter] public string AverageColumnClass { get; set; } = "text-neutral";
     [Parameter] public string? EmptyIcon { get; set; }
     [Parameter] public string? EmptyMessage { get; set; }
 }

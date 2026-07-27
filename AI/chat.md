@@ -226,11 +226,10 @@ DateTimeOffset expiry>>`), never in the DB:
 - An **emoji picker** button in the composer inserts at the cursor. v1 should **reuse an
   existing, self-hostable picker** rather than hand-curating a list — **`emoji-picker-element`**
   is the recommended fit: a dependency-free Web Component (MIT) vendored under `wwwroot/lib/`
-  alongside Bootstrap and the SignalR client, driven through a thin JS-interop shim, giving the
-  full Unicode set with search + categories for little effort. (Note the app is not strictly
-  self-hosted today — Chart.js and Bootstrap Icons load from a CDN in `App.razor` — so a CDN
-  import is an equally precedented alternative if vendoring proves awkward; vendoring is still
-  preferred for the picker's ~MB emoji data.) (If it fights the Blazor circuit or the
+  alongside the SignalR client, driven through a thin JS-interop shim, giving the
+  full Unicode set with search + categories for little effort. (Everything the browser loads is
+  self-hosted, so vendoring is the only precedented option — and it is the right one anyway for
+  the picker's ~MB emoji data.) (If it fights the Blazor circuit or the
   self-contained hosting, fall back to a small curated static array — the storage model is
   identical either way, since emoji are just text.)
 
@@ -368,7 +367,7 @@ backgrounded — an in-app banner fires. Because the dock is on every authentica
 **everywhere**, not just team pages. **No sound in v1**, and **no browser / OS notification in v1**
 (deferred to a future app-wide notifications feature — §10/§11).
 
-- **In-app banner** — a dismissible toast (Bootstrap toast, anchored near the launcher) reading
+- **In-app banner** — a dismissible toast (anchored near the launcher, see `.chat-banners`) reading
   e.g. "💬 {Team} — {Sender}: {preview}" or "{Sender} mentioned you in {Team}". Clicking it opens
   the dock with that team selected. It needs **no permission prompt** (pure in-app UI) and is the
   primary signal that a non-selected team has a new message. It is raised by the **`ChatDock`**
@@ -451,8 +450,9 @@ circuit, and reset the dock to closed/default. Accepted for v1.)
   emoji-picker button + send; Enter sends.
 - **No 🔔 notification toggle in v1** — browser notifications are deferred (§10); it returns with
   the app-wide notifications feature.
-- Follows app conventions: Bootstrap, Bootstrap Icons, dark-mode aware (uses `bg-body`,
-  `text-muted`, etc., like the rest of the UI).
+- Follows app conventions: Tailwind utilities + the shared classes in `Styles/components/`,
+  Bootstrap Icons, dark-mode aware (uses theme-aware tokens such as `bg-surface` /
+  `text-ink-muted`, like the rest of the UI).
 
 ### 6.2 Mobile
 
@@ -482,7 +482,7 @@ circuit, and reset the dock to closed/default. Accepted for v1.)
 | `Components/Chat/ChatMessageView.razor` | Component | One message: segmented text (text/mention/emoji), reactions, ⋯ options menu (author-only edit/delete, §4.6), inline edit mode, tombstone, and the "seen by" indicator on the sender's latest message (§5.5) |
 | `Components/Chat/EmojiPicker.razor` | Component | Wraps the vendored `emoji-picker-element` for the composer (§4.2); the quick-react row is a small static set of common emoji |
 | `wwwroot/lib/emoji-picker-element/*` | Vendored lib | Self-hosted emoji-picker Web Component + its data (§4.2); omitted if the curated-array fallback is used instead |
-| `Components/Chat/ChatDock.razor.css` | Scoped CSS | Dock/launcher/rail styling. The app styles components with scoped `.razor.css` (e.g. `Players.razor.css`); Bootstrap utilities + `bg-body`/`text-muted` cover most of it, so this holds only positioning and chat-specific bits |
+| `Components/Chat/ChatDock.razor.css` | Scoped CSS | Dock/launcher/rail styling. Component-specific styling lives in a scoped `.razor.css` (e.g. `Players.razor.css`); Tailwind utilities + theme tokens (`bg-surface`, `text-ink-muted`) cover most of it, so this holds only positioning and chat-specific bits. Scoped files are not Tailwind-processed — see the header of `Styles/app.css` for what that rules out |
 | `Components/_Imports.razor` (edit) | — | Add `@using Fotbalek.Web.Components.Chat` — that namespace is not wildcard-imported, so `<ChatDock>` would not resolve from `MainLayout`/`TeamLayout` without it |
 | `Components/Layout/MainLayout.razor` (edit) | — | Render `<ChatDock>` (gated inside the component to authenticated users with ≥1 claimed team) — covers Home, account, create, join, claim, etc. |
 | `Components/Layout/TeamLayout.razor` (edit) | — | Render `<ChatDock>` (hinting the current team as the default selection); add secondary unread badges to the nav team switcher, rendered from `ChatUiState`'s cache + its `Changed` event (§5.2) |
@@ -530,7 +530,7 @@ payloads in §3.2. Deleted messages never carry `Body` over the wire.
 | Typing server expiry | 6 s | Auto-clear if no refresh |
 | Reaction emoji max length | 32 chars | Allows ZWJ/skin-tone sequences |
 | Banner body preview | ~120 chars | Truncated (in-app banner) |
-| In-app banner auto-dismiss | ~6 s | Bootstrap toast; manual dismiss also |
+| In-app banner auto-dismiss | ~6 s | Manual dismiss also |
 
 A `Constants.Chat` block (mirroring `Constants.Seasons`, etc.) is a reasonable home for these.
 

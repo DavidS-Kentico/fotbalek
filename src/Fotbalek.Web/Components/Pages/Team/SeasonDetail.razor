@@ -31,33 +31,33 @@ else
             new(_season.Name),
         })" />
 
-        <Panel Class="@("mb-4" + (_season.IsActiveAt(now) ? " border-success" : ""))">
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
+        <Panel Class="@("mb-6" + (_season.IsActiveAt(now) ? " border-brand" : ""))">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="grow min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <h2 class="mb-0">@_season.Name</h2>
                             @if (_season.IsActiveAt(now))
                             {
-                                <span class="badge bg-success">Live</span>
+                                <span class="badge bg-brand">Live</span>
                             }
                             else if (isScheduled)
                             {
-                                <span class="badge bg-info text-dark">Scheduled</span>
+                                <span class="badge bg-info text-gray-900">Scheduled</span>
                             }
                             else if (_season.IsClosed)
                             {
-                                <span class="badge bg-secondary">Closed</span>
+                                <span class="badge bg-neutral">Closed</span>
                             }
                             else
                             {
-                                <span class="badge bg-warning text-dark">Ended · closing…</span>
+                                <span class="badge bg-warning text-gray-900">Ended · closing…</span>
                             }
                         </div>
                         @if (!string.IsNullOrEmpty(_season.Description))
                         {
-                            <div class="text-muted mt-1">@_season.Description</div>
+                            <div class="text-ink-muted mt-1">@_season.Description</div>
                         }
-                        <div class="text-muted small mt-1">
+                        <div class="text-ink-muted text-small mt-1">
                             <i class="bi bi-calendar-range me-1"></i>@FormatPeriod()
                             <span class="mx-1">·</span>
                             <i class="bi bi-controller me-1"></i>@_matchCount match@(_matchCount == 1 ? "" : "es")
@@ -74,7 +74,7 @@ else
 
         @if (isScheduled)
         {
-            <EmptyState Icon="bi bi-hourglass-split" IconSize="xl" Padding="py-5"
+            <EmptyState Icon="bi bi-hourglass-split" IconSize="xl" Padding="py-12"
                         Title="This season hasn't started yet"
                         Message="@($"It starts {Tz.ToLocalTime(_season.StartsAt):f}. Until then, matches are recorded off-season (or in the still-active previous season).")" />
         }
@@ -84,7 +84,7 @@ else
             @if (_season.IsClosed && _awards.Count > 0)
             {
                 <Panel Title="Awards" Icon="bi bi-trophy">
-                        <div class="row g-3">
+                        <div class="grid grid-cols-12 gap-4">
                             @AwardColumn(Constants.Seasons.AwardCategories.Player, "Top Players", "bi bi-star-fill")
                             @AwardColumn(Constants.Seasons.AwardCategories.Goalkeeper, "Top Goalkeepers", "bi bi-shield-fill")
                             @AwardColumn(Constants.Seasons.AwardCategories.Attacker, "Top Attackers", "bi bi-bullseye")
@@ -94,7 +94,7 @@ else
             }
             else if (_season.IsClosed)
             {
-                <div class="alert alert-light border py-2 small mb-4">
+                <div class="alert alert-light border py-2 text-small mb-6">
                     <i class="bi bi-info-circle me-1"></i>
                     This season closed with fewer than @Constants.Seasons.MinMatchesForAwards matches — standings were frozen, but no awards were generated.
                 </div>
@@ -103,19 +103,19 @@ else
             {
                 <Panel Title="Provisional awards" Icon="bi bi-trophy">
                     <Actions>
-                        <span class="text-muted small">preview — decided at season close</span>
+                        <span class="text-ink-muted text-small">preview — decided at season close</span>
                     </Actions>
                     <ChildContent>
                         @if (_matchCount < Constants.Seasons.MinMatchesForAwards)
                         {
-                            <div class="text-muted small">
+                            <div class="text-ink-muted text-small">
                                 <i class="bi bi-lock me-1"></i>Awards unlock at @Constants.Seasons.MinMatchesForAwards season matches
                                 (currently @_matchCount). Below that, the season closes with frozen standings but no awards.
                             </div>
                         }
                         else
                         {
-                            <div class="row g-3">
+                            <div class="grid grid-cols-12 gap-4">
                                 @PreviewColumn("Top Players", "bi bi-star-fill",
                                     _standings.Where(s => s.Matches >= Constants.Seasons.MinMatchesForPlayerAward).Take(3)
                                         .Select(s => (s.PlayerId, s.PlayerName, s.AvatarId, (string?)null)).ToList(),
@@ -134,12 +134,12 @@ else
             }
 
             @* ---------------- Standings ---------------- *@
-            <Panel Flush Class="mb-4">
+            <Panel Flush Class="mb-6">
                 <Header>
                     <i class="bi bi-bar-chart"></i>
                     <h2 class="panel__title">
                         @(_season.IsClosed ? "Final standings" : "Standings")
-                        <small class="text-muted fw-normal">(seasonal ELO@(_season.IsClosed ? ", frozen at close" : ""))</small>
+                        <small class="text-ink-muted font-normal">(seasonal ELO@(_season.IsClosed ? ", frozen at close" : ""))</small>
                     </h2>
                 </Header>
                 <ChildContent>
@@ -151,11 +151,11 @@ else
                                     <tr>
                                         <th class="text-center" style="width: 60px;">Rank</th>
                                         <th>Player</th>
-                                        <th class="text-end">ELO</th>
-                                        <th class="text-end">Matches</th>
-                                        <th class="text-end">W/L</th>
-                                        <th class="text-end">Win Rate</th>
-                                        <th class="text-end" title="Longest win / loss streak in the season">Streaks</th>
+                                        <th class="text-right">ELO</th>
+                                        <th class="text-right">Matches</th>
+                                        <th class="text-right">W/L</th>
+                                        <th class="text-right">Win Rate</th>
+                                        <th class="text-right" title="Longest win / loss streak in the season">Streaks</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -165,7 +165,7 @@ else
                                         <tr class="@(isMine ? "table-success" : "")">
                                             <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
                                             <td>
-                                                <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-2">
+                                                <a href="/team/@TeamCode/players/@row.PlayerId" class="no-underline inline-flex items-center gap-2">
                                                     <Avatar AvatarId="@row.AvatarId" Size="sm" />
                                                     <span>@row.PlayerName</span>
                                                 </a>
@@ -174,15 +174,15 @@ else
                                                     <span class="badge badge-you ms-1">you</span>
                                                 }
                                             </td>
-                                            <td class="text-end fw-bold">@row.Elo</td>
-                                            <td class="text-end">@row.Matches</td>
-                                            <td class="text-end"><span class="text-success">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
-                                            <td class="text-end">
-                                                <span class="@(row.WinRate >= 50 ? "text-success" : "text-danger")">@row.WinRate.ToString("F1")%</span>
+                                            <td class="text-right font-bold">@row.Elo</td>
+                                            <td class="text-right">@row.Matches</td>
+                                            <td class="text-right"><span class="text-brand">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
+                                            <td class="text-right">
+                                                <span class="@(row.WinRate >= 50 ? "text-brand" : "text-danger")">@row.WinRate.ToString("F1")%</span>
                                             </td>
-                                            <td class="text-end small">
-                                                <span class="text-success" title="Longest win streak">W@(row.LongestWinStreak)</span>
-                                                <span class="text-muted mx-1">·</span>
+                                            <td class="text-right text-small">
+                                                <span class="text-brand" title="Longest win streak">W@(row.LongestWinStreak)</span>
+                                                <span class="text-ink-muted mx-1">·</span>
                                                 <span class="text-danger" title="Longest loss streak">L@(row.LongestLossStreak)</span>
                                             </td>
                                         </tr>
@@ -199,8 +199,8 @@ else
                 </Panel>
 
             @* ---------------- Position tables ---------------- *@
-            <div class="row">
-                <div class="col-lg-6 mb-4">
+            <div class="grid grid-cols-12 gap-x-6">
+                <div class="col-span-12 lg:col-span-6 mb-6">
                     <PositionRankingTable Players="_goalkeepers"
                                           Title="Best Goalkeepers"
                                           Icon="bi bi-shield-fill"
@@ -209,11 +209,11 @@ else
                                           MyPlayerId="MyPlayerId"
                                           AverageColumnLabel="Avg Conceded"
                                           AverageColumnTooltip="Average goals conceded per game"
-                                          AverageColumnClass="text-secondary"
+                                          AverageColumnClass="text-neutral"
                                           EmptyIcon="bi bi-shield"
                                           EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games.")" />
                 </div>
-                <div class="col-lg-6 mb-4">
+                <div class="col-span-12 lg:col-span-6 mb-6">
                     <PositionRankingTable Players="_attackers"
                                           Title="Best Attackers"
                                           Icon="bi bi-bullseye"
@@ -229,7 +229,7 @@ else
             </div>
 
             @* ---------------- Pairs ---------------- *@
-            <Panel Flush Title="@($"Best Pairs (min {Constants.TimeThresholds.MinGamesForPartnerStats} matches)")" Icon="bi bi-people" Class="mb-4">
+            <Panel Flush Title="@($"Best Pairs (min {Constants.TimeThresholds.MinGamesForPartnerStats} matches)")" Icon="bi bi-people" Class="mb-6">
                     @if (_pairs.Count > 0)
                     {
                         <div class="table-responsive">
@@ -238,12 +238,12 @@ else
                                     <tr>
                                         <th class="text-center" style="width: 60px;">Rank</th>
                                         <th>Players</th>
-                                        <th class="text-end">Matches</th>
-                                        <th class="text-end">W/L</th>
-                                        <th class="text-end">Win Rate</th>
+                                        <th class="text-right">Matches</th>
+                                        <th class="text-right">W/L</th>
+                                        <th class="text-right">Win Rate</th>
                                         @if (!_season.IsClosed)
                                         {
-                                            <th class="text-end">Avg Score</th>
+                                            <th class="text-right">Avg Score</th>
                                         }
                                     </tr>
                                 </thead>
@@ -255,22 +255,22 @@ else
                                         <tr class="@(pairContainsMe ? "table-success" : "")">
                                             <td class="text-center"><RankBadge Rank="@pairRank" Large="true" /></td>
                                             <td>
-                                                <div class="d-flex align-items-center gap-2">
+                                                <div class="flex items-center gap-2">
                                                     <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
-                                                    <span class="@(pair.Player1Id == MyPlayerId ? "fw-bold" : "")">@pair.Player1Name</span>
-                                                    <span class="text-muted">&</span>
+                                                    <span class="@(pair.Player1Id == MyPlayerId ? "font-bold" : "")">@pair.Player1Name</span>
+                                                    <span class="text-ink-muted">&</span>
                                                     <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
-                                                    <span class="@(pair.Player2Id == MyPlayerId ? "fw-bold" : "")">@pair.Player2Name</span>
+                                                    <span class="@(pair.Player2Id == MyPlayerId ? "font-bold" : "")">@pair.Player2Name</span>
                                                 </div>
                                             </td>
-                                            <td class="text-end">@pair.Matches</td>
-                                            <td class="text-end"><span class="text-success">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span></td>
-                                            <td class="text-end">
-                                                <span class="@(pair.WinRate >= 50 ? "text-success" : "text-danger") fw-bold">@pair.WinRate.ToString("F1")%</span>
+                                            <td class="text-right">@pair.Matches</td>
+                                            <td class="text-right"><span class="text-brand">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span></td>
+                                            <td class="text-right">
+                                                <span class="@(pair.WinRate >= 50 ? "text-brand" : "text-danger") font-bold">@pair.WinRate.ToString("F1")%</span>
                                             </td>
                                             @if (!_season.IsClosed)
                                             {
-                                                <td class="text-end">@pair.AverageScore.ToString("F1")</td>
+                                                <td class="text-right">@pair.AverageScore.ToString("F1")</td>
                                             }
                                         </tr>
                                         pairRank++;
@@ -373,28 +373,28 @@ else
             .OrderBy(a => a.Rank)
             .ToList();
 
-        <div class="col-md-6 col-xl-3">
-            <div class="fw-semibold small mb-2"><i class="@icon me-1"></i>@title</div>
+        <div class="col-span-12 md:col-span-6 xl:col-span-3">
+            <div class="font-semibold text-small mb-2"><i class="@icon me-1"></i>@title</div>
             @if (rows.Count == 0)
             {
-                <div class="text-muted small fst-italic">Not awarded — no eligible candidates.</div>
+                <div class="text-ink-muted text-small italic">Not awarded — no eligible candidates.</div>
             }
             else
             {
                 @foreach (var award in rows)
                 {
-                    <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1">
                         <span title="@($"Rank {award.Rank}")">@Medal(award.Rank)</span>
-                        <a href="/team/@TeamCode/players/@award.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                        <a href="/team/@TeamCode/players/@award.PlayerId" class="no-underline inline-flex items-center gap-1">
                             <Avatar AvatarId="@award.PlayerAvatarId" Size="sm" />
-                            <span class="small">@award.PlayerName</span>
+                            <span class="text-small">@award.PlayerName</span>
                         </a>
                         @if (award.PartnerPlayerId != null)
                         {
-                            <span class="text-muted small">&</span>
-                            <a href="/team/@TeamCode/players/@award.PartnerPlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                            <span class="text-ink-muted text-small">&</span>
+                            <a href="/team/@TeamCode/players/@award.PartnerPlayerId" class="no-underline inline-flex items-center gap-1">
                                 <Avatar AvatarId="@(award.PartnerPlayerAvatarId ?? 1)" Size="sm" />
-                                <span class="small">@award.PartnerPlayerName</span>
+                                <span class="text-small">@award.PartnerPlayerName</span>
                             </a>
                         }
                     </div>
@@ -405,26 +405,26 @@ else
 
     private RenderFragment PreviewColumn(string title, string icon, List<(int PlayerId, string Name, int AvatarId, string? Detail)> rows, string hint) => __builder =>
     {
-        <div class="col-md-6 col-xl-3">
-            <div class="fw-semibold small mb-2"><i class="@icon me-1"></i>@title <span class="text-muted fw-normal">(@hint)</span></div>
+        <div class="col-span-12 md:col-span-6 xl:col-span-3">
+            <div class="font-semibold text-small mb-2"><i class="@icon me-1"></i>@title <span class="text-ink-muted font-normal">(@hint)</span></div>
             @if (rows.Count == 0)
             {
-                <div class="text-muted small fst-italic">No eligible candidates yet.</div>
+                <div class="text-ink-muted text-small italic">No eligible candidates yet.</div>
             }
             else
             {
                 @for (var i = 0; i < rows.Count; i++)
                 {
                     var row = rows[i];
-                    <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1">
                         <span>@Medal(i + 1)</span>
-                        <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-inline-flex align-items-center gap-1">
+                        <a href="/team/@TeamCode/players/@row.PlayerId" class="no-underline inline-flex items-center gap-1">
                             <Avatar AvatarId="@row.AvatarId" Size="sm" />
-                            <span class="small">@row.Name</span>
+                            <span class="text-small">@row.Name</span>
                         </a>
                         @if (row.Detail != null)
                         {
-                            <span class="text-muted small">@row.Detail</span>
+                            <span class="text-ink-muted text-small">@row.Detail</span>
                         }
                     </div>
                 }
@@ -435,21 +435,21 @@ else
     private RenderFragment PreviewPairColumn() => __builder =>
     {
         var topPairs = _pairs.Take(3).ToList();
-        <div class="col-md-6 col-xl-3">
-            <div class="fw-semibold small mb-2"><i class="bi bi-people-fill me-1"></i>Top Pairs <span class="text-muted fw-normal">(min @Constants.TimeThresholds.MinGamesForPartnerStats together)</span></div>
+        <div class="col-span-12 md:col-span-6 xl:col-span-3">
+            <div class="font-semibold text-small mb-2"><i class="bi bi-people-fill me-1"></i>Top Pairs <span class="text-ink-muted font-normal">(min @Constants.TimeThresholds.MinGamesForPartnerStats together)</span></div>
             @if (topPairs.Count == 0)
             {
-                <div class="text-muted small fst-italic">No eligible candidates yet.</div>
+                <div class="text-ink-muted text-small italic">No eligible candidates yet.</div>
             }
             else
             {
                 @for (var i = 0; i < topPairs.Count; i++)
                 {
                     var pair = topPairs[i];
-                    <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1">
                         <span>@Medal(i + 1)</span>
-                        <span class="small">@pair.Player1Name & @pair.Player2Name</span>
-                        <span class="text-muted small">@pair.WinRate.ToString("F0")%</span>
+                        <span class="text-small">@pair.Player1Name & @pair.Player2Name</span>
+                        <span class="text-ink-muted text-small">@pair.WinRate.ToString("F0")%</span>
                     </div>
                 }
             }

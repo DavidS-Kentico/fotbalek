@@ -11,6 +11,61 @@
     <ProjectReference Include="..\Fotbalek.SharedKernel\Fotbalek.SharedKernel.csproj" />
   </ItemGroup>
 
+  <!-- Tailwind: compiles Styles/app.css -> wwwroot/app.css. The compiled file is
+       committed, so builds on machines without Node still work; the target simply
+       skips itself there. Runs before static assets are collected so a rebuilt
+       stylesheet is picked up and fingerprinted in the same build. -->
+  <!-- Declared at project scope, not inside the target: MSBuild evaluates a
+       target's Inputs before its body runs, so an item group defined inside
+       would still be empty and the incremental check would never fire. -->
+  <ItemGroup>
+    <TailwindSource Include="Styles/**/*.css" />
+    <TailwindSource Include="Components/**/*.razor" />
+    <TailwindSource Include="Components/**/*.cs" />
+    <TailwindSource Include="Services/**/*.cs" />
+    <TailwindSource Include="../Fotbalek.Application/Features/Stats/**/*.cs" />
+    <TailwindSource Include="wwwroot/js/**/*.js" />
+    <!-- A Tailwind version bump changes the output without any source changing,
+         so the lock file is an input too. -->
+    <TailwindSource Include="package-lock.json" />
+  </ItemGroup>
+
+  <Target Name="BuildTailwindCss"
+          BeforeTargets="ResolveStaticWebAssetsInputs"
+          Condition="'$(SkipTailwindBuild)' != 'true'"
+          Inputs="@(TailwindSource)"
+          Outputs="wwwroot/app.css">
+    <!-- Missing toolchain and broken stylesheet are different failures and must be
+         treated differently. Without the CLI installed there is nothing to run, so
+         the build warns and falls back to the committed output. With it installed, a
+         non-zero exit means the stylesheet itself failed to compile — that has to
+         fail the build, otherwise the stale committed app.css ships silently and the
+         only trace is a warning nobody reads. -->
+    <PropertyGroup>
+      <TailwindFailureTolerated>true</TailwindFailureTolerated>
+      <TailwindFailureTolerated Condition="Exists('$(MSBuildProjectDirectory)/node_modules/.bin/tailwindcss')">false</TailwindFailureTolerated>
+    </PropertyGroup>
+    <Exec Command="npm exec --no-install -- tailwindcss --input Styles/app.css --output wwwroot/app.css --minify"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ContinueOnError="$(TailwindFailureTolerated)"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="TailwindExitCode" />
+    </Exec>
+    <Warning Condition="'$(TailwindExitCode)' != '0' And '$(TailwindFailureTolerated)' == 'true'"
+             Text="Tailwind CSS was not rebuilt (exit $(TailwindExitCode)). Using the committed wwwroot/app.css. Run 'npm install' in this directory to enable stylesheet builds." />
+  </Target>
+
+  <ItemGroup>
+    <!-- Tailwind sources: inputs to the stylesheet build, never served directly. -->
+    <Content Remove="Styles/**/*.css" />
+    <None Include="Styles/**/*.css" />
+    <Content Remove="package.json;package-lock.json" />
+    <None Include="package.json;package-lock.json" />
+    <!-- Asset-vendoring script: run by npm, never part of the app. -->
+    <Content Remove="scripts/**" />
+    <None Include="scripts/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">

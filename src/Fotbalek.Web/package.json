@@ -1,0 +1,17 @@
+{
+  "name": "fotbalek-web-styles",
+  "private": true,
+  "description": "Front-end asset build for Fotbalek.Web. Compiles Styles/app.css -> wwwroot/app.css and vendors the icon font.",
+  "scripts": {
+    "css": "tailwindcss --input Styles/app.css --output wwwroot/app.css --minify",
+    "css:watch": "tailwindcss --input Styles/app.css --output wwwroot/app.css --watch",
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "//": "Every version is pinned exactly, on purpose. wwwroot/app.css and wwwroot/lib are committed build outputs, so a floating range means one developer's `npm install` silently rewrites a checked-in artifact. @tailwindcss/cli and tailwindcss must also stay on the same version (the CLI depends on tailwindcss exactly), and app.css imports 'tailwindcss/...' directly, so tailwindcss is a real direct dependency rather than a redundant one.",
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "bootstrap-icons": "1.11.3",
+    "chart.js": "4.4.1",
+    "tailwindcss": "4.3.3"
+  }
+}

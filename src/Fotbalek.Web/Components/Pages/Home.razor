@@ -11,7 +11,7 @@
 
 @* ===== Hero ===== *@
 <section class="ov-hero">
-    <div class="ov-hero__inner container">
+    <div class="ov-hero__inner page">
         <h1 class="ov-hero__brand">
             <i class="bi bi-trophy-fill"></i><span>Fotbalek</span>
         </h1>
@@ -30,8 +30,8 @@
         <div class="ov-hero__cta">
             @if (_loading)
             {
-                <div class="spinner-border text-light" role="status">
-                    <span class="visually-hidden">Loading…</span>
+                <div class="spinner-border text-gray-100" role="status">
+                    <span class="sr-only">Loading…</span>
                 </div>
             }
             else if (_isAuthenticated)
@@ -78,12 +78,12 @@
     </div>
 </section>
 
-<div class="container ov-body py-4 py-lg-5">
+<div class="page py-6 lg:py-12">
 
     @* ── Your teams (signed in, has teams) ── *@
     @if (!_loading && _myTeams.Count > 0)
     {
-        <section class="mb-5">
+        <section class="mb-12">
             <div class="ov-section-head">
                 <h2 class="ov-section-title"><i class="bi bi-people-fill me-2"></i>Your teams</h2>
                 <a href="/create" class="btn btn-sm btn-outline-success">
@@ -102,7 +102,7 @@
                         </span>
                         @if (chatUnread > 0)
                         {
-                            <span class="badge rounded-pill text-bg-danger" title="Unread chat messages">
+                            <span class="badge rounded-full bg-danger text-white" title="Unread chat messages">
                                 <i class="bi bi-chat-dots me-1"></i>@(chatUnread > 99 ? "99+" : chatUnread.ToString())
                             </span>
                         }
@@ -116,7 +116,7 @@
     @* ── How it works (no teams yet) ── *@
     @if (!_loading && _myTeams.Count == 0)
     {
-        <section class="mb-5">
+        <section class="mb-12">
             <div class="ov-section-head ov-section-head--center">
                 <h2 class="ov-section-title">How it works</h2>
                 <p class="ov-section-sub">From zero to leaderboard in three steps.</p>
@@ -157,7 +157,7 @@
         }
         else
         {
-            <section class="mb-4">
+            <section class="mb-6">
                 <div class="ov-section-head">
                     <h2 class="ov-section-title"><i class="bi bi-globe2 me-2"></i>Across all teams</h2>
                 </div>
@@ -169,14 +169,14 @@
                 </div>
             </section>
 
-            <div class="row g-4">
-                <div class="col-lg-8">
-                    <Panel Class="h-100">
+            <div class="grid grid-cols-12 gap-6">
+                <div class="col-span-12 lg:col-span-8">
+                    <Panel Class="h-full">
                         <Header>
                             <i class="bi bi-activity"></i>
                             <div>
                                 <h2 class="panel__title">Activity</h2>
-                                <div class="text-muted small">Matches recorded per day · last 30 days</div>
+                                <div class="text-ink-muted text-small">Matches recorded per day · last 30 days</div>
                             </div>
                         </Header>
                         <ChildContent>
@@ -196,11 +196,11 @@
                     </Panel>
                 </div>
 
-                <div class="col-lg-4">
-                    <Panel Class="h-100" Title="Highlights" Icon="bi bi-stars">
+                <div class="col-span-12 lg:col-span-4">
+                    <Panel Class="h-full" Title="Highlights" Icon="bi bi-stars">
                             <ul class="ov-facts">
                                 <li>
-                                    <span class="ov-fact__ico text-success"><i class="bi bi-calendar-day"></i></span>
+                                    <span class="ov-fact__ico text-brand"><i class="bi bi-calendar-day"></i></span>
                                     <span class="ov-fact__label">Matches today</span>
                                     <span class="ov-fact__value">@_stats.FunFacts.MatchesToday</span>
                                 </li>
@@ -228,7 +228,7 @@
                                         <span class="ov-fact__ico text-primary"><i class="bi bi-calendar-week"></i></span>
                                         <span class="ov-fact__label">Busiest day</span>
                                         <span class="ov-fact__value">
-                                            @bd.Matches<small class="text-muted ms-1">· @bd.Day.ToString("MMM d")</small>
+                                            @bd.Matches<small class="text-ink-muted ms-1">· @bd.Day.ToString("MMM d")</small>
                                         </span>
                                     </li>
                                 }
@@ -240,12 +240,12 @@
             @* ── Latest results — anonymized pulse ── *@
             @if (_stats.RecentScores.Count > 0)
             {
-                <Panel Class="mt-4">
+                <Panel Class="mt-6">
                     <Header>
                         <i class="bi bi-broadcast"></i>
                         <div>
                             <h2 class="panel__title">Latest results</h2>
-                            <div class="text-muted small">Live scores from across the community — teams kept private.</div>
+                            <div class="text-ink-muted text-small">Live scores from across the community — teams kept private.</div>
                         </div>
                     </Header>
                     <ChildContent>

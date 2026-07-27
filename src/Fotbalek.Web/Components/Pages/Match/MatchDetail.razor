@@ -21,8 +21,8 @@ else if (_match != null)
 
     var margin = Math.Abs(_match.Team1Score - _match.Team2Score);
     string? marginLabel = margin >= 8 ? "Blowout" : margin == 1 ? "Nail-biter" : null;
-    string? marginCss = margin >= 8 ? "bg-warning-subtle text-warning-emphasis"
-                       : margin == 1 ? "bg-info-subtle text-info-emphasis"
+    string? marginCss = margin >= 8 ? "bg-warning-subtle text-warning-subtle-ink"
+                       : margin == 1 ? "bg-info-subtle text-info-subtle-ink"
                        : null;
     string? marginIcon = margin >= 8 ? "bi-fire" : margin == 1 ? "bi-lightning-charge" : null;
 
@@ -53,7 +53,7 @@ else if (_match != null)
             new($"Match #{MatchId}"),
         })" />
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div class="btn-group">
                 <a class="btn btn-outline-secondary btn-sm @(_olderId == null ? "disabled" : "")"
                    href="@(_olderId != null ? $"/team/{TeamCode}/matches/{_olderId}" : "#")"
@@ -67,7 +67,7 @@ else if (_match != null)
                 </a>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="flex gap-2">
                 <a href="/team/@TeamCode/match/new?rematch=@MatchId" class="btn btn-success btn-sm">
                     <i class="bi bi-arrow-repeat me-1"></i> Rematch
                 </a>
@@ -83,7 +83,7 @@ else if (_match != null)
             </div>
         </div>
 
-        <Panel Class="mb-4">
+        <Panel Class="mb-6">
             <Header>
                 <i class="bi bi-calendar3"></i>
                 <h2 class="panel__title">
@@ -92,15 +92,15 @@ else if (_match != null)
                 <div class="panel__actions flex-wrap">
                     @if (isSeasonal)
                     {
-                        <span class="badge bg-success-subtle text-success-emphasis" title="Seasonal match — numbers below show the seasonal ladder">
+                        <span class="badge bg-brand-subtle text-brand-subtle-ink" title="Seasonal match — numbers below show the seasonal ladder">
                             <i class="bi bi-award me-1"></i>@(_match.SeasonName ?? "Season")
                         </span>
                     }
                     else if (_hasAnySeason)
                     {
-                        <span class="badge bg-secondary-subtle text-secondary" title="Not part of any season">off-season</span>
+                        <span class="badge bg-neutral-subtle text-neutral" title="Not part of any season">off-season</span>
                     }
-                    <span class="badge bg-secondary">Margin @margin</span>
+                    <span class="badge bg-neutral">Margin @margin</span>
                     @if (marginLabel != null)
                     {
                         <span class="badge @marginCss"><i class="bi @marginIcon me-1"></i>@marginLabel</span>
@@ -108,67 +108,67 @@ else if (_match != null)
                 </div>
             </Header>
             <ChildContent>
-                <div class="row align-items-center text-center mb-4">
-                    <div class="col-5">
-                        <h6 class="text-warning fw-bold">Team 1 @(team1Won ? "(Winner)" : "")</h6>
+                <div class="grid grid-cols-12 gap-x-6 items-center text-center mb-6">
+                    <div class="col-span-5">
+                        <h6 class="text-warning font-bold">Team 1 @(team1Won ? "(Winner)" : "")</h6>
                     </div>
-                    <div class="col-2">
-                        <div class="d-flex align-items-center justify-content-center gap-2">
-                            <span class="display-4 fw-bold @(team1Won ? "text-success" : "text-muted")">@_match.Team1Score</span>
-                            <span class="display-5 text-muted">:</span>
-                            <span class="display-4 fw-bold @(!team1Won ? "text-success" : "text-muted")">@_match.Team2Score</span>
+                    <div class="col-span-2">
+                        <div class="flex items-center justify-center gap-2">
+                            <span class="text-display-md font-bold @(team1Won ? "text-brand" : "text-ink-muted")">@_match.Team1Score</span>
+                            <span class="text-display-sm text-ink-muted">:</span>
+                            <span class="text-display-md font-bold @(!team1Won ? "text-brand" : "text-ink-muted")">@_match.Team2Score</span>
                         </div>
                     </div>
-                    <div class="col-5">
-                        <h6 class="text-primary fw-bold">Team 2 @(!team1Won ? "(Winner)" : "")</h6>
+                    <div class="col-span-5">
+                        <h6 class="text-primary font-bold">Team 2 @(!team1Won ? "(Winner)" : "")</h6>
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="grid grid-cols-12 gap-x-6">
+                    <div class="col-span-12 md:col-span-6">
                         <MatchTeamPanel Title="Team 1" Players="team1Players" TeamCode="@TeamCode" IsWinner="team1Won" HeaderVariant="warning" IsSeasonal="isSeasonal" />
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-span-12 md:col-span-6">
                         <MatchTeamPanel Title="Team 2" Players="team2Players" TeamCode="@TeamCode" IsWinner="!team1Won" HeaderVariant="primary" IsSeasonal="isSeasonal" />
                     </div>
                 </div>
 
-                <div class="row mt-4 g-3">
-                    <div class="col-12">
-                        <div class="border rounded p-3 h-100">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                                <div class="text-muted small">
+                <div class="grid grid-cols-12 mt-6 gap-4">
+                    <div class="col-span-12">
+                        <div class="border rounded-sm p-4 h-full">
+                            <div class="flex justify-between items-center flex-wrap gap-2 mb-2">
+                                <div class="text-ink-muted text-small">
                                     <i class="bi bi-bullseye me-1"></i>Pre-match prediction
-                                    <span class="ms-2 badge bg-light text-muted">@gapLabel</span>
+                                    <span class="ms-2 badge bg-gray-100 text-ink-muted dark:bg-surface-sunken dark:text-ink">@gapLabel</span>
                                 </div>
                                 @if (isUpset)
                                 {
-                                    <span class="badge bg-warning-subtle text-warning-emphasis" title="@($"Winner had only {(int)Math.Round(winnerProb * 100)}% predicted win chance")">
+                                    <span class="badge bg-warning-subtle text-warning-subtle-ink" title="@($"Winner had only {(int)Math.Round(winnerProb * 100)}% predicted win chance")">
                                         <i class="bi bi-stars me-1"></i>Upset!
                                     </span>
                                 }
                             </div>
-                            <div class="row align-items-center g-2">
-                                <div class="col-md-3 text-md-end">
-                                    <div class="fw-semibold @(team1Won ? "text-success" : "text-muted")">
+                            <div class="grid grid-cols-12 items-center gap-2">
+                                <div class="col-span-12 md:col-span-3 md:text-right">
+                                    <div class="font-semibold @(team1Won ? "text-brand" : "text-ink-muted")">
                                         Team 1
                                         @if (team1Won) { <i class="bi bi-trophy-fill ms-1"></i> }
                                     </div>
-                                    <small class="text-muted">avg ELO @team1AvgBefore</small>
+                                    <small class="text-ink-muted">avg ELO @team1AvgBefore</small>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-span-12 md:col-span-6">
                                     <div class="progress" style="height: 18px;" role="progressbar"
                                          aria-label="Win probability" aria-valuenow="@team1Pct" aria-valuemin="0" aria-valuemax="100">
-                                        <div class="progress-bar @(team1Won ? "bg-success" : "bg-secondary")" style="width: @(team1Pct)%">@team1Pct%</div>
-                                        <div class="progress-bar @(!team1Won ? "bg-success" : "bg-secondary") opacity-75" style="width: @(team2Pct)%">@team2Pct%</div>
+                                        <div class="progress-bar @(team1Won ? "bg-brand" : "bg-neutral")" style="width: @(team1Pct)%">@team1Pct%</div>
+                                        <div class="progress-bar @(!team1Won ? "bg-brand" : "bg-neutral") opacity-75" style="width: @(team2Pct)%">@team2Pct%</div>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="fw-semibold @(!team1Won ? "text-success" : "text-muted")">
+                                <div class="col-span-12 md:col-span-3">
+                                    <div class="font-semibold @(!team1Won ? "text-brand" : "text-ink-muted")">
                                         Team 2
                                         @if (!team1Won) { <i class="bi bi-trophy-fill ms-1"></i> }
                                     </div>
-                                    <small class="text-muted">avg ELO @team2AvgBefore</small>
+                                    <small class="text-ink-muted">avg ELO @team2AvgBefore</small>
                                 </div>
                             </div>
                         </div>
@@ -176,7 +176,7 @@ else if (_match != null)
                 </div>
             </ChildContent>
             <Footer>
-                <div class="text-muted small d-flex justify-content-between flex-wrap gap-2">
+                <div class="text-ink-muted text-small flex justify-between flex-wrap gap-2">
                     <span>Recorded: <span class="match-date" data-utc="@_match.CreatedAt.ToString("o")">@_match.CreatedAt.ToString("f")</span></span>
                     @if (!_canDelete && _isCaptain)
                     {

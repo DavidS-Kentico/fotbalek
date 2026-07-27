@@ -1,0 +1,66 @@
+/* ============================================================================
+   Custom utilities
+   ----------------------------------------------------------------------------
+   Type-scale utilities that pair with the heading sizes in base.css, so a <div>
+   or <span> can borrow a heading's size without being a heading. Named after the
+   step they match (`text-h4` is exactly the size of an <h4>) rather than by an
+   opaque index — the old names were `fs-4` / `display-5`.
+   ============================================================================ */
+
+/* Heading steps. h1–h4 are fluid below the xl breakpoint, matching base.css. */
+@utility text-h1 {
+    font-size: calc(1.375rem + 1.5vw);
+    @media (width >= theme(--breakpoint-xl)) { font-size: 2.5rem; }
+}
+
+@utility text-h2 {
+    font-size: calc(1.325rem + 0.9vw);
+    @media (width >= theme(--breakpoint-xl)) { font-size: 2rem; }
+}
+
+@utility text-h3 {
+    font-size: calc(1.3rem + 0.6vw);
+    @media (width >= theme(--breakpoint-xl)) { font-size: 1.75rem; }
+}
+
+@utility text-h4 {
+    font-size: calc(1.275rem + 0.3vw);
+    @media (width >= theme(--breakpoint-xl)) { font-size: 1.5rem; }
+}
+
+@utility text-h5 {
+    font-size: 1.25rem;
+}
+
+@utility text-h6 {
+    font-size: 1rem;
+}
+
+/* Oversized display type for hero numbers and empty-state glyphs. Light weight
+   and tight leading are part of the step. */
+@utility text-display-sm {
+    font-size: calc(1.425rem + 2.1vw);
+    font-weight: 300;
+    line-height: 1.2;
+    @media (width >= theme(--breakpoint-xl)) { font-size: 3rem; }
+}
+
+@utility text-display-md {
+    font-size: calc(1.475rem + 2.7vw);
+    font-weight: 300;
+    line-height: 1.2;
+    @media (width >= theme(--breakpoint-xl)) { font-size: 3.5rem; }
+}
+
+@utility text-display-lg {
+    font-size: calc(1.625rem + 4.5vw);
+    font-weight: 300;
+    line-height: 1.2;
+    @media (width >= theme(--breakpoint-xl)) { font-size: 5rem; }
+}
+
+/* Intro paragraph one step up from body copy. */
+@utility text-lead {
+    font-size: 1.25rem;
+    font-weight: 300;
+}

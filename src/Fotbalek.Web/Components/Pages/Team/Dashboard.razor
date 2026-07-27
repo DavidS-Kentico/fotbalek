@@ -19,18 +19,18 @@ else if (_team != null)
     <PageContainer>
         @if (_activeSeason != null)
         {
-            <Panel Class="border-success mb-4" BodyClass="py-3">
-                    <div class="d-flex flex-wrap align-items-center gap-3">
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <h4 class="mb-0"><i class="bi bi-award me-2 text-success"></i>@_activeSeason.Name</h4>
-                                <span class="badge bg-success">Live</span>
+            <Panel Class="border-brand mb-6" BodyClass="py-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="grow min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="mb-0"><i class="bi bi-award me-2 text-brand"></i>@_activeSeason.Name</h4>
+                                <span class="badge bg-brand">Live</span>
                             </div>
                             @if (!string.IsNullOrEmpty(_activeSeason.Description))
                             {
-                                <div class="text-muted small mt-1">@_activeSeason.Description</div>
+                                <div class="text-ink-muted text-small mt-1">@_activeSeason.Description</div>
                             }
-                            <div class="text-muted small mt-1">
+                            <div class="text-ink-muted text-small mt-1">
                                 <i class="bi bi-calendar-range me-1"></i>@FormatPeriod(_activeSeason)
                                 <span class="mx-1">·</span>
                                 Day @_seasonDay
@@ -46,15 +46,15 @@ else if (_team != null)
         }
         else if (_latestClosedSeason != null && _nextScheduledSeason == null)
         {
-            <div class="alert alert-success d-flex flex-wrap align-items-center gap-2 mb-4">
+            <div class="alert alert-success flex flex-wrap items-center gap-2 mb-6">
                 <span><strong>@_latestClosedSeason.Name</strong> has ended 🏆</span>
                 <a href="/team/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">View the final results and awards</a>
-                <span class="text-muted small ms-auto">Content below shows all-time numbers.</span>
+                <span class="text-ink-muted text-small ms-auto">Content below shows all-time numbers.</span>
             </div>
         }
         else if (_nextScheduledSeason != null)
         {
-            <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-4">
+            <div class="alert alert-info flex flex-wrap items-center gap-2 mb-6">
                 <span>
                     <strong>@_nextScheduledSeason.Name</strong> starts in @_daysUntilNextSeason day@(_daysUntilNextSeason == 1 ? "" : "s")
                     (@Tz.FormatLocalDate(_nextScheduledSeason.StartsAt)).
@@ -63,12 +63,12 @@ else if (_team != null)
                 {
                     <a href="/team/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">Results of @_latestClosedSeason.Name</a>
                 }
-                <span class="text-muted small ms-auto">Until then, matches are off-season; content below shows all-time numbers.</span>
+                <span class="text-ink-muted text-small ms-auto">Until then, matches are off-season; content below shows all-time numbers.</span>
             </div>
         }
         else if (!_hasAnySeason && _isCaptain)
         {
-            <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-4">
+            <div class="alert alert-light border flex flex-wrap items-center gap-2 mb-6">
                 <span><i class="bi bi-award me-1"></i>Group your matches into seasons — fresh ELO ladder, champions and permanent awards.</span>
                 <a href="/team/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
             </div>
@@ -79,7 +79,7 @@ else if (_team != null)
             var liveState = liveRoom.GetState();
             var seatedPlayers = liveState.Seats.Where(s => s.Occupied).ToList();
             var freeSeats = 4 - seatedPlayers.Count;
-            <Panel Class="border-danger mb-4" BodyClass="py-3 d-flex flex-wrap align-items-center gap-3">
+            <Panel Class="border-danger mb-6" BodyClass="py-4 flex flex-wrap items-center gap-4">
                 <span class="live-dot"></span>
                 <strong>Live game in progress</strong>
                 <span>
@@ -88,7 +88,7 @@ else if (_team != null)
                         <Avatar AvatarId="@(seat.AvatarId ?? 1)" Size="sm" Title="@seat.Name" CssClass="me-1" />
                     }
                 </span>
-                <span class="text-muted small">
+                <span class="text-ink-muted text-small">
                     @(freeSeats > 0 ? $"{freeSeats} seat{(freeSeats == 1 ? "" : "s")} free" : "table full")
                     <span class="mx-1">·</span>
                     <i class="bi bi-eye me-1"></i>@liveState.Viewers.Count watching
@@ -99,16 +99,16 @@ else if (_team != null)
             </Panel>
         }
 
-        <div class="row">
-            <div class="col-lg-6 mb-4">
-                <Panel Class="h-100" Flush>
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 lg:col-span-6 mb-6">
+                <Panel Class="h-full" Flush>
                     <Header>
                         <i class="bi bi-bar-chart"></i>
                         <h2 class="panel__title">
                             Rankings
                             @if (_activeSeason != null)
                             {
-                                <small class="text-muted fw-normal">(@_activeSeason.Name)</small>
+                                <small class="text-ink-muted font-normal">(@_activeSeason.Name)</small>
                             }
                         </h2>
                         <div class="panel__actions"><a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a></div>
@@ -122,8 +122,8 @@ else if (_team != null)
                                         <tr>
                                             <th class="text-center" style="width: 50px;">#</th>
                                             <th>Player</th>
-                                            <th class="text-end">ELO</th>
-                                            <th class="text-end">Win Rate</th>
+                                            <th class="text-right">ELO</th>
+                                            <th class="text-right">Win Rate</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -135,7 +135,7 @@ else if (_team != null)
                                                     <RankBadge Rank="@player.Rank" />
                                                 </td>
                                                 <td>
-                                                    <a href="/team/@TeamCode/players/@player.PlayerId" class="text-decoration-none">
+                                                    <a href="/team/@TeamCode/players/@player.PlayerId" class="no-underline">
                                                         <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                         <span class="ms-2">@player.PlayerName</span>
                                                     </a>
@@ -165,8 +165,8 @@ else if (_team != null)
                                                         <span class="badge-more ms-1" title="@string.Join(" · ", rankBadges.Skip(visRankBadges).Select(b => b.Tooltip))">+@hiddenRankBadges</span>
                                                     }
                                                 </td>
-                                                <td class="text-end elo-cell">@player.Elo</td>
-                                                <td class="text-end">
+                                                <td class="text-right elo-cell">@player.Elo</td>
+                                                <td class="text-right">
                                                     <div class="rank-wr">
                                                         <span class="rank-wr__pct @(wrGood ? "good" : "bad")">@player.WinRate.ToString("F1")%</span>
                                                         <span class="rank-wr__track"><span class="rank-wr__fill @(wrGood ? "" : "bad")" style="width:@player.WinRate.ToString("F0")%"></span></span>
@@ -192,14 +192,15 @@ else if (_team != null)
                 </Panel>
             </div>
 
-            <div class="col-lg-6 mb-4">
-                <Panel Title="Recent Matches" Icon="bi bi-clock-history" Class="h-100">
+            <div class="col-span-12 lg:col-span-6 mb-6">
+                <Panel Title="Recent Matches" Icon="bi bi-clock-history" Class="h-full">
                     <Actions><a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a></Actions>
                     <ChildContent>
                         @if (_recentMatches.Count > 0)
                         {
-                            <div class="dashboard-recent panel-scroll">
-                                <MatchDayList Matches="_recentMatches" TeamCode="@TeamCode" Compact="true" HeaderMarginClass="mt-3 mb-2" />
+                            <div class="panel-scroll">
+                                <MatchDayList Matches="_recentMatches" TeamCode="@TeamCode" Compact="true"
+                                              HeaderMarginClass="mt-4 first:mt-0 mb-2" CardMarginClass="mb-2 last:mb-0" />
                             </div>
                             @if (_recentMatches.Count < _matchCount)
                             {
@@ -215,7 +216,7 @@ else if (_team != null)
                                 }
                                 else
                                 {
-                                    <p class="small">You need at least 4 players to play a match.</p>
+                                    <p class="text-small">You need at least 4 players to play a match.</p>
                                 }
                             </EmptyState>
                         }
@@ -224,17 +225,17 @@ else if (_team != null)
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-3 mb-3">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="success" Icon="bi bi-people-fill" Value="@_playerCount.ToString()" Label="Active Players" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="primary" Icon="bi bi-controller" Value="@_matchCount.ToString()" Label="@(_activeSeason != null ? "Season Matches" : "Total Matches")" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="info" Icon="bi bi-calendar-week" Value="@_matchesThisWeek.ToString()" Label="Matches This Week" />
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="warning" Icon="bi bi-bullseye" Value="@_avgMatchScore.ToString("F1")" Label="Avg Goals/Match" />
             </div>
         </div>

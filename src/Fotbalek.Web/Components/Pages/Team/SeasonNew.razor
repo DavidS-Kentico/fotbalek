@@ -34,30 +34,30 @@ else
         <AlertMessage Message="@_error" Variant="danger" Dismissible="true" OnDismiss="() => _error = null" />
 
         <Panel>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label" for="seasonName">Name</label>
                     <input id="seasonName" class="form-control" maxlength="100" placeholder="e.g. Season 1, Spring 2026" @bind="_name" />
                 </div>
-                <div class="mb-3">
-                    <label class="form-label" for="seasonDescription">Description <span class="text-muted">(optional)</span></label>
+                <div class="mb-4">
+                    <label class="form-label" for="seasonDescription">Description <span class="text-ink-muted">(optional)</span></label>
                     <textarea id="seasonDescription" class="form-control" rows="2" maxlength="500"
                               placeholder="Shown on the dashboard header and season detail" @bind="_description"></textarea>
                 </div>
-                <div class="row g-3">
-                    <div class="col-sm-6">
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 sm:col-span-6">
                         <label class="form-label" for="seasonStart">Starts at</label>
                         <input id="seasonStart" type="datetime-local" class="form-control"
                                value="@_start.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnStartChanged" />
-                        <small class="text-muted">
+                        <small class="text-ink-muted">
                             Local time; defaults to midnight — set a time for a mid-day start. May lie in the past
                             (to backfill old matches) or in the future (scheduled season).
                         </small>
                     </div>
-                    <div class="col-sm-6">
-                        <label class="form-label" for="seasonEnd">Ends at <span class="text-muted">(optional — empty = open-ended)</span></label>
+                    <div class="col-span-12 sm:col-span-6">
+                        <label class="form-label" for="seasonEnd">Ends at <span class="text-ink-muted">(optional — empty = open-ended)</span></label>
                         <input id="seasonEnd" type="datetime-local" class="form-control"
                                value="@(_end?.ToString("yyyy-MM-ddTHH:mm"))" @onchange="OnEndChanged" />
-                        <small class="text-muted">
+                        <small class="text-ink-muted">
                             Local time, exclusive — matches played at or after this moment are no longer
                             part of the season.
                         </small>
@@ -65,29 +65,29 @@ else
                 </div>
         </Panel>
 
-        <Panel Title="Import existing off-season matches" Icon="bi bi-box-arrow-in-down" Class="mb-4">
+        <Panel Title="Import existing off-season matches" Icon="bi bi-box-arrow-in-down" Class="mb-6">
             <Actions>
                 @if (_importCandidates.Count > 0)
                 {
-                    <div class="d-flex gap-2 align-items-center small">
-                        <span class="text-muted">@_selectedImportIds.Count / @_importCandidates.Count selected</span>
+                    <div class="flex gap-2 items-center text-small">
+                        <span class="text-ink-muted">@_selectedImportIds.Count / @_importCandidates.Count selected</span>
                         <button type="button" class="btn btn-sm btn-outline-success" @onclick="SelectAllImports">Select all</button>
                         @if (_selectedImportIds.Count > 0)
                         {
-                            <button type="button" class="btn btn-sm btn-link text-muted p-0" @onclick="() => _selectedImportIds.Clear()">Clear</button>
+                            <button type="button" class="btn btn-sm btn-link text-ink-muted p-0" @onclick="() => _selectedImportIds.Clear()">Clear</button>
                         }
                     </div>
                 }
             </Actions>
             <ChildContent>
-                <p class="text-muted small mb-2">
+                <p class="text-ink-muted text-small mb-2">
                     Unassigned matches played within the season period can be pulled into the season. They are replayed in
                     chronological order to build the seasonal ladder — all-time ELO is untouched. Import is only available
                     here, during creation: a match recorded off-season while a season is active can never join it later.
                 </p>
                 @if (_importCandidates.Count == 0)
                 {
-                    <div class="text-muted small fst-italic">No unassigned matches fall within the selected period.</div>
+                    <div class="text-ink-muted text-small italic">No unassigned matches fall within the selected period.</div>
                 }
                 else
                 {
@@ -97,11 +97,11 @@ else
                             var team1 = match.MatchPlayers.Where(mp => mp.TeamNumber == 1).OrderBy(mp => mp.Position).ToList();
                             var team2 = match.MatchPlayers.Where(mp => mp.TeamNumber == 2).OrderBy(mp => mp.Position).ToList();
                             var isSelected = _selectedImportIds.Contains(match.Id);
-                            <label class="list-group-item d-flex align-items-center gap-3 small">
-                                <input class="form-check-input flex-shrink-0 m-0" type="checkbox"
+                            <label class="list-group-item flex items-center gap-4 text-small">
+                                <input class="form-check-input shrink-0 m-0" type="checkbox"
                                        checked="@isSelected" @onchange="() => ToggleImport(match.Id)" />
-                                <span class="text-muted" style="min-width: 7.5rem;">@Tz.ToLocalTime(match.PlayedAt).ToString("MMM d, HH:mm")</span>
-                                <span class="text-truncate">
+                                <span class="text-ink-muted" style="min-width: 7.5rem;">@Tz.ToLocalTime(match.PlayedAt).ToString("MMM d, HH:mm")</span>
+                                <span class="truncate">
                                     @string.Join(" & ", team1.Select(mp => mp.PlayerName))
                                     <strong class="mx-1">@match.Team1Score : @match.Team2Score</strong>
                                     @string.Join(" & ", team2.Select(mp => mp.PlayerName))
@@ -113,8 +113,8 @@ else
             </ChildContent>
         </Panel>
 
-        <div class="d-flex gap-2">
-            <SpinnerButton Variant="success" CssClass="px-4" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
+        <div class="flex gap-2">
+            <SpinnerButton Variant="success" CssClass="px-6" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
                 Create season
             </SpinnerButton>
             <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>

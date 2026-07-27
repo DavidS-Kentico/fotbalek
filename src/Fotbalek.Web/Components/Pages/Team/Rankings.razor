@@ -23,14 +23,14 @@ else
             </Actions>
         </PageHeader>
 
-        <Panel Class="mb-4" Flush>
+        <Panel Class="mb-6" Flush>
             <Header>
                 <i class="bi bi-person"></i>
                 <h2 class="panel__title">
                     Player Rankings
                     @if (_selectedSeason != null)
                     {
-                        <small class="text-muted fw-normal">
+                        <small class="text-ink-muted font-normal">
                             @_selectedSeason.Name@(_selectedSeason.IsClosed ? " — final standings" : "") · seasonal ELO
                         </small>
                     }
@@ -47,11 +47,11 @@ else
                                     <tr>
                                         <th class="text-center" style="width: 60px;">Rank</th>
                                         <th>Player</th>
-                                        <th class="text-end">ELO</th>
-                                        <th class="text-end">Matches</th>
-                                        <th class="text-end">W/L</th>
-                                        <th class="text-end">Win Rate</th>
-                                        <th class="text-end" title="Longest win / loss streak in the season">Streaks</th>
+                                        <th class="text-right">ELO</th>
+                                        <th class="text-right">Matches</th>
+                                        <th class="text-right">W/L</th>
+                                        <th class="text-right">Win Rate</th>
+                                        <th class="text-right" title="Longest win / loss streak in the season">Streaks</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -61,8 +61,8 @@ else
                                         <tr class="@(isMine ? "table-success" : "")">
                                             <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
                                             <td>
-                                                <div class="d-flex flex-wrap align-items-center gap-2">
-                                                    <a href="/team/@TeamCode/players/@row.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <a href="/team/@TeamCode/players/@row.PlayerId" class="no-underline flex items-center gap-2">
                                                         <Avatar AvatarId="@row.AvatarId" Size="sm" />
                                                         <span>@row.PlayerName</span>
                                                     </a>
@@ -80,15 +80,15 @@ else
                                                     }
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-bold">@row.Elo</td>
-                                            <td class="text-end">@row.Matches</td>
-                                            <td class="text-end"><span class="text-success">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
-                                            <td class="text-end">
-                                                <span class="@(row.WinRate >= 50 ? "text-success" : "text-danger")">@row.WinRate.ToString("F1")%</span>
+                                            <td class="text-right font-bold">@row.Elo</td>
+                                            <td class="text-right">@row.Matches</td>
+                                            <td class="text-right"><span class="text-brand">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
+                                            <td class="text-right">
+                                                <span class="@(row.WinRate >= 50 ? "text-brand" : "text-danger")">@row.WinRate.ToString("F1")%</span>
                                             </td>
-                                            <td class="text-end small">
-                                                <span class="text-success" title="Longest win streak">W@(row.LongestWinStreak)</span>
-                                                <span class="text-muted mx-1">·</span>
+                                            <td class="text-right text-small">
+                                                <span class="text-brand" title="Longest win streak">W@(row.LongestWinStreak)</span>
+                                                <span class="text-ink-muted mx-1">·</span>
                                                 <span class="text-danger" title="Longest loss streak">L@(row.LongestLossStreak)</span>
                                             </td>
                                         </tr>
@@ -110,10 +110,10 @@ else
                                 <tr>
                                     <th class="text-center" style="width: 60px;">Rank</th>
                                     <th>Player</th>
-                                    <th class="text-end">ELO</th>
-                                    <th class="text-end">Matches</th>
-                                    <th class="text-end">Wins</th>
-                                    <th class="text-end">Win Rate</th>
+                                    <th class="text-right">ELO</th>
+                                    <th class="text-right">Matches</th>
+                                    <th class="text-right">Wins</th>
+                                    <th class="text-right">Win Rate</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -125,8 +125,8 @@ else
                                             <RankBadge Rank="@player.Rank" Large="true" />
                                         </td>
                                         <td>
-                                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                                <a href="/team/@TeamCode/players/@player.PlayerId" class="text-decoration-none d-flex align-items-center gap-2">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <a href="/team/@TeamCode/players/@player.PlayerId" class="no-underline flex items-center gap-2">
                                                     <Avatar AvatarId="@player.AvatarId" Size="sm" />
                                                     <span>@player.PlayerName</span>
                                                 </a>
@@ -144,11 +144,11 @@ else
                                                 }
                                             </div>
                                         </td>
-                                        <td class="text-end fw-bold">@player.Elo</td>
-                                        <td class="text-end">@player.Matches</td>
-                                        <td class="text-end text-success">@player.Wins</td>
-                                        <td class="text-end">
-                                            <span class="@(player.WinRate >= 50 ? "text-success" : "text-danger")">
+                                        <td class="text-right font-bold">@player.Elo</td>
+                                        <td class="text-right">@player.Matches</td>
+                                        <td class="text-right text-brand">@player.Wins</td>
+                                        <td class="text-right">
+                                            <span class="@(player.WinRate >= 50 ? "text-brand" : "text-danger")">
                                                 @player.WinRate.ToString("F1")%
                                             </span>
                                         </td>
@@ -165,8 +165,8 @@ else
             </ChildContent>
         </Panel>
 
-        <div class="row">
-            <div class="col-lg-6 mb-4">
+        <div class="grid grid-cols-12 gap-x-6">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <PositionRankingTable Players="_goalkeepers"
                                       Title="Best Goalkeepers"
                                       Icon="bi bi-shield-fill"
@@ -176,11 +176,11 @@ else
                                       CaptainPlayerId="_captainPlayerId"
                                       AverageColumnLabel="Avg Conceded"
                                       AverageColumnTooltip="Average goals conceded per game"
-                                      AverageColumnClass="text-secondary"
+                                      AverageColumnClass="text-neutral"
                                       EmptyIcon="bi bi-shield"
                                       EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
             </div>
-            <div class="col-lg-6 mb-4">
+            <div class="col-span-12 lg:col-span-6 mb-6">
                 <PositionRankingTable Players="_attackers"
                                       Title="Best Attackers"
                                       Icon="bi bi-bullseye"
@@ -207,12 +207,12 @@ else
                                 <tr>
                                     <th class="text-center" style="width: 60px;">Rank</th>
                                     <th>Players</th>
-                                    <th class="text-end">Matches</th>
-                                    <th class="text-end">W/L</th>
-                                    <th class="text-end">Win Rate</th>
+                                    <th class="text-right">Matches</th>
+                                    <th class="text-right">W/L</th>
+                                    <th class="text-right">Win Rate</th>
                                     @if (showAvgScore)
                                     {
-                                        <th class="text-end">Avg Score</th>
+                                        <th class="text-right">Avg Score</th>
                                     }
                                 </tr>
                             </thead>
@@ -228,34 +228,34 @@ else
                                             <RankBadge Rank="@rank" Large="true" />
                                         </td>
                                         <td>
-                                            <div class="d-flex align-items-center gap-2">
+                                            <div class="flex items-center gap-2">
                                                 <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
-                                                <span class="@(pair.Player1Id == MyPlayerId ? "fw-bold" : "")">@pair.Player1Name</span>
+                                                <span class="@(pair.Player1Id == MyPlayerId ? "font-bold" : "")">@pair.Player1Name</span>
                                                 @if (pair.Player1Id == _captainPlayerId)
                                                 {
                                                     <CaptainMark />
                                                 }
-                                                <span class="text-muted">&</span>
+                                                <span class="text-ink-muted">&</span>
                                                 <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
-                                                <span class="@(pair.Player2Id == MyPlayerId ? "fw-bold" : "")">@pair.Player2Name</span>
+                                                <span class="@(pair.Player2Id == MyPlayerId ? "font-bold" : "")">@pair.Player2Name</span>
                                                 @if (pair.Player2Id == _captainPlayerId)
                                                 {
                                                     <CaptainMark />
                                                 }
                                             </div>
                                         </td>
-                                        <td class="text-end">@pair.Matches</td>
-                                        <td class="text-end">
-                                            <span class="text-success">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span>
+                                        <td class="text-right">@pair.Matches</td>
+                                        <td class="text-right">
+                                            <span class="text-brand">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span>
                                         </td>
-                                        <td class="text-end">
-                                            <span class="@(pair.WinRate >= 50 ? "text-success" : "text-danger") fw-bold">
+                                        <td class="text-right">
+                                            <span class="@(pair.WinRate >= 50 ? "text-brand" : "text-danger") font-bold">
                                                 @pair.WinRate.ToString("F1")%
                                             </span>
                                         </td>
                                         @if (showAvgScore)
                                         {
-                                            <td class="text-end">@pair.AverageScore.ToString("F1")</td>
+                                            <td class="text-right">@pair.AverageScore.ToString("F1")</td>
                                         }
                                     </tr>
                                     rank++;

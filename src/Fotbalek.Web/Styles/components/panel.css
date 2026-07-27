@@ -1,0 +1,90 @@
+@layer components {
+    /* Shared modern card surface (auth panels + account sections) */
+    .panel {
+        background: var(--color-surface);
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-4xl);
+        box-shadow: var(--shadow-panel);
+    }
+    .panel + .panel {
+        margin-top: 1.25rem;
+    }
+    .panel__body {
+        padding: 1.5rem;
+    }
+    .panel__body .form-label {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    /* Left-aligned section head (account) */
+    .panel__head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--color-line);
+    }
+    /* Only the leading title icon is accented — icons inside header action
+       buttons/badges keep their own colour. */
+    .panel__head > .bi {
+        color: var(--color-brand);
+    }
+    .panel__title {
+        margin: 0;
+        font-size: var(--text-lg);
+        font-weight: 700;
+    }
+    /* Right-aligned actions slot in a panel head. */
+    .panel__actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    /* Flush body: content (tables, list-groups) meets the panel edges and is
+       clipped to the rounded corners. */
+    .panel--flush {
+        overflow: hidden;
+    }
+    /* Footer strip below the body. */
+    .panel__foot {
+        padding: 0.85rem 1.5rem;
+        border-top: 1px solid var(--color-line);
+    }
+
+    /* Accent panels — opt in with .panel--accent + a colour variant to tint the
+       head and colour its icon (team/category panels, e.g. MatchTeamPanel). The
+       title keeps the theme text colour so it stays legible in light and dark.
+       Variant tokens mirror the .stat-card--* accents for a consistent palette. */
+    /* Clip the tinted head to the panel's rounded corners (the head's own square
+       top corners would otherwise poke past the 18px radius). */
+    .panel--accent {
+        overflow: hidden;
+    }
+    .panel--accent .panel__head {
+        background: var(--panel-tint, var(--color-surface-muted));
+        border-bottom-color: transparent;
+    }
+    .panel--accent .panel__head > .bi {
+        color: var(--panel-accent, var(--color-brand));
+    }
+    .panel--success   { --panel-accent: var(--color-brand); --panel-tint: var(--color-brand-tint); }
+    .panel--primary   { --panel-accent: var(--color-primary); --panel-tint: var(--color-primary-tint); }
+    .panel--info      { --panel-accent: var(--color-info-strong); --panel-tint: var(--color-info-tint); }
+    .panel--warning   { --panel-accent: var(--color-warning-strong); --panel-tint: var(--color-warning-tint); }
+    .panel--danger    { --panel-accent: var(--color-danger); --panel-tint: var(--color-danger-tint); }
+    .panel--secondary { --panel-accent: var(--color-neutral); --panel-tint: var(--color-neutral-tint); }
+
+    /* Winner emphasis — green outline + ring for a "this one won" panel. */
+    .panel--winner {
+        border-color: var(--color-brand-ring);
+        /* Its own alpha, deliberately not --color-brand-tint-strong (0.35). */
+        box-shadow: inset 0 0 0 1px rgba(var(--color-brand-rgb), 0.30), var(--shadow-panel);
+    }
+
+    /* Compact panel — tighter padding for small summary panels (e.g. PartnerStatCard). */
+    .panel--compact .panel__head { padding: 0.6rem 0.9rem; }
+    .panel--compact .panel__body { padding: 0.9rem; }
+    .panel--compact .panel__title { font-size: 0.9rem; }
+}

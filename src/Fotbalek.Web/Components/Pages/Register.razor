@@ -20,19 +20,19 @@
                     <input type="hidden" name="returnUrl" value="@ReturnUrl" />
                 }
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="username" class="form-label">Username</label>
                     <input id="username" name="username" type="text" class="form-control" value="@Username" minlength="3" maxlength="30" pattern="[A-Za-z0-9._\-]+" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
-                    <small class="text-muted">3–30 chars. Letters, digits, dot, dash, underscore. Case-insensitive.</small>
+                    <small class="text-ink-muted">3–30 chars. Letters, digits, dot, dash, underscore. Case-insensitive.</small>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="password" class="form-label">Password</label>
                     <input id="password" name="password" type="password" class="form-control" minlength="6" autocomplete="new-password" required />
-                    <small class="text-muted">Min 6 characters.</small>
+                    <small class="text-ink-muted">Min 6 characters.</small>
                 </div>
 
-                <div class="d-grid mt-4">
+                <div class="grid mt-6">
                     <button type="submit" class="btn btn-success btn-lg">Create account</button>
                 </div>
             </form>

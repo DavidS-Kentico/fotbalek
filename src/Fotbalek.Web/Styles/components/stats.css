@@ -1,0 +1,118 @@
+@layer components {
+    /* Themed stats rows on the Statistics page */
+    .stats-theme-row {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        column-gap: 12px;
+        align-items: start;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .stats-theme-row:last-child {
+        border-bottom: none;
+    }
+
+    .stats-theme-label {
+        padding-top: 4px;
+    }
+
+    .stats-theme-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    @media (width < theme(--breakpoint-sm)) {
+        .stats-theme-row {
+            grid-template-columns: 1fr;
+            row-gap: 4px;
+        }
+
+        .stats-theme-label {
+            padding-top: 0;
+        }
+    }
+
+    /* Head-to-Head Matrix */
+    .h2h-matrix {
+        border-collapse: separate;
+        border-spacing: 3px;
+        margin: 0 auto;
+    }
+
+    .h2h-matrix th {
+        font-weight: 600;
+        background-color: transparent;
+        padding: 4px;
+    }
+
+    .h2h-matrix .h2h-row-header {
+        text-align: left;
+        white-space: nowrap;
+        padding-right: 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .h2h-matrix .h2h-col-header {
+        text-align: center;
+        width: 64px;
+        min-width: 64px;
+        vertical-align: bottom;
+    }
+
+    .h2h-matrix .h2h-col-name {
+        font-size: 0.875rem;
+        line-height: 1.1;
+        max-width: 64px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .h2h-matrix .h2h-cell {
+        width: 64px;
+        min-width: 64px;
+        height: 52px;
+        padding: 4px;
+        border-radius: var(--radius-sm);
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1.1;
+    }
+
+    .h2h-matrix .h2h-pct {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-gray-900);
+    }
+
+    .h2h-matrix .h2h-record {
+        font-size: 0.7rem;
+        color: var(--color-gray-700);
+    }
+
+    .h2h-matrix .h2h-diagonal {
+        background-color: var(--color-gray-800);
+        border-radius: var(--radius-sm);
+    }
+
+    .h2h-matrix .h2h-empty {
+        background-color: var(--color-gray-200);
+        color: var(--color-gray-500);
+        font-size: 1rem;
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .h2h-matrix .h2h-pct {
+        color: var(--color-ink);
+    }
+    :root[data-theme='dark'] .h2h-matrix .h2h-empty {
+        background-color: var(--color-surface-sunken);
+        color: var(--color-ink-faint);
+    }
+    :root[data-theme='dark'] .stats-theme-row {
+        border-bottom-color: var(--color-line-strong);
+    }
+
+}

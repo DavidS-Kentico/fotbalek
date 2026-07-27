@@ -14,7 +14,7 @@ public class CarriedStat : StatBase
     public override string Emoji => "\U0001F91D";
     public override StatTheme Theme => StatTheme.Special;
     public override string Description => $"Wins where partner had 20%+ higher ELO and both opponents were weaker (min {Constants.TimeThresholds.MinGamesForCarriedBadge})";
-    public override StatBadge? Badge => new("bi bi-people-fill", "bg-purple");
+    public override StatBadge? Badge => new("bi bi-people-fill", "bg-purple text-white");
 
     /// <summary>
     /// Identifies whether a winning pair contains a carry: the stronger partner had 20%+ higher ELO than the weaker

@@ -10,7 +10,7 @@
             <h2 class="panel__title">@Title</h2>
             @if (!string.IsNullOrEmpty(Subtitle))
             {
-                <div class="text-muted small">@Subtitle</div>
+                <div class="text-ink-muted text-small">@Subtitle</div>
             }
         </div>
     </Header>
@@ -25,7 +25,7 @@
                             @foreach (var col in Rows)
                             {
                                 <th class="h2h-col-header" title="@col.PlayerName">
-                                    <div class="d-flex flex-column align-items-center gap-1">
+                                    <div class="flex flex-col items-center gap-1">
                                         <Avatar AvatarId="col.AvatarId" Size="sm" />
                                         <span class="h2h-col-name">@col.PlayerName</span>
                                     </div>
@@ -38,7 +38,7 @@
                         {
                             <tr>
                                 <th class="h2h-row-header">
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="flex items-center gap-2">
                                         <Avatar AvatarId="row.AvatarId" Size="sm" />
                                         <span>@row.PlayerName</span>
                                     </div>
@@ -75,7 +75,7 @@
         }
         else
         {
-            <p class="text-muted text-center mb-0">Not enough players to display matrix</p>
+            <p class="text-ink-muted text-center mb-0">Not enough players to display matrix</p>
         }
     </ChildContent>
 </Panel>

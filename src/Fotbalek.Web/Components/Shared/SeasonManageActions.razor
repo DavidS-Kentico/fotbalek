@@ -3,7 +3,7 @@
 @inject TimeZoneService Tz
 @using System.Globalization
 
-<div class="d-inline-flex gap-1">
+<div class="inline-flex gap-1">
     @if (!Season.IsClosed && !Season.IsScheduledAt(DateTimeOffset.UtcNow))
     {
         <button class="btn btn-sm btn-outline-danger" title="End the season now — freezes standings and generates awards"
@@ -23,7 +23,7 @@
     <Body>
         <AlertMessage Message="@_endError" Variant="danger" />
         <p>End <strong>@Season.Name</strong> now?</p>
-        <p class="text-muted small mb-0">
+        <p class="text-ink-muted text-small mb-0">
             The final standings will be frozen and awards generated immediately. Matches recorded
             afterwards will be off-season (until a new season starts). Matches of a closed season
             can no longer be deleted.
@@ -38,26 +38,26 @@
 <Modal Show="_showEdit" Title="Edit Season" Icon="bi bi-pencil" OnClose="() => _showEdit = false">
     <Body>
         <AlertMessage Message="@_editError" Variant="danger" />
-        <div class="mb-3">
+        <div class="mb-4">
             <label class="form-label" for="seasonEditName">Name</label>
             <input id="seasonEditName" class="form-control" maxlength="100" @bind="_editName" />
         </div>
-        <div class="mb-3">
-            <label class="form-label" for="seasonEditDescription">Description <span class="text-muted">(optional)</span></label>
+        <div class="mb-4">
+            <label class="form-label" for="seasonEditDescription">Description <span class="text-ink-muted">(optional)</span></label>
             <textarea id="seasonEditDescription" class="form-control" rows="2" maxlength="500" @bind="_editDescription"></textarea>
         </div>
         @if (!Season.IsClosed)
         {
             <div class="mb-2">
-                <label class="form-label" for="seasonEditEndDate">Ends at <span class="text-muted">(optional — empty = open-ended)</span></label>
+                <label class="form-label" for="seasonEditEndDate">Ends at <span class="text-ink-muted">(optional — empty = open-ended)</span></label>
                 <input id="seasonEditEndDate" type="datetime-local" class="form-control" style="max-width: 220px;"
                        value="@(_editEnd?.ToString("yyyy-MM-ddTHH:mm"))" @onchange="OnEndChanged" />
-                <small class="text-muted d-block mt-1">
+                <small class="text-ink-muted block mt-1">
                     Local time, exclusive — matches played at or after this moment are no longer part of the season.
                 </small>
                 @if (Season.IsPendingCloseAt(DateTimeOffset.UtcNow))
                 {
-                    <small class="text-warning d-block mt-1">
+                    <small class="text-warning block mt-1">
                         <i class="bi bi-exclamation-triangle me-1"></i>Extending the end date revives this ended season.
                         Matches recorded in the meantime stay off-season — they cannot join the season later.
                     </small>
@@ -65,7 +65,7 @@
             </div>
             @if (_pendingUnassignCount > 0)
             {
-                <div class="alert alert-warning py-2 small mb-0">
+                <div class="alert alert-warning py-2 text-small mb-0">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     <strong>@_pendingUnassignCount</strong> match(es) were played after the new end date and will become
                     <strong>off-season</strong> — their seasonal ELO is rolled back and the season ladder is recomputed.
@@ -75,7 +75,7 @@
         }
         else
         {
-            <small class="text-muted"><i class="bi bi-lock me-1"></i>This season is closed — the period and results are frozen; only name and description can change.</small>
+            <small class="text-ink-muted"><i class="bi bi-lock me-1"></i>This season is closed — the period and results are frozen; only name and description can change.</small>
         }
     </Body>
     <Footer>
@@ -88,12 +88,12 @@
     <Body>
         <AlertMessage Message="@_deleteError" Variant="danger" />
         <p>Delete <strong>@Season.Name</strong>? This will:</p>
-        <ul class="small mb-2">
+        <ul class="text-small mb-2">
             <li>Turn all its matches into <strong>off-season</strong> matches (they are not deleted; all-time ELO is unaffected).</li>
             <li>Delete the season ladder, frozen standings and pair results.</li>
             <li><strong>Permanently delete all awards from this season — players lose these achievements.</strong></li>
         </ul>
-        <p class="text-muted small mb-0">This cannot be undone.</p>
+        <p class="text-ink-muted text-small mb-0">This cannot be undone.</p>
     </Body>
     <Footer>
         <button type="button" class="btn btn-secondary" @onclick="() => _showDeleteConfirm = false">Cancel</button>

@@ -13,7 +13,7 @@
         <Actions>
             @if (_users != null)
             {
-                <span class="text-muted">@_users.Count total</span>
+                <span class="text-ink-muted">@_users.Count total</span>
             }
         </Actions>
     </PageHeader>
@@ -45,21 +45,21 @@
                                     <th style="width: 60px;">Id</th>
                                     <th>Username</th>
                                     <th>Created</th>
-                                    <th class="text-end">Teams</th>
-                                    <th class="text-end">Players</th>
+                                    <th class="text-right">Teams</th>
+                                    <th class="text-right">Players</th>
                                     <th></th>
-                                    <th class="text-end">Actions</th>
+                                    <th class="text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var user in FilteredUsers)
                                 {
                                     <tr>
-                                        <td class="text-muted">@user.Id</td>
-                                        <td class="fw-semibold">@user.UserName</td>
-                                        <td class="text-muted">@Tz.FormatLocalDate(user.CreatedAt)</td>
-                                        <td class="text-end">@user.TeamCount</td>
-                                        <td class="text-end">@user.PlayerCount</td>
+                                        <td class="text-ink-muted">@user.Id</td>
+                                        <td class="font-semibold">@user.UserName</td>
+                                        <td class="text-ink-muted">@Tz.FormatLocalDate(user.CreatedAt)</td>
+                                        <td class="text-right">@user.TeamCount</td>
+                                        <td class="text-right">@user.PlayerCount</td>
                                         <td>
                                             @if (user.LockoutEnd > DateTimeOffset.UtcNow)
                                             {
@@ -68,7 +68,7 @@
                                                 </span>
                                             }
                                         </td>
-                                        <td class="text-end">
+                                        <td class="text-right">
                                             <button class="btn btn-sm btn-outline-danger" @onclick="() => OpenResetModal(user)">
                                                 <i class="bi bi-key me-1"></i>Reset password
                                             </button>
@@ -98,13 +98,13 @@
         {
             <p class="mb-2">New temporary password for <strong>@_resetTarget?.UserName</strong>:</p>
             <div class="input-group">
-                <input type="text" class="form-control font-monospace" readonly value="@_tempPassword" />
+                <input type="text" class="form-control font-mono" readonly value="@_tempPassword" />
                 <button class="btn btn-success" @onclick="CopyTempPassword">
                     <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
                     @(_copied ? "Copied!" : "Copy")
                 </button>
             </div>
-            <small class="text-muted mt-2 d-block">
+            <small class="text-ink-muted mt-2 block">
                 <i class="bi bi-exclamation-triangle me-1"></i>
                 Shown only once — send it to the user through a trusted channel.
                 They can change it afterwards on their account page.

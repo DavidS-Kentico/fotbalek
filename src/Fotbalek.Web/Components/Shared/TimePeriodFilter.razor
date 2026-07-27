@@ -1,7 +1,7 @@
 @* Shared time period filter component for filtering data by date ranges *@
 
-<div class="d-flex flex-wrap align-items-center gap-3">
-    <span class="text-muted small"><i class="bi bi-funnel me-1"></i>Time Period:</span>
+<div class="flex flex-wrap items-center gap-4">
+    <span class="text-ink-muted text-small"><i class="bi bi-funnel me-1"></i>Time Period:</span>
     <div class="btn-group" role="group">
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}All")" value="all"
                checked="@(SelectedPeriod == "all")" @onchange="@(() => OnPeriodClicked("all"))">
@@ -26,12 +26,12 @@
 
     @if (SelectedPeriod == "custom")
     {
-        <div class="d-flex align-items-center gap-2">
+        <div class="flex items-center gap-2">
             <input type="date" class="form-control form-control-sm" style="width: 140px;"
                    value="@CustomStartDate?.ToString("yyyy-MM-dd")"
                    max="@Today.ToString("yyyy-MM-dd")"
                    @onchange="OnStartDateInput" />
-            <span class="text-muted">to</span>
+            <span class="text-ink-muted">to</span>
             <input type="date" class="form-control form-control-sm" style="width: 140px;"
                    value="@CustomEndDate?.ToString("yyyy-MM-dd")"
                    min="@CustomStartDate?.ToString("yyyy-MM-dd")"

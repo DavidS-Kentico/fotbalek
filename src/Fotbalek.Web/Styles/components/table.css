@@ -1,0 +1,68 @@
+/* ============================================================================
+   Tables
+   ----------------------------------------------------------------------------
+   Row tint (hover, .table-light head, .table-success highlight) is painted with
+   a full-bleed inset shadow rather than background-color, so a tint can layer
+   over the cell's own opaque background without a second element.
+   ============================================================================ */
+
+@layer components {
+    .table {
+        --table-tint: transparent;
+
+        width: 100%;
+        margin-bottom: 1rem;
+        vertical-align: top;
+        border-color: var(--color-line);
+    }
+
+    /* Cell text is the emphasis colour, set on the cells rather than the table so
+       row groups and rows keep inheriting body colour (they carry no text). */
+    .table > :not(caption) > * > * {
+        color: var(--color-ink-strong);
+        padding: 0.5rem;
+        background-color: var(--color-surface);
+        border-bottom: 1px solid var(--color-line);
+        box-shadow: inset 0 0 0 9999px var(--table-tint);
+    }
+
+    .table-sm > :not(caption) > * > * {
+        padding: 0.25rem;
+    }
+
+    /* Tint classes set the variable on themselves and let it inherit down to the
+       cells, so the same class works on a <table>, a <thead> or a single <tr>. */
+    .table-light {
+        --table-tint: var(--color-surface-muted);
+    }
+
+    /* Green tint marking the signed-in user's row. */
+    .table-success {
+        --table-tint: var(--color-brand-tint);
+    }
+
+    .table-hover > tbody > tr:hover > * {
+        --table-tint: rgba(0, 0, 0, 0.075);
+    }
+
+    :root[data-theme='dark'] .table-hover > tbody > tr:hover > * {
+        --table-tint: rgba(255, 255, 255, 0.075);
+    }
+
+    /* Dark mode: the green highlight needs to be stronger to read at all, and
+       must survive being hovered (the hover rule targets the cell, which would
+       otherwise win over the row's inherited value). */
+    :root[data-theme='dark'] .table-success {
+        --table-tint: rgba(25, 135, 84, 0.22);
+    }
+
+    :root[data-theme='dark'] .table-hover > tbody > tr.table-success:hover > * {
+        --table-tint: rgba(25, 135, 84, 0.3);
+    }
+
+    /* Horizontal scroll container for wide tables on narrow screens. */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}

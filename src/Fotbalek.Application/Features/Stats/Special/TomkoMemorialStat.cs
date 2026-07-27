@@ -11,7 +11,7 @@ public class TomkoMemorialStat : StatBase
     public override string Emoji => "\U0001F3C6";
     public override StatTheme Theme => StatTheme.Special;
     public override string Description => $"Most games played in a single day (min {Constants.TimeThresholds.MinGamesForTomkoBadge})";
-    public override StatBadge? Badge => new("bi bi-calendar-event", "bg-warning text-dark");
+    public override StatBadge? Badge => new("bi bi-calendar-event", "bg-warning text-gray-900");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {

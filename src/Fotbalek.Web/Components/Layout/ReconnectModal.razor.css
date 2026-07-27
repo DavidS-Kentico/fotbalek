@@ -1,3 +1,10 @@
+/* Blazor's stock reconnect dialog, kept structurally as the template ships it
+   (the framework drives these class names) but repainted with app tokens. The
+   template hardcodes `background-color: white` and sets no text colour, so in
+   dark mode the dialog was gray-300 text on a white card — all but unreadable.
+   Shown with showModal(), so it lives in the browser's top layer and needs no
+   rung on the --z-* ladder. */
+
 .components-reconnect-first-attempt-visible,
 .components-reconnect-repeated-attempt-visible,
 .components-reconnect-failed-visible,
@@ -21,13 +28,14 @@
 
 
 #components-reconnect-modal {
-    background-color: white;
+    background-color: var(--color-surface);
+    color: var(--color-ink);
     width: 20rem;
     margin: 20vh auto;
     padding: 2rem;
     border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
     opacity: 0;
     transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
     animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
@@ -88,20 +96,22 @@
     text-align: center;
 }
 
+/* The template's own blue; brand green here so Retry/Resume look like every
+   other primary button in the app. */
 #components-reconnect-modal button {
     border: 0;
-    background-color: #6b9ed2;
-    color: white;
+    background-color: var(--color-brand);
+    color: var(--color-white);
     padding: 4px 24px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
 }
 
     #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
+        background-color: var(--color-brand-strong);
     }
 
     #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
+        background-color: var(--color-brand-deep);
     }
 
 .components-rejoining-animation {
@@ -112,7 +122,7 @@
 
     .components-rejoining-animation div {
         position: absolute;
-        border: 3px solid #0087ff;
+        border: 3px solid var(--color-brand);
         opacity: 1;
         border-radius: 50%;
         animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;

@@ -10,11 +10,11 @@
     @if (_validatingToken)
     {
         <div class="panel">
-            <div class="panel__body text-center py-5">
-                <div class="spinner-border text-success mb-3" role="status">
-                    <span class="visually-hidden">Validating share link...</span>
+            <div class="panel__body text-center py-12">
+                <div class="spinner-border text-brand mb-4" role="status">
+                    <span class="sr-only">Validating share link...</span>
                 </div>
-                <p class="text-muted mb-0">Validating share link...</p>
+                <p class="text-ink-muted mb-0">Validating share link...</p>
             </div>
         </div>
     }
@@ -32,20 +32,20 @@
 
                     <AlertMessage Message="@_error" Variant="danger" />
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="codeName" class="form-label">Team code</label>
                         <InputText id="codeName" @bind-Value="_model.CodeName" class="form-control" placeholder="e.g., office-league" />
                         <ValidationMessage For="@(() => _model.CodeName)" class="text-danger" />
-                        <small class="text-muted">The URL-friendly name of your team.</small>
+                        <small class="text-ink-muted">The URL-friendly name of your team.</small>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="password" class="form-label">Password</label>
                         <InputText id="password" @bind-Value="_model.Password" type="password" class="form-control" />
                         <ValidationMessage For="@(() => _model.Password)" class="text-danger" />
                     </div>
 
-                    <div class="d-grid gap-2 mt-4">
+                    <div class="grid gap-2 mt-6">
                         <SpinnerButton Type="submit" Busy="_loading" CssClass="btn-lg">Join team</SpinnerButton>
                         <a href="/" class="btn btn-outline-secondary">Cancel</a>
                     </div>

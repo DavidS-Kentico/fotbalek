@@ -27,8 +27,8 @@ else
 
         <AlertMessage Message="@_message" Variant="success" Dismissible="true" OnDismiss="() => _message = null" />
 
-        <Panel Class="mb-4 match-history-filters" BodyClass="py-2">
-                <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <Panel Class="mb-6 match-history-filters" BodyClass="py-2">
+                <div class="flex flex-wrap items-center gap-4 mb-2">
                     <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
                                       @bind-CustomStartDate="_customStartDate"
                                       @bind-CustomEndDate="_customEndDate"
@@ -38,8 +38,8 @@ else
 
                 @if (_seasons.Count > 0)
                 {
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span class="text-muted small"><i class="bi bi-award me-1"></i>Season:</span>
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                        <span class="text-ink-muted text-small"><i class="bi bi-award me-1"></i>Season:</span>
                         <select class="form-select form-select-sm w-auto" value="@(_selectedSeasonId?.ToString() ?? "all")" @onchange="OnSeasonFilterChanged">
                             <option value="all">All matches</option>
                             @if (_activeSeason != null)
@@ -54,7 +54,7 @@ else
                     </div>
                 }
 
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
                     @if (MyPlayerId.HasValue)
                     {
                         <button type="button"
@@ -63,7 +63,7 @@ else
                             <i class="bi bi-person-check me-1"></i> My matches
                             @if (_myMatchesOnly)
                             {
-                                <span class="badge bg-light text-success ms-1">@_filteredMatches.Count</span>
+                                <span class="badge bg-gray-100 text-brand ms-1 dark:bg-surface-sunken">@_filteredMatches.Count</span>
                             }
                         </button>
                     }
@@ -90,8 +90,8 @@ else
 
                 @if (_players.Count > 0)
                 {
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <span class="text-muted small"><i class="bi bi-people me-1"></i>Players:</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-ink-muted text-small"><i class="bi bi-people me-1"></i>Players:</span>
                         @foreach (var player in _players)
                         {
                             var isSelected = _selectedPlayerIds.Contains(player.Id);
@@ -104,7 +104,7 @@ else
                         }
                         @if (_selectedPlayerIds.Count > 0)
                         {
-                            <button type="button" class="btn btn-sm btn-link text-muted" @onclick="ClearPlayerFilter">
+                            <button type="button" class="btn btn-sm btn-link text-ink-muted" @onclick="ClearPlayerFilter">
                                 <i class="bi bi-x-circle"></i> Clear players
                             </button>
                         }
@@ -113,9 +113,9 @@ else
 
                 @if (HasActiveFilters)
                 {
-                    <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
-                        <span class="badge bg-secondary">@GetFilterDescription()</span>
-                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" @onclick="ClearAllFilters">
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <span class="badge bg-neutral">@GetFilterDescription()</span>
+                        <button type="button" class="btn btn-sm btn-link no-underline p-0" @onclick="ClearAllFilters">
                             <i class="bi bi-x-circle me-1"></i>Clear all
                         </button>
                     </div>
@@ -141,22 +141,22 @@ else
                     : rows.Sum(x => x.Mp!.EloChange);
                 var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
                 var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
-                <Panel Class="border-success mb-3" BodyClass="py-2 d-flex flex-wrap align-items-center gap-3">
-                    <span class="fw-semibold text-success">
+                <Panel Class="border-brand mb-4" BodyClass="py-2 flex flex-wrap items-center gap-4">
+                    <span class="font-semibold text-brand">
                         <i class="bi bi-person-badge me-1"></i>@focusName
                     </span>
-                    <span class="text-muted">|</span>
-                    <span><i class="bi bi-trophy-fill text-success me-1"></i><strong>@wins</strong> wins</span>
+                    <span class="text-ink-muted">|</span>
+                    <span><i class="bi bi-trophy-fill text-brand me-1"></i><strong>@wins</strong> wins</span>
                     <span><i class="bi bi-x-circle text-danger me-1"></i><strong>@losses</strong> losses</span>
                     <span><i class="bi bi-percent me-1"></i><strong>@winRate%</strong> win rate</span>
-                    <span class="@(netElo >= 0 ? "text-success" : "text-danger")">
+                    <span class="@(netElo >= 0 ? "text-brand" : "text-danger")">
                         <i class="bi @(netElo >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow") me-1"></i>
                         <strong>@(netElo > 0 ? "+" : "")@netElo</strong> ELO
                     </span>
                 </Panel>
             }
 
-            <div class="text-muted small mb-3">
+            <div class="text-ink-muted text-small mb-4">
                 Showing @Math.Min(_visibleCount, _filteredMatches.Count) of @_filteredMatches.Count matches
             </div>
 
@@ -164,7 +164,7 @@ else
                 <Actions Context="match">
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-secondary border-0" type="button"
-                                data-bs-toggle="dropdown" aria-label="Match actions">
+                                data-toggle="dropdown" aria-expanded="false" aria-label="Match actions">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -200,7 +200,7 @@ else
         }
         else
         {
-            <EmptyState Icon="bi bi-calendar-x" IconSize="xl" Padding="py-5"
+            <EmptyState Icon="bi bi-calendar-x" IconSize="xl" Padding="py-12"
                         Title="@(HasActiveFilters ? "No matches found for the selected filters" : "No matches recorded yet")"
                         Message="@(HasActiveFilters ? "Try adjusting your filters or selecting a different time period." : "Start playing and record your first match!")">
                 @if (HasActiveFilters)

@@ -1,0 +1,251 @@
+/* ============================================================================
+   Navigation — nav, tabs, and the app bar
+   ----------------------------------------------------------------------------
+   `.navbar` here is only the generic bar shell (flex row, responsive collapse).
+   The team app bar's own look lives in components/team-navbar.css.
+   ============================================================================ */
+
+@layer components {
+    /* ---- Nav --------------------------------------------------------------- */
+    .nav {
+        display: flex;
+        flex-wrap: wrap;
+        padding-left: 0;
+        margin-bottom: 0;
+        list-style: none;
+    }
+
+    .nav-link {
+        display: block;
+        padding: 0.5rem 1rem;
+        color: var(--color-brand);
+        text-decoration: none;
+        background: none;
+        border: 0;
+        cursor: pointer;
+        transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+                    border-color 0.15s ease-in-out;
+    }
+
+    .nav-link:hover {
+        color: var(--color-brand-strong);
+    }
+
+    .nav-link.disabled {
+        color: var(--color-ink-muted);
+        pointer-events: none;
+    }
+
+    /* ---- Tabs -------------------------------------------------------------- */
+    /* The active tab's bottom border is painted in the page background so the
+       tab appears to merge with the panel beneath it. */
+    .nav-tabs {
+        border-bottom: 1px solid var(--color-line);
+    }
+
+    .nav-tabs .nav-link {
+        margin-bottom: -1px;
+        border: 1px solid transparent;
+        border-top-left-radius: var(--radius-sm);
+        border-top-right-radius: var(--radius-sm);
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-color: var(--color-surface-sunken) var(--color-surface-sunken) var(--color-line);
+    }
+
+    .nav-tabs .nav-link.active {
+        color: var(--color-ink-strong);
+        background-color: var(--color-surface);
+        border-color: var(--color-line) var(--color-line) var(--color-surface);
+    }
+
+    /* ---- Navbar shell ------------------------------------------------------ */
+    .navbar {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+    }
+
+    /* The bar's inner width container is itself the flex row that lays the three
+       zones out. `flex-wrap: inherit` follows the bar, so the row wraps while
+       collapsed and stays on one line from lg up. */
+    .navbar > .page {
+        display: flex;
+        flex-wrap: inherit;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .navbar-brand {
+        padding-top: 0.3125rem;
+        padding-bottom: 0.3125rem;
+        margin-right: 1rem;
+        font-size: 1.25rem;
+        color: var(--color-ink-strong);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .navbar-nav {
+        display: flex;
+        flex-direction: column;
+        padding-left: 0;
+        margin-bottom: 0;
+        list-style: none;
+    }
+
+    .navbar-nav .nav-link {
+        padding-right: 0;
+        padding-left: 0;
+        color: var(--color-navbar-ink);
+    }
+
+    .navbar-nav .nav-link:hover,
+    .navbar-nav .nav-link.active {
+        color: var(--color-ink-strong);
+    }
+
+    .navbar-text {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        color: var(--color-navbar-ink);
+    }
+
+    .navbar-collapse {
+        flex-basis: 100%;
+        flex-grow: 1;
+        align-items: center;
+    }
+
+    /* Hamburger, shown only while the bar is collapsed. */
+    .navbar-toggler {
+        padding: 0.25rem 0.75rem;
+        font-size: 1.25rem;
+        line-height: 1;
+        color: var(--color-navbar-ink);
+        background-color: transparent;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+    }
+
+    .navbar-toggler:focus-visible {
+        outline: 0;
+        box-shadow: var(--focus-ring);
+    }
+
+    .navbar-toggler-icon {
+        display: inline-block;
+        width: 1.5em;
+        height: 1.5em;
+        vertical-align: middle;
+        background-image: var(--toggler-bars);
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 100%;
+
+        --toggler-bars: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+
+    :root[data-theme='dark'] .navbar-toggler {
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    :root[data-theme='dark'] .navbar-toggler-icon {
+        --toggler-bars: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+
+    /* Always-expanded bar (the admin header): one row at every width, no toggler. */
+    .navbar-expand {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+    }
+
+    .navbar-expand .navbar-nav {
+        flex-direction: row;
+    }
+
+    .navbar-expand .navbar-nav .nav-link {
+        padding-right: 0.5rem;
+        padding-left: 0.5rem;
+    }
+
+    /* The !important is load-bearing, not leftover: `.collapsible:not(.show)`
+       further down this file has the same specificity and comes later in source
+       order, so it would otherwise keep the drawer hidden. */
+    .navbar-expand .navbar-collapse {
+        display: flex !important;
+        flex-basis: auto;
+    }
+
+    .navbar-expand .navbar-toggler {
+        display: none;
+    }
+
+    /* A bar drawn on a dark surface regardless of the page theme (the admin
+       header sits on gray-900), so its chrome is pinned to the light-on-dark set
+       instead of following --color-navbar-ink. */
+    .navbar-dark {
+        --color-navbar-ink: rgba(255, 255, 255, 0.55);
+    }
+
+    .navbar-dark .navbar-nav .nav-link:hover {
+        color: rgba(255, 255, 255, 0.75);
+    }
+
+    .navbar-dark .navbar-nav .nav-link.active,
+    .navbar-dark .navbar-brand {
+        color: var(--color-white);
+    }
+
+    .navbar-dark .navbar-toggler {
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .navbar-dark .navbar-toggler-icon {
+        --toggler-bars: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+
+    /* `.navbar-expand-lg` lays the bar out as a single row from lg up and hides
+       the toggler. Every rule is inside the query on purpose: below lg the bar
+       must keep the base `flex-wrap: wrap` + `space-between` so the collapsed
+       sections drawer wraps onto its own row instead of stretching the bar. */
+    @media (width >= theme(--breakpoint-lg)) {
+        .navbar-expand-lg {
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+        }
+
+        .navbar-expand-lg .navbar-nav {
+            flex-direction: row;
+        }
+
+        .navbar-expand-lg .navbar-nav .nav-link {
+            padding-right: 0.5rem;
+            padding-left: 0.5rem;
+        }
+
+        /* !important for the same reason as .navbar-expand above — this is the
+           one the team app bar actually relies on. */
+        .navbar-expand-lg .navbar-collapse {
+            display: flex !important;
+            flex-basis: auto;
+        }
+
+        .navbar-expand-lg .navbar-toggler {
+            display: none;
+        }
+    }
+
+    /* ---- Collapse ---------------------------------------------------------- */
+    /* Toggled by js/ui.js alongside the dropdowns. Deliberately NOT called
+       `.collapse`: Tailwind generates a `collapse` utility (visibility: collapse)
+       and utilities outrank this layer, which would hide the drawer contents. */
+    .collapsible:not(.show) {
+        display: none;
+    }
+}

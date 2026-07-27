@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Offline · Fotbálek</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Standalone page: served by the service worker when the network is down, so it
+         cannot use app.css. Colours are therefore literals, but they are copied from
+         Styles/theme.css (gray-900/gray-300 surfaces, brand green) — keep them in step. -->
     <style>
         :root { color-scheme: light dark; }
         html, body {
@@ -13,7 +16,7 @@
             background: #ffffff; color: #212529;
         }
         @media (prefers-color-scheme: dark) {
-            html, body { background: #1a1d20; color: #dee2e6; }
+            html, body { background: #212529; color: #dee2e6; }
         }
         .wrap {
             min-height: 100%; display: flex; flex-direction: column;

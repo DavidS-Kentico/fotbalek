@@ -1,0 +1,60 @@
+@layer components {
+    /* ============================================================
+       Stat card — shared summary tile (overview, dashboard, stats).
+       Accent stripe + tinted icon chip + big tabular number. Rendered
+       by the StatTile component; theme vars keep dark mode automatic.
+       ============================================================ */
+    .stat-card {
+        --stat-accent: var(--color-brand);
+        --stat-tint: var(--color-brand-tint);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1.1rem 1.2rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-3xl);
+        background: var(--color-surface);
+        overflow: hidden;
+    }
+    .stat-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 4px;
+        background: var(--stat-accent);
+    }
+    .stat-card__icon {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 0.55rem;
+        border-radius: var(--radius-lg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--stat-tint);
+        color: var(--stat-accent);
+        font-size: 1.15rem;
+    }
+    .stat-card__value {
+        font-size: 1.9rem;
+        font-weight: 800;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: var(--color-ink-strong);
+    }
+    .stat-card__label {
+        margin-top: 0.2rem;
+        color: var(--color-ink-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .stat-card--success   { --stat-accent: var(--color-brand); --stat-tint: var(--color-brand-tint); }
+    .stat-card--primary   { --stat-accent: var(--color-primary); --stat-tint: var(--color-primary-tint); }
+    .stat-card--info      { --stat-accent: var(--color-info-strong); --stat-tint: var(--color-info-tint); }
+    .stat-card--warning   { --stat-accent: var(--color-warning-strong); --stat-tint: var(--color-warning-tint); }
+    .stat-card--danger    { --stat-accent: var(--color-danger); --stat-tint: var(--color-danger-tint); }
+    .stat-card--secondary { --stat-accent: var(--color-neutral); --stat-tint: var(--color-neutral-tint); }
+}

@@ -390,7 +390,7 @@ of waiting for events, and the constants live in exactly one place (the server).
 ### 4.4 Client (game.js)
 
 - Plain JS module + a **vendored** `@microsoft/signalr` browser build under
-  `wwwroot/lib/signalr/` (mirrors the vendored Bootstrap — no bundler, no CDN), loaded
+  `wwwroot/lib/signalr/` (same pattern as the other vendored assets — no bundler, no CDN), loaded
   only by the game page (game.js dynamic-imports it; the UMD browser build attaches
   `window.signalR`).
 - Renders on `<canvas>` with `requestAnimationFrame`; draws table, rods, figures, ball,
@@ -625,7 +625,7 @@ Small details settled while building v1 — all within the spirit of the spec:
   (the spec originally drew a 3-goalie table). Only the GK rods changed; with the
   `H/figureCount` spacing rule the single goalie gets full-height travel.
 - **Vendored sourcemap**: `signalr.min.js.map` ships alongside the client (mirrors the
-  bootstrap convention) so devtools' map request resolves instead of 404-ing. (Historically
+  convention used by the other vendored assets) so devtools' map request resolves instead of 404-ing. (Historically
   this mattered more: a since-removed `LegacyTeamRedirect` root-level catch-all turned every
   404 — including that map request — into a `NavigationException`. That route is gone;
   unmatched paths now return a clean 404, but keeping the sourcemap avoids the 404 entirely.)

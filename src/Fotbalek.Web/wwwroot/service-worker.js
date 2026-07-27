@@ -11,7 +11,11 @@
 // It MUST NEVER cache or intercept the Blazor circuit, SignalR, auth, or any dynamic response —
 // doing so would serve stale HTML/JS and break the live app. Keep this deliberately dumb.
 
-const CACHE = 'fotbalek-shell-v1';
+// BUMP THIS whenever any SHELL asset below changes. The shell is only written on `install`,
+// and install only re-runs when this file's bytes change — so editing offline.html or an icon
+// without bumping the version leaves every already-installed client on the old copy forever.
+// (v2: offline.html dark background aligned with the theme tokens.)
+const CACHE = 'fotbalek-shell-v2';
 
 // Only stable, non-fingerprinted URLs go here. Do NOT add app.css / app.js / _framework assets:
 // MapStaticAssets fingerprints those and their URLs change every build, so a hardcoded entry

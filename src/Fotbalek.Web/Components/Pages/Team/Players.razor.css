@@ -15,7 +15,7 @@
     top: 50%;
     left: .75rem;
     transform: translateY(-50%);
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     pointer-events: none;
 }
 
@@ -51,9 +51,9 @@
     left: .5rem;
     font-weight: 600;
     font-size: .75rem;
-    color: var(--bs-secondary-color);
-    background: var(--bs-tertiary-bg);
-    border-radius: 999px;
+    color: var(--color-ink-muted);
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-full);
     padding: .15rem .5rem;
     min-width: 2rem;
     text-align: center;
@@ -61,7 +61,7 @@
 }
 
 .player-card .rank-badge.gold { background: #fff3cd; color: #6c4f00; }
-.player-card .rank-badge.silver { background: #e9ecef; color: #495057; }
+.player-card .rank-badge.silver { background: var(--color-gray-200); color: var(--color-gray-700); }
 .player-card .rank-badge.bronze { background: #f8e2c8; color: #7c4a00; }
 
 .player-card .captain-action {
@@ -99,7 +99,7 @@
 }
 
 .player-card .elo-row .elo-value {
-    color: var(--bs-emphasis-color);
+    color: var(--color-ink-strong);
     font-weight: 800;
     font-size: 1.25rem;
     line-height: 1;
@@ -114,9 +114,9 @@
     gap: .1rem;
 }
 
-.player-card .trend.up { color: var(--bs-success); }
-.player-card .trend.down { color: var(--bs-danger); }
-.player-card .trend.flat { color: var(--bs-secondary-color); }
+.player-card .trend.up { color: var(--color-brand); }
+.player-card .trend.down { color: var(--color-danger); }
+.player-card .trend.flat { color: var(--color-ink-muted); }
 
 /* Win-rate meter: a slim track filled to the win %, tinted green/red at the
    50% mark, with the % shown alongside. Replaces the old bare "67%" text. */
@@ -130,19 +130,19 @@
 .player-card .wr-track {
     flex: 1 1 auto;
     height: 5px;
-    border-radius: 999px;
-    background: var(--bs-tertiary-bg);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
     overflow: hidden;
 }
 
 .player-card .wr-fill {
     display: block;
     height: 100%;
-    border-radius: 999px;
-    background: var(--bs-success);
+    border-radius: var(--radius-full);
+    background: var(--color-brand);
 }
 
-.player-card .wr-fill.bad { background: var(--bs-danger); }
+.player-card .wr-fill.bad { background: var(--color-danger); }
 
 .player-card .wr-pct {
     font-size: .72rem;
@@ -150,15 +150,15 @@
     min-width: 2.4em;
     text-align: right;
     font-variant-numeric: tabular-nums;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
-.player-card .wr-pct.good { color: var(--bs-success); }
-.player-card .wr-pct.bad { color: var(--bs-danger); }
+.player-card .wr-pct.good { color: var(--color-brand); }
+.player-card .wr-pct.bad { color: var(--color-danger); }
 
 .player-card .stat-line {
     font-size: .78rem;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     margin-top: .3rem;
     line-height: 1.3;
 }
@@ -186,12 +186,12 @@
 }
 
 .player-card.is-me {
-    border-color: var(--bs-success);
-    box-shadow: 0 0 0 1px var(--bs-success);
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 1px var(--color-brand);
 }
 
 .player-card.is-inactive {
-    background: var(--bs-tertiary-bg);
+    background: var(--color-surface-muted);
 }
 
 .player-card.is-inactive .avatar {
@@ -199,13 +199,13 @@
 }
 
 .player-card.is-inactive .player-name {
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
 }
 
 .empty-results {
     padding: 2rem 1rem;
     text-align: center;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: .9rem;
 }
 
@@ -213,7 +213,7 @@
     background: none;
     border: 0;
     padding: 0;
-    color: var(--bs-secondary-color);
+    color: var(--color-ink-muted);
     font-size: .9rem;
     display: inline-flex;
     align-items: center;
@@ -221,5 +221,5 @@
 }
 
 .inactive-toggle:hover {
-    color: var(--bs-body-color);
+    color: var(--color-ink);
 }

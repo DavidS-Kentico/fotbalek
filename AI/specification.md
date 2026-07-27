@@ -231,10 +231,10 @@ Badges are dynamic, recalculated on each page load. Each badge displays a toolti
 ## 5. UI/UX Requirements
 
 ### 5.1 General
-- **Responsive**: Mobile-first, Bootstrap 5 grid
-- **Theme**: Light theme, accent color: green (#198754)
+- **Responsive**: Mobile-first, Tailwind grid/flex utilities
+- **Theme**: Light and dark, accent color: green (`--color-brand`, #198754)
 - **Loading States**: Spinner overlay for async operations
-- **Error Messages**: Bootstrap alerts, auto-dismiss after 5 seconds
+- **Error Messages**: `.alert` component (`AlertMessage`), auto-dismiss after 5 seconds
 - **Validation**: Client-side + server-side, inline error messages
 
 ### 5.2 Team Dashboard Layout
@@ -435,9 +435,14 @@ CREATE INDEX IX_MatchPlayer_PlayerId ON MatchPlayer(PlayerId);
 ```
 
 ### 6.8 Frontend
-- **Bootstrap 5.3** (CDN)
-- **Bootstrap Icons** (CDN)
-- **Chart.js 4** (CDN) - for statistics graphs
+- **Tailwind CSS 4** — `Styles/app.css` compiles to `wwwroot/app.css`; design tokens
+  live in `Styles/theme.css`, reusable classes in `Styles/components/`. Built by
+  `npm run css`, and by `dotnet build` when Node is available.
+- **Bootstrap Icons** (self-hosted in `wwwroot/lib`) - the icon font only; no Bootstrap CSS or JS
+- **Chart.js 4** (self-hosted in `wwwroot/lib`) - for statistics graphs
+
+Everything the browser loads is self-hosted — no CDN. `npm run vendor` refreshes
+`wwwroot/lib` from `node_modules` after a version bump; the result is committed.
 
 ---
 

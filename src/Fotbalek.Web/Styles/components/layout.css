@@ -1,0 +1,40 @@
+/* ============================================================================
+   Page layout
+   ----------------------------------------------------------------------------
+   `.page` is the single source of truth for page content width, applied by the
+   PageContainer component. Two tiers:
+
+     .page             data and dashboard pages — full responsive width
+     .page--focused    forms and setup pages — capped at one comfortable width
+
+   (Previously this took two classes: a .container for the width plus
+   .page as a marker. They are one class now — the marker was the container.)
+   ============================================================================ */
+
+@layer components {
+    .page {
+        width: 100%;
+        padding-right: 0.75rem;
+        padding-left: 0.75rem;
+        margin-right: auto;
+        margin-left: auto;
+    }
+
+    /* Widths change at the app's breakpoints, read from the tokens rather than
+       repeated as literals — so `sm:`/`md:` in markup and `.page` here can never
+       drift apart. */
+    @media (width >= theme(--breakpoint-sm)) { .page { max-width: var(--container-page-sm); } }
+    @media (width >= theme(--breakpoint-md)) { .page { max-width: var(--container-page-md); } }
+    @media (width >= theme(--breakpoint-lg)) { .page { max-width: var(--container-page-lg); } }
+    @media (width >= theme(--breakpoint-xl)) { .page { max-width: var(--container-page-xl); } }
+    @media (width >= theme(--breakpoint-2xl)) { .page { max-width: var(--container-page-2xl); } }
+
+    /* One fixed width at every breakpoint, replacing the tiers above rather than
+       capping them. Note this makes a focused page *wider* than a default one
+       between 768px and 992px (720 -> 960), equal from 992px to 1200px, and
+       narrower above -- that is the long-standing behaviour and what these pages
+       are laid out for, so it is preserved deliberately. */
+    .page--focused {
+        max-width: var(--container-focused);
+    }
+}

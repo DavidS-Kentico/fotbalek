@@ -1,7 +1,7 @@
 @* Shared card surface used across the app. Renders the .panel design-system
-   surface (see app.css) with an optional header (leading icon + title +
-   right-aligned Actions) and a body. Because every card goes through this
-   component, restyling .panel* in app.css reaches every usage at once.
+   surface (Styles/components/panel.css) with an optional header (leading icon +
+   title + right-aligned Actions) and a body. Because every card goes through this
+   component, restyling .panel* in that file reaches every usage at once.
 
    Params:
      Title / Icon  — leading head text + icon (omit both, with no Header, for a headless panel)
@@ -60,7 +60,7 @@
     /// <summary>When true, the body has no padding and is clipped to the rounded corners (tables, list-groups).</summary>
     [Parameter] public bool Flush { get; set; }
 
-    /// <summary>Extra classes for the outer .panel element (e.g. "h-100", "mb-4").</summary>
+    /// <summary>Extra classes for the outer .panel element (e.g. "h-full", "mb-6").</summary>
     [Parameter] public string? Class { get; set; }
 
     /// <summary>Extra classes for the .panel__body (ignored when <see cref="Flush"/> is set).</summary>

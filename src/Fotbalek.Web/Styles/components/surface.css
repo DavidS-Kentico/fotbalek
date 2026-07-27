@@ -1,0 +1,177 @@
+/* ============================================================================
+   Surfaces — card, badge, alert, list-group
+   ============================================================================ */
+
+@layer components {
+    /* ---- Card -------------------------------------------------------------- */
+    /* The plainer of the app's two surfaces. `.panel` (see panel.css) is the
+       richer one used for most page sections; `.card` remains for the smaller
+       inline tiles that only need a bordered box. */
+    .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        color: var(--color-ink);
+        overflow-wrap: break-word;
+        background-color: var(--color-surface);
+        background-clip: border-box;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-sm);
+        transition: box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        box-shadow: var(--shadow-card);
+    }
+
+    .card-body {
+        flex: 1 1 auto;
+        padding: 1rem;
+    }
+
+    .card-title {
+        margin-bottom: 0.5rem;
+    }
+
+    .card-footer {
+        padding: 0.5rem 1rem;
+        background-color: var(--color-surface-muted);
+        border-top: 1px solid var(--color-line-strong);
+    }
+
+    /* ---- Badge ------------------------------------------------------------- */
+    /* Sizes in em so a badge tracks the text it annotates. Colour comes from a
+       bg-* utility in markup. */
+    .badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 500;
+        line-height: 1;
+        color: var(--color-white);
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: var(--radius-sm);
+    }
+
+    /* ---- Alert ------------------------------------------------------------- */
+    /* One shape, six palettes. Each variant sets the subtle trio; `.alert-link`
+       inherits the variant's text colour so links stay inside the palette. */
+    .alert {
+        --alert-ink: inherit;
+        --alert-bg: transparent;
+        --alert-edge: transparent;
+
+        position: relative;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        color: var(--alert-ink);
+        background-color: var(--alert-bg);
+        border: 1px solid var(--alert-edge);
+        border-radius: var(--radius-sm);
+    }
+
+    .alert-link {
+        font-weight: 700;
+        color: var(--alert-ink);
+    }
+
+    /* Dismissible variant: the ✕ is lifted out of the text flow into the top-right
+       corner, and the copy gets room so a long message never runs under it.
+       AlertMessage renders the .btn-close as the last child, after the message. */
+    .alert-dismissible {
+        padding-right: 3rem;
+    }
+
+    .alert-dismissible > .btn-close {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 1.25rem 1rem;
+    }
+
+    .alert-success {
+        --alert-ink: var(--color-brand-subtle-ink);
+        --alert-bg: var(--color-brand-subtle);
+        --alert-edge: var(--color-brand-subtle-edge);
+    }
+
+    .alert-danger {
+        --alert-ink: var(--color-danger-subtle-ink);
+        --alert-bg: var(--color-danger-subtle);
+        --alert-edge: var(--color-danger-subtle-edge);
+    }
+
+    .alert-warning {
+        --alert-ink: var(--color-warning-subtle-ink);
+        --alert-bg: var(--color-warning-subtle);
+        --alert-edge: var(--color-warning-subtle-edge);
+    }
+
+    .alert-info {
+        --alert-ink: var(--color-info-subtle-ink);
+        --alert-bg: var(--color-info-subtle);
+        --alert-edge: var(--color-info-subtle-edge);
+    }
+
+    .alert-secondary {
+        --alert-ink: var(--color-neutral-subtle-ink);
+        --alert-bg: var(--color-neutral-subtle);
+        --alert-edge: var(--color-neutral-subtle-edge);
+    }
+
+    .alert-light {
+        --alert-ink: var(--color-light-subtle-ink);
+        --alert-bg: var(--color-light-subtle);
+        --alert-edge: var(--color-light-subtle-edge);
+    }
+
+    /* ---- List group -------------------------------------------------------- */
+    /* A stack of bordered rows. `.list-group-flush` drops the outer border so the
+       rows can sit flush inside a panel and be clipped by its corners. */
+    .list-group {
+        display: flex;
+        flex-direction: column;
+        padding-left: 0;
+        margin-bottom: 0;
+        border-radius: var(--radius-sm);
+    }
+
+    .list-group-item {
+        position: relative;
+        display: block;
+        padding: 0.5rem 1rem;
+        color: var(--color-ink);
+        text-decoration: none;
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-line);
+    }
+
+    .list-group-item:first-child {
+        border-top-left-radius: inherit;
+        border-top-right-radius: inherit;
+    }
+
+    .list-group-item:last-child {
+        border-bottom-right-radius: inherit;
+        border-bottom-left-radius: inherit;
+    }
+
+    .list-group-item + .list-group-item {
+        border-top-width: 0;
+    }
+
+    .list-group-flush {
+        border-radius: 0;
+    }
+
+    .list-group-flush > .list-group-item {
+        border-width: 0 0 1px;
+    }
+
+    .list-group-flush > .list-group-item:last-child {
+        border-bottom-width: 0;
+    }
+}

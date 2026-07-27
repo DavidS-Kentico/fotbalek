@@ -7,9 +7,9 @@
          <Actions><a href="/" class="btn btn-sm btn-outline-secondary">Overview</a></Actions>
      </PageHeader> *@
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 @Class">
+<div class="flex justify-between items-center flex-wrap gap-2 @Class">
     <div>
-        <h1 class="@SizeClass mb-0 d-flex align-items-center gap-2">
+        <h1 class="@SizeClass mb-0 flex items-center gap-2">
             @if (!string.IsNullOrEmpty(Icon))
             {
                 <i class="@Icon @IconClass"></i>
@@ -18,12 +18,12 @@
         </h1>
         @if (!string.IsNullOrEmpty(Subtitle))
         {
-            <div class="text-muted small mt-1">@Subtitle</div>
+            <div class="text-ink-muted text-small mt-1">@Subtitle</div>
         }
     </div>
     @if (Actions != null)
     {
-        <div class="d-flex align-items-center gap-2">@Actions</div>
+        <div class="flex items-center gap-2">@Actions</div>
     }
 </div>
 
@@ -37,10 +37,10 @@
     [Parameter] public string? Subtitle { get; set; }
 
     /// <summary>Colour class for the leading icon; brand green by default.</summary>
-    [Parameter] public string IconClass { get; set; } = "text-success";
+    [Parameter] public string IconClass { get; set; } = "text-brand";
 
-    /// <summary>Heading size class. Kept uniform (h4) across pages by default.</summary>
-    [Parameter] public string SizeClass { get; set; } = "h4";
+    /// <summary>Heading size utility. Kept uniform (h4 size) across pages by default.</summary>
+    [Parameter] public string SizeClass { get; set; } = "text-h4";
 
     /// <summary>Wrapper classes; controls spacing below the header.</summary>
     [Parameter] public string Class { get; set; } = "mb-4";

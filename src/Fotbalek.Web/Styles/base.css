@@ -1,0 +1,143 @@
+/* ============================================================================
+   Base layer — document defaults
+   ----------------------------------------------------------------------------
+   Tailwind's preflight unstyles headings, paragraphs and lists down to nothing.
+   This file puts back the small set of element defaults the app's markup relies
+   on, so a plain <h2> or <p> in a Razor page still lands on the app's type
+   scale without needing utilities at every call site.
+
+   Scope is deliberately narrow: typography, links, and the handful of elements
+   that appear as bare tags in markup. Anything with a class name belongs in
+   Styles/components/.
+   ============================================================================ */
+
+@layer base {
+    :root {
+        /* Focus ring shared by buttons, inputs and checkboxes (see components). */
+        --focus-ring: 0 0 0 0.1rem var(--color-surface), 0 0 0 0.25rem var(--color-brand);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        :root {
+            scroll-behavior: smooth;
+        }
+    }
+
+    /* Tailwind's reset leaves border-color as currentColor, which makes a bare
+       `border` utility take the text colour. Default it to the divider token so
+       `border`, `border-t` etc. mean what they look like they mean. */
+    *,
+    ::before,
+    ::after {
+        border-color: var(--color-line);
+    }
+
+    body {
+        font-family: var(--font-sans);
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--color-ink);
+        background-color: var(--color-surface);
+        -webkit-text-size-adjust: 100%;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    }
+
+    /* ---- Headings ---------------------------------------------------------- */
+    /* Fluid from mobile up to the xl breakpoint, then fixed — headings on a phone
+       would otherwise eat the whole viewport. h5/h6 are small enough to stay put. */
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        line-height: 1.2;
+        color: inherit;
+    }
+
+    h1 { font-size: calc(1.375rem + 1.5vw); }
+    h2 { font-size: calc(1.325rem + 0.9vw); }
+    h3 { font-size: calc(1.3rem + 0.6vw); }
+    h4 { font-size: calc(1.275rem + 0.3vw); }
+    h5 { font-size: 1.25rem; }
+    h6 { font-size: 1rem; }
+
+    @media (width >= theme(--breakpoint-xl)) {
+        h1 { font-size: 2.5rem; }
+        h2 { font-size: 2rem; }
+        h3 { font-size: 1.75rem; }
+        h4 { font-size: 1.5rem; }
+    }
+
+    /* ---- Flow content ------------------------------------------------------ */
+    p {
+        margin-top: 0;
+        margin-bottom: 1rem;
+    }
+
+    small {
+        font-size: var(--text-small);
+    }
+
+    /* Lists arrive unstyled from preflight, which suits the app: every <ul> in
+       markup is a menu, tab strip or list-group. Content lists opt back in with
+       `list-disc pl-8`. */
+
+    hr {
+        margin: 1rem 0;
+        color: inherit;
+        border: 0;
+        border-top: 1px solid;
+        opacity: 0.25;
+    }
+
+    /* ---- Links ------------------------------------------------------------- */
+    /* Brand green, underlined, darkening on hover. (Previously the hover state
+       fell through to Bootstrap's blue link colour, so green links flashed blue
+       on hover — unified here to stay on brand.) */
+    a {
+        color: var(--color-brand);
+        text-decoration: underline;
+    }
+
+    a:hover {
+        color: var(--color-brand-strong);
+    }
+
+    /* ---- Focus ------------------------------------------------------------- */
+    /* Keyboard-only focus indicator for everything that does not draw its own —
+       links, <summary>, tabindex'd rows, custom clickables. Controls with a
+       designed ring (.btn, .form-control, .form-check-input, .btn-close,
+       .navbar-toggler) each set `outline: 0` next to their `box-shadow:
+       var(--focus-ring)`, so they replace this rule rather than doubling up —
+       the components layer wins over base. The button-shaped ones match on
+       `:focus-visible` too, so they behave exactly like this rule; the text
+       inputs use plain `:focus`, which is correct for a field you clicked into.
+
+       This must not become a blanket `outline: none`: that leaves every element
+       without a bespoke rule with no visible focus at all. */
+    :focus-visible {
+        outline: 2px solid var(--color-brand);
+        outline-offset: 2px;
+    }
+
+    /* ---- Form elements ----------------------------------------------------- */
+    /* Preflight already inherits font and colour; these are the app's additions. */
+
+    ::placeholder {
+        color: var(--color-ink-faint);
+        opacity: 1;
+    }
+
+    /* Blazor's built-in validation classes, applied to inputs by EditForm. */
+    .valid.modified:not([type='checkbox']) {
+        outline: 1px solid var(--color-brand);
+    }
+
+    .invalid {
+        outline: 1px solid var(--color-danger);
+    }
+
+    .validation-message {
+        color: var(--color-danger);
+    }
+}
