@@ -58,7 +58,9 @@
 
     /* ---- Alert ------------------------------------------------------------- */
     /* One shape, six palettes. Each variant sets the subtle trio; `.alert-link`
-       inherits the variant's text colour so links stay inside the palette. */
+       inherits the variant's text colour so links stay inside the palette.
+       Variant names follow the colour tokens (brand/neutral/…), matching
+       .btn-* and .panel--*. */
     .alert {
         --alert-ink: inherit;
         --alert-bg: transparent;
@@ -92,7 +94,7 @@
         padding: 1.25rem 1rem;
     }
 
-    .alert-success {
+    .alert-brand {
         --alert-ink: var(--color-brand-subtle-ink);
         --alert-bg: var(--color-brand-subtle);
         --alert-edge: var(--color-brand-subtle-edge);
@@ -116,7 +118,7 @@
         --alert-edge: var(--color-info-subtle-edge);
     }
 
-    .alert-secondary {
+    .alert-neutral {
         --alert-ink: var(--color-neutral-subtle-ink);
         --alert-bg: var(--color-neutral-subtle);
         --alert-edge: var(--color-neutral-subtle-edge);

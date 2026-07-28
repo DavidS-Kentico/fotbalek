@@ -1,0 +1,63 @@
+@* Renders the toast stack. One instance per layout — see ToastService for the rules on what
+   belongs in a toast and what belongs inline. *@
+@implements IDisposable
+@inject ToastService Toasts
+
+@* aria-live so a screen reader announces each message without focus moving. The container is
+   always present (never inside an @if) because a live region has to exist *before* content is
+   inserted into it, or the insertion goes unannounced. *@
+<div class="toast-stack" aria-live="polite" aria-atomic="false">
+    @foreach (var toast in Toasts.Current)
+    {
+        <div @key="toast.Id"
+             class="toast toast--@VariantClass(toast) @(toast.IsLeaving ? "toast--leaving" : "")"
+             role="@(toast.Variant == ToastVariant.Danger ? "alert" : "status")"
+             @onmouseenter="() => Toasts.Pause(toast)"
+             @onmouseleave="() => Toasts.Resume(toast)">
+            <span class="toast__icon" aria-hidden="true"><i class="@toast.Icon"></i></span>
+            <div class="toast__body">@toast.Message</div>
+            <button type="button" class="btn-close toast__close" aria-label="Dismiss"
+                    @onclick="() => Toasts.Dismiss(toast)"></button>
+            @* Keyed on Generation so a restarted countdown gets a fresh element: a CSS animation
+               only replays when the element is new, and the bar must not claim time the C# timer
+               is not actually giving. Hidden while paused so a frozen bar isn't mistaken for a
+               stalled one. *@
+            @if (!toast.IsPaused)
+            {
+                <span @key="toast.Generation" class="toast__countdown"
+                      style="--toast-life: @LifetimeMs(toast)ms"></span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Toasts.Changed += OnToastsChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Toasts parked before a full reload (ToastService.ShowAfterReloadAsync) are picked up
+        // once per circuit, here — the first point at which JS interop is available.
+        if (firstRender) await Toasts.DrainHandoffAsync();
+    }
+
+    private void OnToastsChanged() => _ = RenderOnCircuitAsync();
+
+    // Countdowns expire on thread-pool threads, so re-rendering has to hop back onto the
+    // circuit. A toast outliving its circuit is normal, hence the swallowed dispose.
+    private async Task RenderOnCircuitAsync()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private static string VariantClass(Toast toast) => toast.Variant.ToString().ToLowerInvariant();
+
+    private static string LifetimeMs(Toast toast) =>
+        ((int)toast.Lifetime.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    public void Dispose() => Toasts.Changed -= OnToastsChanged;
+}

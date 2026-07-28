@@ -58,7 +58,7 @@ else
             @* ── Left: who plays ── *@
             <Panel Title="Lineup" Icon="bi bi-people-fill">
                 <Actions>
-                    <button class="btn btn-outline-success btn-sm" @onclick="OpenBalancePicker"
+                    <button class="btn btn-outline-brand btn-sm" @onclick="OpenBalancePicker"
                             title="Pick 4 players and split them into balanced teams">
                         <i class="bi bi-shuffle me-1"></i> Pick &amp; balance
                     </button>
@@ -146,10 +146,10 @@ else
                             <div class="match-recorded__title">Match recorded!</div>
                             <div class="match-recorded__msg">@_successMessage</div>
                             <div class="match-recorded__actions">
-                                <button class="btn btn-success" @onclick="PlayAgain">
+                                <button class="btn btn-brand" @onclick="PlayAgain">
                                     <i class="bi bi-arrow-repeat me-1"></i> Play again
                                 </button>
-                                <button class="btn btn-outline-secondary" @onclick="ResetMatch">
+                                <button class="btn btn-outline-neutral" @onclick="ResetMatch">
                                     <i class="bi bi-plus-lg me-1"></i> New match
                                 </button>
                             </div>
@@ -249,7 +249,7 @@ else
         </Body>
         <Footer>
             <span class="me-auto text-ink-muted text-small">@_balanceSelectedIds.Count / 4 selected</span>
-            <button class="btn btn-secondary" @onclick="CloseBalancePicker">Cancel</button>
+            <button class="btn btn-neutral" @onclick="CloseBalancePicker">Cancel</button>
             <SpinnerButton Icon="bi bi-shuffle" Disabled="_balanceSelectedIds.Count != 4" OnClick="ApplyBalance">
                 Balance
             </SpinnerButton>

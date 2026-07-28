@@ -4,6 +4,7 @@
 @using Fotbalek.Web.Auth
 @inject IScopedSender Sender
 @inject TimeZoneService Tz
+@inject ToastService Toasts
 @inject IJSRuntime JS
 
 <PageTitle>Users - Fotbalek Admin</PageTitle>
@@ -99,7 +100,7 @@
             <p class="mb-2">New temporary password for <strong>@_resetTarget?.UserName</strong>:</p>
             <div class="input-group">
                 <input type="text" class="form-control font-mono" readonly value="@_tempPassword" />
-                <button class="btn btn-success" @onclick="CopyTempPassword">
+                <button class="btn btn-brand" @onclick="CopyTempPassword">
                     <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
                     @(_copied ? "Copied!" : "Copy")
                 </button>
@@ -114,7 +115,7 @@
     <Footer>
         @if (_tempPassword == null)
         {
-            <button type="button" class="btn btn-secondary" @onclick="CloseResetModal">Cancel</button>
+            <button type="button" class="btn btn-neutral" @onclick="CloseResetModal">Cancel</button>
             <button type="button" class="btn btn-danger" @onclick="ConfirmResetAsync" disabled="@_resetting">
                 @if (_resetting)
                 {
@@ -125,7 +126,7 @@
         }
         else
         {
-            <button type="button" class="btn btn-secondary" @onclick="CloseResetModal">Close</button>
+            <button type="button" class="btn btn-neutral" @onclick="CloseResetModal">Close</button>
         }
     </Footer>
 </Modal>
@@ -229,6 +230,10 @@
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", _tempPassword);
             _copied = true;
         }
-        catch { }
+        catch
+        {
+            // The dialog stays open on failure, so the password itself is not lost with the toast.
+            Toasts.ClipboardFailed();
+        }
     }
 }

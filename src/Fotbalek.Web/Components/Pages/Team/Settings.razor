@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject CurrentTeamProvider TeamAccess
 @inject IScopedSender Sender
+@inject ToastService Toasts
 
 <PageTitle>Team settings - Foosball Manager</PageTitle>
 
@@ -21,7 +22,7 @@ else if (!_isCaptain)
 {
     <PageContainer>
         <AlertMessage Message="Only the team captain can change settings." Variant="danger" Icon="bi bi-shield-lock" />
-        <a href="/team/@TeamCode" class="btn btn-outline-secondary">
+        <a href="/team/@TeamCode" class="btn btn-outline-neutral">
             <i class="bi bi-arrow-left me-1"></i> Back to team
         </a>
     </PageContainer>
@@ -34,7 +35,8 @@ else
                 <PageHeader Title="Team settings" Icon="bi bi-gear" />
 
                 <Panel Title="Team name" Icon="bi bi-pencil">
-                    <AlertMessage Message="@_nameSuccess" Variant="success" />
+                    @* Failures stay inline beside the field the user has to correct; the success
+                       confirmation is a toast (see ToastService). *@
                     <AlertMessage Message="@_nameError" Variant="danger" />
                     <div class="mb-4">
                         <label for="teamName" class="form-label">Display name</label>
@@ -45,7 +47,6 @@ else
                 </Panel>
 
                 <Panel Title="Team password" Icon="bi bi-key">
-                    <AlertMessage Message="@_pwdSuccess" Variant="success" />
                     <AlertMessage Message="@_pwdError" Variant="danger" />
                     <p class="text-ink-muted text-small">Anyone who already joined the team stays a member. Future joiners (via the secondary link) will need the new password.</p>
                     <div class="mb-4">
@@ -73,13 +74,11 @@ else
 
     private string _name = string.Empty;
     private string? _nameError;
-    private string? _nameSuccess;
     private bool _savingName;
 
     private string _newPassword = string.Empty;
     private string _confirmPassword = string.Empty;
     private string? _pwdError;
-    private string? _pwdSuccess;
     private bool _savingPassword;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -99,7 +98,6 @@ else
     {
         if (_team == null) return;
         _nameError = null;
-        _nameSuccess = null;
 
         var trimmed = _name?.Trim() ?? string.Empty;
         if (trimmed.Length < 1 || trimmed.Length > 100)
@@ -120,7 +118,7 @@ else
                 return;
             }
             _team = _team with { Name = trimmed };
-            _nameSuccess = "Team name updated.";
+            Toasts.Success("Team name updated.");
         }
         finally
         {
@@ -133,7 +131,6 @@ else
     {
         if (_team == null) return;
         _pwdError = null;
-        _pwdSuccess = null;
 
         if (string.IsNullOrEmpty(_newPassword) || _newPassword.Length < 4)
         {
@@ -159,7 +156,7 @@ else
             }
             _newPassword = string.Empty;
             _confirmPassword = string.Empty;
-            _pwdSuccess = "Team password updated.";
+            Toasts.Success("Team password updated.");
         }
         finally
         {

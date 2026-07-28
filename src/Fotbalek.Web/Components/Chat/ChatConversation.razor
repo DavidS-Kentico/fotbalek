@@ -5,6 +5,7 @@
 @inject ChatUiState UiState
 @inject PresenceTracker Presence
 @inject TimeZoneService Tz
+@inject ToastService Toasts
 @inject IJSRuntime JS
 
 @* One team's conversation: history with infinite scroll-back down to the member's join
@@ -398,14 +399,22 @@
 
     // ── Message actions ────────────────────────────────────────────────────────────────
 
+    // These three act on a message already on screen, with no form to hold an inline error, and
+    // they used to fail completely silently — the reaction just didn't appear. A toast is the
+    // only place the failure can go. Success stays silent: the message list itself is the result.
     private async Task ToggleReaction(int messageId, string emoji) =>
-        await Sender.Send(new ToggleChatReactionCommand(TeamId, messageId, emoji));
+        ReportIfFailed(await Sender.Send(new ToggleChatReactionCommand(TeamId, messageId, emoji)));
 
     private async Task DeleteMessage(int messageId) =>
-        await Sender.Send(new DeleteChatMessageCommand(TeamId, messageId));
+        ReportIfFailed(await Sender.Send(new DeleteChatMessageCommand(TeamId, messageId)));
 
     private async Task EditMessage(int messageId, string newBody) =>
-        await Sender.Send(new EditChatMessageCommand(TeamId, messageId, newBody));
+        ReportIfFailed(await Sender.Send(new EditChatMessageCommand(TeamId, messageId, newBody)));
+
+    private void ReportIfFailed(Result result)
+    {
+        if (result.IsFailure) Toasts.Error(result.Error.Message);
+    }
 
     // ── Read watermark ─────────────────────────────────────────────────────────────────
 

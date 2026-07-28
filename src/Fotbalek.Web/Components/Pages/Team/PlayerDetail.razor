@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject CurrentTeamProvider TeamAccess
 @inject IScopedSender Sender
+@inject ToastService Toasts
 @inject CurrentUserAccessor CurrentUser
 @inject IJSRuntime JS
 @inject NavigationManager Nav
@@ -56,7 +57,7 @@ else if (_player != null && _stats != null)
                     </div>
                     @if (_canEdit)
                     {
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="ShowEditModal" title="Edit name & avatar">
+                        <button class="btn btn-sm btn-outline-neutral" @onclick="ShowEditModal" title="Edit name & avatar">
                             <i class="bi bi-pencil"></i><span class="hidden sm:inline ms-1">Edit</span>
                         </button>
                     }
@@ -356,10 +357,10 @@ else if (_player != null && _stats != null)
                 <Header>
                   <div class="flex flex-wrap gap-2 items-center w-full">
                     <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn @(_relMode == "partners" ? "btn-success" : "btn-outline-success")" @onclick='() => _relMode = "partners"'>
+                        <button type="button" class="btn @(_relMode == "partners" ? "btn-brand" : "btn-outline-brand")" @onclick='() => _relMode = "partners"'>
                             <i class="bi bi-people me-1"></i>Partners (@_stats.Partners.Count)
                         </button>
-                        <button type="button" class="btn @(_relMode == "enemies" ? "btn-success" : "btn-outline-success")" @onclick='() => _relMode = "enemies"'>
+                        <button type="button" class="btn @(_relMode == "enemies" ? "btn-brand" : "btn-outline-brand")" @onclick='() => _relMode = "enemies"'>
                             <i class="bi bi-shield-shaded me-1"></i>Enemies (@_stats.Enemies.Count)
                         </button>
                     </div>
@@ -783,7 +784,7 @@ else if (_player != null && _stats != null)
             </div>
         </Body>
         <Footer>
-            <button type="button" class="btn btn-secondary" @onclick="HideEditModal">Cancel</button>
+            <button type="button" class="btn btn-neutral" @onclick="HideEditModal">Cancel</button>
             <SpinnerButton Busy="_savingEdit" OnClick="SaveEdit">Save</SpinnerButton>
         </Footer>
     </Modal>
@@ -1053,6 +1054,7 @@ else
                 return;
             }
             _showEditModal = false;
+            Toasts.Success($"Player '{name}' updated.");
             await LoadPlayerDataAsync();
         }
         finally

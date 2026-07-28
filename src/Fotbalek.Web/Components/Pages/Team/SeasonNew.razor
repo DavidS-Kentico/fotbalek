@@ -6,6 +6,7 @@
 @inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject NavigationManager Navigation
+@inject ToastService Toasts
 @using System.Globalization
 
 <PageTitle>New Season - Foosball Manager</PageTitle>
@@ -18,7 +19,7 @@ else if (!_isCaptain)
 {
     <PageContainer Focused>
         <AlertMessage Message="Only the team captain can create seasons." Variant="warning" Icon="bi bi-exclamation-triangle" />
-        <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Back to Seasons</a>
+        <a href="/team/@TeamCode/seasons" class="btn btn-outline-neutral">Back to Seasons</a>
     </PageContainer>
 }
 else
@@ -71,7 +72,7 @@ else
                 {
                     <div class="flex gap-2 items-center text-small">
                         <span class="text-ink-muted">@_selectedImportIds.Count / @_importCandidates.Count selected</span>
-                        <button type="button" class="btn btn-sm btn-outline-success" @onclick="SelectAllImports">Select all</button>
+                        <button type="button" class="btn btn-sm btn-outline-brand" @onclick="SelectAllImports">Select all</button>
                         @if (_selectedImportIds.Count > 0)
                         {
                             <button type="button" class="btn btn-sm btn-link text-ink-muted p-0" @onclick="() => _selectedImportIds.Clear()">Clear</button>
@@ -114,10 +115,10 @@ else
         </Panel>
 
         <div class="flex gap-2">
-            <SpinnerButton Variant="success" CssClass="px-6" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
+            <SpinnerButton Variant="brand" CssClass="px-6" Busy="_saving" Icon="bi bi-check-lg" OnClick="CreateSeason">
                 Create season
             </SpinnerButton>
-            <a href="/team/@TeamCode/seasons" class="btn btn-outline-secondary">Cancel</a>
+            <a href="/team/@TeamCode/seasons" class="btn btn-outline-neutral">Cancel</a>
         </div>
     </PageContainer>
 }
@@ -209,6 +210,7 @@ else
                 return;
             }
 
+            Toasts.Success($"Season '{result.Value.Name}' created.");
             Navigation.NavigateTo($"/team/{TeamCode}/seasons/{result.Value.Id}");
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)

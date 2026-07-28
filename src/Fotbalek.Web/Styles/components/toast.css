@@ -1,0 +1,185 @@
+/* ============================================================================
+   Toast — transient confirmation of a completed action
+   ----------------------------------------------------------------------------
+   Rendered by the ToastHost component, one per layout. Only cards that are
+   currently live exist in the DOM, so there is no hidden state to manage; the
+   exit animation is covered by a short `--leaving` phase the service holds the
+   card in before dropping it (the two durations must stay in step — see
+   ToastService.ExitAnimation).
+
+   Position: pinned top-right, deliberately NOT bottom-right — the chat dock
+   already owns that corner (Chat/ChatDock.razor.css) and a toast landing on top
+   of it would cover the unread badge.
+   ============================================================================ */
+
+@layer components {
+    .toast-stack {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: var(--z-toast);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: min(23rem, calc(100vw - 2rem));
+        /* The container spans the full stack width including the gaps, and is present even when
+           empty — it must never swallow clicks meant for the page beneath. Cards opt back in. */
+        pointer-events: none;
+    }
+
+    .toast {
+        /* Variant hook: a saturated accent for the stripe and countdown, plus the theme-aware
+           subtle pair for the icon chip. Same trio the alerts use, so both themes are covered. */
+        --toast-accent: var(--color-neutral);
+        --toast-chip: var(--color-neutral-subtle);
+        --toast-chip-ink: var(--color-neutral-subtle-ink);
+
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        /* Clips the accent stripe and countdown to the rounded corners. */
+        overflow: hidden;
+        padding: 0.75rem 0.625rem 0.75rem 1.125rem;
+        pointer-events: auto;
+        color: var(--color-ink);
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-2xl);
+        box-shadow: var(--shadow-overlay);
+        animation: toast-in 0.22s ease-out both;
+    }
+
+    /* Accent stripe — the same "colour on the leading edge" language as .stat-card. */
+    .toast::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        content: '';
+        background-color: var(--toast-accent);
+    }
+
+    .toast--leaving {
+        animation: toast-out 0.22s ease-in both;
+    }
+
+    .toast__icon {
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: 0.9rem;
+        color: var(--toast-chip-ink);
+        background-color: var(--toast-chip);
+        border-radius: var(--radius-full);
+    }
+
+    .toast__body {
+        flex: 1 1 auto;
+        /* Optically centres a one-line message against the 1.75rem icon chip. */
+        padding-top: 0.1875rem;
+        font-size: var(--text-sm);
+        line-height: 1.45;
+        /* Team and player names are user input and can be one long unbroken token. */
+        overflow-wrap: anywhere;
+    }
+
+    .toast__close {
+        flex: 0 0 auto;
+        margin-top: 0.25rem;
+        font-size: 0.75rem;
+        opacity: 0.4;
+    }
+
+    .toast__close:hover {
+        opacity: 0.9;
+    }
+
+    /* Countdown: a hairline draining left-to-right over exactly the card's lifetime, so the
+       dismissal is never a surprise. Removed from the DOM while the pointer is over the card
+       (the service freezes the timer at the same moment) rather than paused, so a stopped bar
+       can't be misread as a stuck one. */
+    .toast__countdown {
+        --toast-life: 4000ms;
+
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--toast-accent);
+        opacity: 0.4;
+        transform-origin: left;
+        animation: toast-drain var(--toast-life) linear both;
+    }
+
+    /* ---- Variants ---------------------------------------------------------- */
+    .toast--brand {
+        --toast-accent: var(--color-brand);
+        --toast-chip: var(--color-brand-subtle);
+        --toast-chip-ink: var(--color-brand-subtle-ink);
+    }
+
+    .toast--danger {
+        --toast-accent: var(--color-danger);
+        --toast-chip: var(--color-danger-subtle);
+        --toast-chip-ink: var(--color-danger-subtle-ink);
+    }
+
+    .toast--warning {
+        --toast-accent: var(--color-warning);
+        --toast-chip: var(--color-warning-subtle);
+        --toast-chip-ink: var(--color-warning-subtle-ink);
+    }
+
+    .toast--info {
+        --toast-accent: var(--color-info-strong);
+        --toast-chip: var(--color-info-subtle);
+        --toast-chip-ink: var(--color-info-subtle-ink);
+    }
+
+    /* ---- Motion ------------------------------------------------------------ */
+    @keyframes toast-in {
+        from {
+            opacity: 0;
+            transform: translateX(0.75rem) scale(0.98);
+        }
+    }
+
+    @keyframes toast-out {
+        to {
+            opacity: 0;
+            transform: translateX(0.75rem) scale(0.98);
+        }
+    }
+
+    @keyframes toast-drain {
+        to { transform: scaleX(0); }
+    }
+
+    /* Entry/exit motion goes; the countdown stays but sits still, because it is information
+       (how long is left), not decoration. */
+    @media (prefers-reduced-motion: reduce) {
+        .toast,
+        .toast--leaving {
+            animation: none;
+        }
+
+        .toast__countdown {
+            animation: none;
+        }
+    }
+
+    /* ---- Phone ------------------------------------------------------------- */
+    /* Full-bleed across the top, where nothing else competes: the team app bar is sticky but
+       toasts sit above it (--z-toast) for the few seconds they are up. */
+    @media (width < theme(--breakpoint-sm)) {
+        .toast-stack {
+            top: 0.5rem;
+            right: 0.5rem;
+            left: 0.5rem;
+            width: auto;
+        }
+    }
+}

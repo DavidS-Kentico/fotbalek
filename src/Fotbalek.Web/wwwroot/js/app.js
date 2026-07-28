@@ -62,6 +62,48 @@ window.fotbalekTheme = (function () {
     };
 })();
 
+// ===== Toast handoff across a full page load =====
+// ToastService is circuit-scoped, so a toast raised just before
+// NavigateTo(forceLoad: true) — which the onboarding flows need in order to rebuild the auth
+// and team context — would die with the circuit. Park it in sessionStorage instead (per-tab,
+// survives the reload) and let ToastHost drain it on the next circuit.
+//
+// Wire shape must match ToastService.HandoffToast: { message, variant }.
+window.fotbalekToast = (function () {
+    var KEY = 'fotbalek-toast-handoff';
+    var MAX = 4;
+
+    function read() {
+        try {
+            var raw = sessionStorage.getItem(KEY);
+            var parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    return {
+        stash: function (message, variant) {
+            var queue = read();
+            queue.push({ message: message, variant: variant });
+            // Only the last few can possibly be worth reading after a navigation.
+            if (queue.length > MAX) queue = queue.slice(-MAX);
+            try {
+                sessionStorage.setItem(KEY, JSON.stringify(queue));
+            } catch (e) {
+                // Private-mode quota or storage disabled — losing a toast is acceptable.
+            }
+        },
+        // Read-and-clear: a parked toast must show exactly once, not on every later reload.
+        drain: function () {
+            var queue = read();
+            try { sessionStorage.removeItem(KEY); } catch (e) { }
+            return queue;
+        }
+    };
+})();
+
 // Theme-aware colours for Chart.js (grid lines, axis ticks, pie borders) read
 // at render time from the active data-theme.
 function chartThemeColors() {

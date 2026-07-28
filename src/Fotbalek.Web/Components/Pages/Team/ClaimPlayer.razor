@@ -4,6 +4,7 @@
 @inject IScopedSender Sender
 @inject CurrentUserAccessor CurrentUser
 @inject NavigationManager Navigation
+@inject ToastService Toasts
 
 <PageTitle>Choose your player - Foosball Manager</PageTitle>
 
@@ -34,7 +35,7 @@ else if (_team != null)
                             @foreach (var p in _claimable)
                             {
                                 <div>
-                                    <button type="button" class="btn btn-outline-success w-full flex items-center justify-start gap-2 py-2"
+                                    <button type="button" class="btn btn-outline-brand w-full flex items-center justify-start gap-2 py-2"
                                             @onclick="() => Claim(p.Id)" disabled="@_busy">
                                         <Avatar AvatarId="@p.AvatarId" Size="sm" />
                                         <span>@p.Name</span>
@@ -112,7 +113,11 @@ else if (_team != null)
         if (_claimable.Count == 0)
         {
             var autoName = TruncateName(_user.UserName ?? "Player");
-            await Sender.Send(new CreateMyPlayerCommand(_team.Id, autoName, 1, AutoSuffixName: true));
+            var auto = await Sender.Send(new CreateMyPlayerCommand(_team.Id, autoName, 1, AutoSuffixName: true));
+            // This path picks a player for the user without asking, so say which one it was —
+            // the name may have been suffixed to stay unique.
+            if (auto.IsSuccess)
+                await Toasts.ShowAfterReloadAsync($"You're playing as '{auto.Value.Name}'.");
             Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             return;
         }
@@ -138,6 +143,10 @@ else if (_team != null)
             var result = await Sender.Send(new ClaimPlayerCommand(_team.Id, playerId));
             if (result.IsSuccess)
             {
+                var claimed = _claimable.FirstOrDefault(p => p.Id == playerId);
+                await Toasts.ShowAfterReloadAsync(claimed != null
+                    ? $"You're playing as '{claimed.Name}'."
+                    : "Player claimed.");
                 Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
             }
             else
@@ -174,6 +183,7 @@ else if (_team != null)
                     : result.Error.Message;
                 return;
             }
+            await Toasts.ShowAfterReloadAsync($"You're playing as '{result.Value.Name}'.");
             Navigation.NavigateTo($"/team/{_team.CodeName}", forceLoad: true);
         }
         catch (Exception)

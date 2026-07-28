@@ -4,7 +4,7 @@
    Use Compact for dense contexts (dashboard panels); full size for page lists. *@
 
 <div class="load-more">
-    <SpinnerButton Variant="outline-success" CssClass="@(Compact ? "btn-sm" : "")"
+    <SpinnerButton Variant="outline-brand" CssClass="@(Compact ? "btn-sm" : "")"
                    Icon="bi bi-arrow-down-circle" Busy="Busy" OnClick="OnClick">
         <span>Load more</span>
         @if (Remaining > 0)

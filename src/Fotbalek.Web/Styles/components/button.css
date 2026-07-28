@@ -1,17 +1,34 @@
 /* ============================================================================
    Buttons
    ----------------------------------------------------------------------------
-   `.btn` is the shape; a variant class supplies the palette through four custom
-   properties. Adding a variant means declaring those four values — no new
-   layout, sizing or state rules.
+   `.btn` is the shape; a variant class supplies the palette through custom
+   properties. Adding a variant means naming its base colour — no new layout,
+   sizing or state rules.
 
-     .btn                          base shape, neutral palette
-     .btn-success | -secondary | -primary | -danger | -warning | -light | -dark
+     .btn                          base shape, inherits body ink
+     .btn-brand | -neutral | -primary | -danger | -warning | -light | -dark
      .btn-outline-*               same palettes, transparent until hovered
      .btn-link                    looks like a link, behaves like a button
      .btn-sm | .btn-lg            size steps
      .btn-close                   the ✕ in modal headers
      .btn-group                   segmented row of buttons
+
+   Variant names match the colour tokens in theme.css (`brand`, `neutral`, …),
+   not Bootstrap's old semantic names — so `bg-brand` in markup and `.btn-brand`
+   here mean the same green. `.btn-brand` is the app's primary action; `.btn-primary`
+   is the blue accent, which is a different thing and rarely what you want.
+
+   Hover/active shades are derived from the variant's base colour with color-mix
+   rather than hardcoded, so re-pointing a token in theme.css moves every state
+   with it. The percentages reproduce the shades this app has always used, exactly
+   — they are the same black/white sRGB mixes the old literals were.
+
+   In the compiled output each of those declarations appears twice: once plainly
+   and once inside `@supports (color: color-mix(...))`. That is Lightning CSS
+   adding a fallback, not a mistake — the @supports copy is the one that applies.
+   The fallback itself is crude (it degrades to the mix target), but it is
+   unreachable: this stylesheet already relies on @property and oklab, so any
+   browser that can render it supports color-mix too.
    ============================================================================ */
 
 @layer components {
@@ -87,8 +104,7 @@
         --btn-radius: var(--radius-xs);
     }
 
-    .btn-lg,
-    .btn-group-lg > .btn {
+    .btn-lg {
         --btn-padding-y: 0.5rem;
         --btn-padding-x: 1rem;
         --btn-font-size: 1.25rem;
@@ -96,133 +112,115 @@
     }
 
     /* ---- Solid variants ---------------------------------------------------- */
-    .btn-success {
-        --btn-color: var(--color-white);
-        --btn-bg: var(--color-brand);
-        --btn-border: var(--color-brand);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-brand-strong);
-        --btn-hover-border: var(--color-brand-deep);
-        --btn-active-bg: var(--color-brand-deep);
-        --btn-active-border: #13653f;
+    /* Each variant names its base colour once in --btn-base; the shared block
+       below derives every state from it. Dark bases shade towards black, light
+       ones (warning, light) tint towards white — hence the two --btn-shade-*
+       overrides rather than one formula for all. */
+    .btn-brand,
+    .btn-neutral,
+    .btn-primary,
+    .btn-danger,
+    .btn-warning,
+    .btn-light,
+    .btn-dark {
+        /* Mixed into the base to make the state shades. */
+        --btn-shade-toward: var(--color-black);
+
+        --btn-bg: var(--btn-base);
+        --btn-border: var(--btn-base);
+        --btn-hover-color: var(--btn-color);
+        --btn-hover-bg: color-mix(in srgb, var(--btn-shade-toward) 15%, var(--btn-base));
+        --btn-hover-border: color-mix(in srgb, var(--btn-shade-toward) 20%, var(--btn-base));
+        --btn-active-bg: color-mix(in srgb, var(--btn-shade-toward) 20%, var(--btn-base));
+        --btn-active-border: color-mix(in srgb, var(--btn-shade-toward) 25%, var(--btn-base));
     }
 
-    .btn-secondary {
+    .btn-brand {
+        --btn-base: var(--color-brand);
         --btn-color: var(--color-white);
-        --btn-bg: var(--color-neutral);
-        --btn-border: var(--color-neutral);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: #5c636a;
-        --btn-hover-border: #565e64;
-        --btn-active-bg: #565e64;
-        --btn-active-border: #51585e;
+    }
+
+    .btn-neutral {
+        --btn-base: var(--color-neutral);
+        --btn-color: var(--color-white);
     }
 
     .btn-primary {
+        --btn-base: var(--color-primary);
         --btn-color: var(--color-white);
-        --btn-bg: var(--color-primary);
-        --btn-border: var(--color-primary);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: #0b5ed7;
-        --btn-hover-border: var(--color-primary-strong);
-        --btn-active-bg: var(--color-primary-strong);
-        --btn-active-border: #0a53be;
     }
 
     .btn-danger {
+        --btn-base: var(--color-danger);
         --btn-color: var(--color-white);
-        --btn-bg: var(--color-danger);
-        --btn-border: var(--color-danger);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-danger-strong);
-        --btn-hover-border: #b02a37;
-        --btn-active-bg: #b02a37;
-        --btn-active-border: #a52834;
     }
 
+    /* Amber is already light, so its states lift towards white instead. The
+       hover *border* is deliberately a lighter step than the fill (10% vs 15%)
+       — that is the long-standing look, not an oversight. */
     .btn-warning {
+        --btn-base: var(--color-warning);
         --btn-color: var(--color-black);
-        --btn-bg: var(--color-warning);
-        --btn-border: var(--color-warning);
-        --btn-hover-color: var(--color-black);
-        --btn-hover-bg: #ffca2c;
-        --btn-hover-border: #ffc720;
-        --btn-active-bg: #ffcd39;
-        --btn-active-border: #ffc720;
+        --btn-shade-toward: var(--color-white);
+        --btn-hover-border: color-mix(in srgb, var(--color-white) 10%, var(--btn-base));
+        --btn-active-border: color-mix(in srgb, var(--color-white) 10%, var(--btn-base));
     }
 
     .btn-light {
+        --btn-base: var(--color-gray-100);
         --btn-color: var(--color-black);
-        --btn-bg: var(--color-gray-100);
-        --btn-border: var(--color-gray-100);
-        --btn-hover-color: var(--color-black);
-        --btn-hover-bg: #d3d4d5;
-        --btn-hover-border: #c6c7c8;
-        --btn-active-bg: #c6c7c8;
-        --btn-active-border: #babbbc;
     }
 
+    /* Near-black base: states lift towards white. Its hover border is a smaller
+       step than the fill, mirroring .btn-warning. */
     .btn-dark {
+        --btn-base: var(--color-gray-900);
         --btn-color: var(--color-white);
-        --btn-bg: var(--color-gray-900);
-        --btn-border: var(--color-gray-900);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: #424649;
-        --btn-hover-border: #373b3e;
-        --btn-active-bg: #4d5154;
-        --btn-active-border: #373b3e;
+        --btn-shade-toward: var(--color-white);
+        --btn-hover-border: color-mix(in srgb, var(--color-white) 10%, var(--btn-base));
+        --btn-active-border: color-mix(in srgb, var(--color-white) 10%, var(--btn-base));
     }
 
     /* ---- Outline variants -------------------------------------------------- */
-    /* Transparent with a coloured edge, filling with that colour on hover. */
-    .btn-outline-success {
-        --btn-color: var(--color-brand);
-        --btn-border: var(--color-brand);
-        --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-brand);
-        --btn-hover-border: var(--color-brand);
-        --btn-active-bg: var(--color-brand);
-        --btn-active-border: var(--color-brand);
+    /* Transparent with a coloured edge, filling flat with that colour on hover —
+       no shading, so these need only their base colour and the ink that reads on
+       top of the filled state. */
+    .btn-outline-brand,
+    .btn-outline-neutral,
+    .btn-outline-danger,
+    .btn-outline-primary,
+    .btn-outline-light {
+        --btn-color: var(--btn-base);
+        --btn-border: var(--btn-base);
+        --btn-hover-bg: var(--btn-base);
+        --btn-hover-border: var(--btn-base);
+        --btn-active-bg: var(--btn-base);
+        --btn-active-border: var(--btn-base);
     }
 
-    .btn-outline-secondary {
-        --btn-color: var(--color-neutral);
-        --btn-border: var(--color-neutral);
+    .btn-outline-brand {
+        --btn-base: var(--color-brand);
         --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-neutral);
-        --btn-hover-border: var(--color-neutral);
-        --btn-active-bg: var(--color-neutral);
-        --btn-active-border: var(--color-neutral);
+    }
+
+    .btn-outline-neutral {
+        --btn-base: var(--color-neutral);
+        --btn-hover-color: var(--color-white);
     }
 
     .btn-outline-danger {
-        --btn-color: var(--color-danger);
-        --btn-border: var(--color-danger);
+        --btn-base: var(--color-danger);
         --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-danger);
-        --btn-hover-border: var(--color-danger);
-        --btn-active-bg: var(--color-danger);
-        --btn-active-border: var(--color-danger);
     }
 
     .btn-outline-primary {
-        --btn-color: var(--color-primary);
-        --btn-border: var(--color-primary);
+        --btn-base: var(--color-primary);
         --btn-hover-color: var(--color-white);
-        --btn-hover-bg: var(--color-primary);
-        --btn-hover-border: var(--color-primary);
-        --btn-active-bg: var(--color-primary);
-        --btn-active-border: var(--color-primary);
     }
 
     .btn-outline-light {
-        --btn-color: var(--color-gray-100);
-        --btn-border: var(--color-gray-100);
+        --btn-base: var(--color-gray-100);
         --btn-hover-color: var(--color-black);
-        --btn-hover-bg: var(--color-gray-100);
-        --btn-hover-border: var(--color-gray-100);
-        --btn-active-bg: var(--color-gray-100);
-        --btn-active-border: var(--color-gray-100);
     }
 
     /* ---- Link-styled button ------------------------------------------------ */

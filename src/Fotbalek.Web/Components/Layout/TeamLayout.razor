@@ -8,6 +8,7 @@
 @inject NavigationManager Navigation
 @inject TimeZoneService Tz
 @inject ChatUiState ChatUi
+@inject ToastService Toasts
 @inject IJSRuntime JS
 
 @* Fallback title while the team loads (pages register their own <PageTitle> later in the
@@ -97,17 +98,17 @@
                     }
                     else
                     {
-                        <button class="btn btn-outline-secondary btn-icon hidden md:inline-flex" title="Start live game" aria-label="Start live game" @onclick="StartLiveGame">
+                        <button class="btn btn-outline-neutral btn-icon hidden md:inline-flex" title="Start live game" aria-label="Start live game" @onclick="StartLiveGame">
                             <i class="bi bi-controller"></i>
                         </button>
                     }
 
-                    <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-success flex items-center gap-1" aria-label="New match">
+                    <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-brand flex items-center gap-1" aria-label="New match">
                         <i class="bi bi-plus-lg"></i> <span class="hidden lg:inline">New match</span>
                     </a>
 
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle account-btn flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                        <button class="btn btn-outline-neutral dropdown-toggle account-btn flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
                             @if (_myPlayer != null)
                             {
                                 <Avatar AvatarId="@_myPlayer.AvatarId" Size="sm" />
@@ -234,7 +235,7 @@
                 {
                     <div class="input-group">
                         <input type="text" class="form-control" readonly value="@GetShareUrl()" />
-                        <button class="btn btn-success" @onclick="CopyShareUrl">
+                        <button class="btn btn-brand" @onclick="CopyShareUrl">
                             <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
                             @(_copied ? "Copied!" : "Copy")
                         </button>
@@ -247,17 +248,23 @@
                         <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
                     </small>
                 }
+                else
+                {
+                    @* Matches the invite dialog on the Players page. Without this the section just
+                       went blank when the token could not be generated. *@
+                    <AlertMessage Message="Couldn't generate a share link. Please try again." Variant="danger" />
+                }
                 <hr />
                 <p class="text-ink-muted mb-2 text-small">Or share the team URL (requires password + login):</p>
                 <div class="input-group input-group-sm">
                     <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
-                    <button class="btn btn-outline-secondary" @onclick="CopyTeamUrl">
+                    <button class="btn btn-outline-neutral" @onclick="CopyTeamUrl">
                         <i class="bi @(_copiedBasic ? "bi-check" : "bi-clipboard")"></i>
                     </button>
                 </div>
             </Body>
             <Footer>
-                <button type="button" class="btn btn-secondary" @onclick="() => _showShareModal = false">Close</button>
+                <button type="button" class="btn btn-neutral" @onclick="() => _showShareModal = false">Close</button>
             </Footer>
         </Modal>
     }
@@ -266,6 +273,10 @@
         <LoadingSpinner FullScreen="true" />
     }
 </div>
+
+@* Outside the team gate on purpose: a toast parked by the onboarding flows (create/join/claim,
+   which all full-reload into a team page) has to show while the team is still loading. *@
+<ToastHost />
 
 <div id="blazor-error-ui" data-nosnippet class="alert alert-danger fixed bottom-0 left-1/2 -translate-x-1/2 mb-4" style="display: none;">
     An unhandled error has occurred.
@@ -381,6 +392,9 @@
         }
     }
 
+    // A refused clipboard (older browser, insecure context) leaves the button label untouched,
+    // which reads as nothing happening. The URL is in the field beside it, so say so and let the
+    // user take it from there.
     private async Task CopyShareUrl()
     {
         try
@@ -390,7 +404,10 @@
             _copiedBasic = false;
             StateHasChanged();
         }
-        catch { }
+        catch
+        {
+            Toasts.ClipboardFailed();
+        }
     }
 
     private async Task CopyTeamUrl()
@@ -402,7 +419,10 @@
             _copied = false;
             StateHasChanged();
         }
-        catch { }
+        catch
+        {
+            Toasts.ClipboardFailed();
+        }
     }
 
     private void SwitchTeam(string codeName)
@@ -432,6 +452,13 @@
                 _team = _team with { CaptainUserId = _user.UserId };
                 TeamAccess.UpdateCachedCaptain(_user.UserId!.Value);
                 _isCaptain = true;
+                Toasts.Success("You're the captain of this team now.");
+            }
+            else
+            {
+                // Losing the race for an unclaimed captaincy used to fail silently — the button
+                // simply stopped spinning and nothing changed.
+                Toasts.Error(result.Error.Message);
             }
         }
         finally

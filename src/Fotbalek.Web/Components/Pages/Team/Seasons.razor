@@ -19,7 +19,7 @@ else
             <Actions>
                 @if (_isCaptain)
                 {
-                    <a href="/team/@TeamCode/seasons/new" class="btn btn-success">
+                    <a href="/team/@TeamCode/seasons/new" class="btn btn-brand">
                         <i class="bi bi-plus-lg me-1"></i> Start new season
                     </a>
                 }
@@ -42,7 +42,7 @@ else
                         Message="Seasons group matches into named periods with their own ELO ladder, champions and awards.">
                 @if (_isCaptain)
                 {
-                    <a href="/team/@TeamCode/seasons/new" class="btn btn-success">Start your first season</a>
+                    <a href="/team/@TeamCode/seasons/new" class="btn btn-brand">Start your first season</a>
                 }
             </EmptyState>
         }
@@ -85,7 +85,7 @@ else
                             }
 
                             <div class="flex items-center gap-2">
-                                <a href="/team/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-success">
+                                <a href="/team/@TeamCode/seasons/@season.Id" class="btn btn-sm btn-outline-brand">
                                     @(season.IsClosed ? "Results" : "Details")
                                 </a>
                                 @if (_isCaptain)

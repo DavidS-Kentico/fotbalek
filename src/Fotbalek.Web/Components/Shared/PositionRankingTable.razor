@@ -31,7 +31,7 @@
                         @foreach (var p in Players)
                         {
                             var isMine = p.PlayerId == MyPlayerId;
-                            <tr class="@(isMine ? "table-success" : "")">
+                            <tr class="@(isMine ? "table-brand" : "")">
                                 <td class="text-center">
                                     <RankBadge Rank="@p.Rank" Large="true" />
                                 </td>

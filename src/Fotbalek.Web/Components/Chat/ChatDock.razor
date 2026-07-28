@@ -210,11 +210,12 @@
                 _previews[teamId] = new ChatThreadPreview(
                     message.Id, message.SenderUserId, message.SenderName, message.Body, message.CreatedAt);
 
-                // The message is read immediately only when this tab has the conversation
-                // open, selected and focused (§5.1) — anything else gets a banner, except
-                // the user's own messages.
-                var immediatelyRead = UiState.IsOpen && UiState.SelectedTeamId == teamId && _browserActive;
-                if (message.SenderUserId != _userId && !immediatelyRead)
+                // Banners are the *panel-closed* signal only. With the panel open the team rail
+                // already shows every team's unread count and latest preview, so a floating
+                // banner would be duplicating what is on screen — and it now shares the
+                // launcher's corner, so it would sit under the panel anyway. Never for the
+                // user's own messages.
+                if (message.SenderUserId != _userId && !UiState.IsOpen)
                 {
                     var preview = message.Body.Length > Constants.Chat.BannerPreviewLength
                         ? message.Body[..Constants.Chat.BannerPreviewLength] + "…"
@@ -330,7 +331,13 @@
 
     // ── UI actions ─────────────────────────────────────────────────────────────────────
 
-    private void ToggleOpen() => UiState.IsOpen = !UiState.IsOpen;
+    private void ToggleOpen()
+    {
+        UiState.IsOpen = !UiState.IsOpen;
+        // Opening hands the job over to the panel's team rail, and the banners share the
+        // launcher's corner — leaving them standing would just park them under the panel.
+        if (UiState.IsOpen) _banners.Clear();
+    }
 
     private void CloseDock() => UiState.IsOpen = false;
 
@@ -340,7 +347,7 @@
     {
         UiState.IsOpen = true;
         UiState.SelectedTeamId = teamId;
-        _banners.RemoveAll(b => b.TeamId == teamId);
+        _banners.Clear();
     }
 
     private void DismissBanner(long key) => _banners.RemoveAll(b => b.Key == key);

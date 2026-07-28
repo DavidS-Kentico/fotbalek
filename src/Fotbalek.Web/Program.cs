@@ -119,6 +119,8 @@ builder.Services.AddScoped<IScopedSender, ScopedSender>();
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddScoped<CurrentTeamProvider>();
 builder.Services.AddScoped<TimeZoneService>();
+// Per-circuit toast queue, rendered by the ToastHost each layout hosts.
+builder.Services.AddScoped<ToastService>();
 
 // Presence: in-memory singleton + per-circuit tracking handler (unchanged, §4.4).
 builder.Services.AddSingleton<PresenceTracker>();

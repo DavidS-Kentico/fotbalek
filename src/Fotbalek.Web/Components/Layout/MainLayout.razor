@@ -10,6 +10,10 @@
 @* Global chat dock — gates itself to authenticated users with ≥1 claimed team. *@
 <ChatDock />
 
+@* Toast stack. Every layout hosts one; the queue itself is circuit-scoped, so a message raised
+   on a team page still shows after a soft navigation that swaps the layout. *@
+<ToastHost />
+
 <div id="blazor-error-ui" data-nosnippet class="alert alert-danger fixed bottom-0 left-1/2 -translate-x-1/2 mb-4" style="display: none;">
     An unhandled error has occurred.
     <a href="." class="alert-link">Reload</a>

@@ -86,7 +86,7 @@
         <section class="mb-12">
             <div class="ov-section-head">
                 <h2 class="ov-section-title"><i class="bi bi-people-fill me-2"></i>Your teams</h2>
-                <a href="/create" class="btn btn-sm btn-outline-success">
+                <a href="/create" class="btn btn-sm btn-outline-brand">
                     <i class="bi bi-plus-lg me-1"></i>New team
                 </a>
             </div>
@@ -150,7 +150,7 @@
                 <i class="bi bi-controller"></i>
                 <h3>No matches played yet</h3>
                 <p>Be the first to start a team and get the ball rolling.</p>
-                <a href="@(_isAuthenticated ? "/create" : "/login?returnUrl=%2Fcreate")" class="btn btn-success btn-lg">
+                <a href="@(_isAuthenticated ? "/create" : "/login?returnUrl=%2Fcreate")" class="btn btn-brand btn-lg">
                     <i class="bi bi-plus-circle me-1"></i> Create the first team
                 </a>
             </section>
@@ -162,7 +162,7 @@
                     <h2 class="ov-section-title"><i class="bi bi-globe2 me-2"></i>Across all teams</h2>
                 </div>
                 <div class="ov-stats">
-                    <StatTile Variant="success" Icon="bi bi-shield-fill" Value="@_stats.Totals.Teams.ToString()" Label="Teams" />
+                    <StatTile Variant="brand" Icon="bi bi-shield-fill" Value="@_stats.Totals.Teams.ToString()" Label="Teams" />
                     <StatTile Variant="primary" Icon="bi bi-people-fill" Value="@_stats.Totals.Players.ToString()" Label="Active players" />
                     <StatTile Variant="info" Icon="bi bi-controller" Value="@_stats.Totals.Matches.ToString()" Label="Matches" />
                     <StatTile Variant="warning" Icon="bi bi-bullseye" Value="@_stats.Totals.TotalGoals.ToString()" Label="Goals scored" />

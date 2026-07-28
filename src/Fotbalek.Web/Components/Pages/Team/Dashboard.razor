@@ -38,7 +38,7 @@ else if (_team != null)
                                 @_seasonMatchCount match@(_seasonMatchCount == 1 ? "" : "es")
                             </div>
                         </div>
-                        <a href="/team/@TeamCode/seasons/@_activeSeason.Id" class="btn btn-sm btn-outline-success">
+                        <a href="/team/@TeamCode/seasons/@_activeSeason.Id" class="btn btn-sm btn-outline-brand">
                             Season detail
                         </a>
                     </div>
@@ -46,7 +46,7 @@ else if (_team != null)
         }
         else if (_latestClosedSeason != null && _nextScheduledSeason == null)
         {
-            <div class="alert alert-success flex flex-wrap items-center gap-2 mb-6">
+            <div class="alert alert-brand flex flex-wrap items-center gap-2 mb-6">
                 <span><strong>@_latestClosedSeason.Name</strong> has ended 🏆</span>
                 <a href="/team/@TeamCode/seasons/@_latestClosedSeason.Id" class="alert-link">View the final results and awards</a>
                 <span class="text-ink-muted text-small ms-auto">Content below shows all-time numbers.</span>
@@ -70,7 +70,7 @@ else if (_team != null)
         {
             <div class="alert alert-light border flex flex-wrap items-center gap-2 mb-6">
                 <span><i class="bi bi-award me-1"></i>Group your matches into seasons — fresh ELO ladder, champions and permanent awards.</span>
-                <a href="/team/@TeamCode/seasons/new" class="btn btn-sm btn-success ms-auto">Start your first season</a>
+                <a href="/team/@TeamCode/seasons/new" class="btn btn-sm btn-brand ms-auto">Start your first season</a>
             </div>
         }
 
@@ -111,7 +111,7 @@ else if (_team != null)
                                 <small class="text-ink-muted font-normal">(@_activeSeason.Name)</small>
                             }
                         </h2>
-                        <div class="panel__actions"><a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-success">View All</a></div>
+                        <div class="panel__actions"><a href="/team/@TeamCode/rankings" class="btn btn-sm btn-outline-brand">View All</a></div>
                     </Header>
                     <ChildContent>
                         @if (_rankingRows.Count > 0)
@@ -130,7 +130,7 @@ else if (_team != null)
                                         @foreach (var player in _rankingRows.Take(_rankingsVisible))
                                         {
                                             var isMine = player.PlayerId == MyPlayerId;
-                                            <tr class="@(isMine ? "table-success" : "")">
+                                            <tr class="@(isMine ? "table-brand" : "")">
                                                 <td class="text-center">
                                                     <RankBadge Rank="@player.Rank" />
                                                 </td>
@@ -185,7 +185,7 @@ else if (_team != null)
                         else
                         {
                             <EmptyState Icon="bi bi-people" Message="@(_activeSeason != null ? "No seasonal matches yet — record the first one!" : "No players yet. Add some players to get started!")">
-                                <a href="/team/@TeamCode/players" class="btn btn-success btn-sm">Add Players</a>
+                                <a href="/team/@TeamCode/players" class="btn btn-brand btn-sm">Add Players</a>
                             </EmptyState>
                         }
                     </ChildContent>
@@ -194,7 +194,7 @@ else if (_team != null)
 
             <div class="col-span-12 lg:col-span-6 mb-6">
                 <Panel Title="Recent Matches" Icon="bi bi-clock-history" Class="h-full">
-                    <Actions><a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-success">View All</a></Actions>
+                    <Actions><a href="/team/@TeamCode/matches" class="btn btn-sm btn-outline-brand">View All</a></Actions>
                     <ChildContent>
                         @if (_recentMatches.Count > 0)
                         {
@@ -212,7 +212,7 @@ else if (_team != null)
                             <EmptyState Icon="bi bi-calendar-x" Message="@(_activeSeason != null ? "No matches in this season yet." : "No matches played yet.")">
                                 @if (_playerCount >= 4)
                                 {
-                                    <a href="/team/@TeamCode/match/new" class="btn btn-success btn-sm">Record First Match</a>
+                                    <a href="/team/@TeamCode/match/new" class="btn btn-brand btn-sm">Record First Match</a>
                                 }
                                 else
                                 {
@@ -227,7 +227,7 @@ else if (_team != null)
 
         <div class="grid grid-cols-12 gap-x-6">
             <div class="col-span-12 md:col-span-3 mb-4">
-                <StatTile Variant="success" Icon="bi bi-people-fill" Value="@_playerCount.ToString()" Label="Active Players" />
+                <StatTile Variant="brand" Icon="bi bi-people-fill" Value="@_playerCount.ToString()" Label="Active Players" />
             </div>
             <div class="col-span-12 md:col-span-3 mb-4">
                 <StatTile Variant="primary" Icon="bi bi-controller" Value="@_matchCount.ToString()" Label="@(_activeSeason != null ? "Season Matches" : "Total Matches")" />

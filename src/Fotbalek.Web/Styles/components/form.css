@@ -259,12 +259,4 @@
         border-radius: var(--radius-xs);
     }
 
-    .input-group-lg > .form-control,
-    .input-group-lg > .form-select,
-    .input-group-lg > .input-group-text,
-    .input-group-lg > .btn {
-        padding: 0.5rem 1rem;
-        font-size: 1.25rem;
-        border-radius: var(--radius-md);
-    }
 }

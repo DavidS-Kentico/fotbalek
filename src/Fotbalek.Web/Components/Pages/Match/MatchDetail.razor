@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject CurrentTeamProvider TeamAccess
 @inject IScopedSender Sender
+@inject ToastService Toasts
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -55,12 +56,12 @@ else if (_match != null)
 
         <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div class="btn-group">
-                <a class="btn btn-outline-secondary btn-sm @(_olderId == null ? "disabled" : "")"
+                <a class="btn btn-outline-neutral btn-sm @(_olderId == null ? "disabled" : "")"
                    href="@(_olderId != null ? $"/team/{TeamCode}/matches/{_olderId}" : "#")"
                    aria-disabled="@(_olderId == null)" title="Older match">
                     <i class="bi bi-chevron-left"></i> Older
                 </a>
-                <a class="btn btn-outline-secondary btn-sm @(_newerId == null ? "disabled" : "")"
+                <a class="btn btn-outline-neutral btn-sm @(_newerId == null ? "disabled" : "")"
                    href="@(_newerId != null ? $"/team/{TeamCode}/matches/{_newerId}" : "#")"
                    aria-disabled="@(_newerId == null)" title="Newer match">
                     Newer <i class="bi bi-chevron-right"></i>
@@ -68,15 +69,15 @@ else if (_match != null)
             </div>
 
             <div class="flex gap-2">
-                <a href="/team/@TeamCode/match/new?rematch=@MatchId" class="btn btn-success btn-sm">
+                <a href="/team/@TeamCode/match/new?rematch=@MatchId" class="btn btn-brand btn-sm">
                     <i class="bi bi-arrow-repeat me-1"></i> Rematch
                 </a>
-                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CopyLink" title="Copy link">
+                <button type="button" class="btn btn-outline-neutral btn-sm" @onclick="CopyLink" title="Copy link">
                     <i class="bi @(_copied ? "bi-check2" : "bi-link-45deg") me-1"></i>@(_copied ? "Copied" : "Copy link")
                 </button>
                 @if (_isCaptain && _canDelete)
                 {
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="RequestDelete">
                         <i class="bi bi-trash me-1"></i> Delete
                     </button>
                 }
@@ -188,10 +189,7 @@ else if (_match != null)
             </Footer>
         </Panel>
 
-        <AlertMessage Message="@_deleteError" Variant="danger" Icon="bi bi-exclamation-triangle"
-                      Dismissible="true" OnDismiss="() => _deleteError = null" />
-
-        <a href="/team/@TeamCode/matches" class="btn btn-outline-secondary">
+        <a href="/team/@TeamCode/matches" class="btn btn-outline-neutral">
             <i class="bi bi-arrow-left me-1"></i> Back to History
         </a>
     </PageContainer>
@@ -199,16 +197,20 @@ else if (_match != null)
     <Modal Show="_showDeleteConfirm" Title="Delete Match" OnClose="() => _showDeleteConfirm = false">
         <Body>
             <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
-            <div class="alert alert-secondary">
+            <div class="alert alert-neutral">
                 <strong>Match Summary:</strong><br />
                 Team 1 (@string.Join(", ", team1Players.Select(p => p.PlayerName))) vs
                 Team 2 (@string.Join(", ", team2Players.Select(p => p.PlayerName)))<br />
                 Score: @_match.Team1Score : @_match.Team2Score<br />
                 Date: @_match.PlayedAt.ToString("f")
             </div>
+            @* Kept in the dialog, exactly as on Match History: a failed delete leaves the user
+               here deciding whether to retry, so the reason has to stay put. *@
+            <AlertMessage Message="@_deleteError" Variant="danger" Icon="bi bi-exclamation-triangle"
+                          Dismissible="true" OnDismiss="() => _deleteError = null" />
         </Body>
         <Footer>
-            <button type="button" class="btn btn-secondary" @onclick="() => _showDeleteConfirm = false">Cancel</button>
+            <button type="button" class="btn btn-neutral" @onclick="() => _showDeleteConfirm = false">Cancel</button>
             <SpinnerButton Variant="danger" Busy="_deleting" OnClick="DeleteMatch">Delete Match</SpinnerButton>
         </Footer>
     </Modal>
@@ -306,8 +308,17 @@ else
         }
         catch
         {
-            // Ignore clipboard failures (older browsers / insecure contexts).
+            // Unlike the other copy buttons there is no field to fall back to here — the value
+            // being copied is the page's own URL.
+            Toasts.ClipboardFailed("You can copy the link from the address bar.");
         }
+    }
+
+    /// <summary>Reopening the dialog starts clean — a previous failure's reason is stale.</summary>
+    private void RequestDelete()
+    {
+        _deleteError = null;
+        _showDeleteConfirm = true;
     }
 
     private async Task DeleteMatch()
@@ -320,18 +331,19 @@ else
             var result = await Sender.Send(new DeleteMatchCommand(_team.Id, MatchId));
             if (result.IsSuccess)
             {
-                Navigation.NavigateTo($"/team/{TeamCode}/matches?message=Match deleted successfully", forceLoad: true);
+                // Soft navigation keeps the circuit — and with it the toast — alive, which is why
+                // the confirmation no longer has to travel as a querystring parameter.
+                Toasts.Success("Match deleted.");
+                Navigation.NavigateTo($"/team/{TeamCode}/matches");
             }
             else
             {
                 _deleteError = result.Error.Message;
-                _showDeleteConfirm = false;
             }
         }
         catch
         {
             _deleteError = "An error occurred while deleting the match.";
-            _showDeleteConfirm = false;
         }
         finally
         {

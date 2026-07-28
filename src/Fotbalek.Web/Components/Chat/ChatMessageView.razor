@@ -25,10 +25,10 @@
                       @bind="_editText" @bind:event="oninput"
                       @onkeydown="OnEditKeyDown"></textarea>
             <div class="chat-msg-edit-actions">
-                <button type="button" class="btn btn-sm btn-success"
+                <button type="button" class="btn btn-sm btn-brand"
                         disabled="@(string.IsNullOrWhiteSpace(_editText))"
                         @onclick="SaveEdit">Save</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                <button type="button" class="btn btn-sm btn-outline-neutral" @onclick="CancelEdit">Cancel</button>
                 <span class="chat-msg-edit-hint">Esc to cancel</span>
             </div>
         </div>

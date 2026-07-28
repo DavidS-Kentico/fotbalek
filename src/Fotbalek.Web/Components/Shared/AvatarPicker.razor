@@ -5,7 +5,7 @@
             var avatarId = i;
             <div>
                 <button type="button"
-                        class="btn w-full p-2 @(Value == avatarId ? "btn-success" : "btn-outline-secondary")"
+                        class="btn w-full p-2 @(Value == avatarId ? "btn-brand" : "btn-outline-neutral")"
                         @onclick="() => SelectAvatar(avatarId)">
                     <Avatar AvatarId="@avatarId" Size="md" />
                 </button>

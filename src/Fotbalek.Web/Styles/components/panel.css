@@ -69,12 +69,12 @@
     .panel--accent .panel__head > .bi {
         color: var(--panel-accent, var(--color-brand));
     }
-    .panel--success   { --panel-accent: var(--color-brand); --panel-tint: var(--color-brand-tint); }
-    .panel--primary   { --panel-accent: var(--color-primary); --panel-tint: var(--color-primary-tint); }
-    .panel--info      { --panel-accent: var(--color-info-strong); --panel-tint: var(--color-info-tint); }
-    .panel--warning   { --panel-accent: var(--color-warning-strong); --panel-tint: var(--color-warning-tint); }
-    .panel--danger    { --panel-accent: var(--color-danger); --panel-tint: var(--color-danger-tint); }
-    .panel--secondary { --panel-accent: var(--color-neutral); --panel-tint: var(--color-neutral-tint); }
+    .panel--brand   { --panel-accent: var(--color-brand); --panel-tint: var(--color-brand-tint); }
+    .panel--primary { --panel-accent: var(--color-primary); --panel-tint: var(--color-primary-tint); }
+    .panel--info    { --panel-accent: var(--color-info-strong); --panel-tint: var(--color-info-tint); }
+    .panel--warning { --panel-accent: var(--color-warning-strong); --panel-tint: var(--color-warning-tint); }
+    .panel--danger  { --panel-accent: var(--color-danger); --panel-tint: var(--color-danger-tint); }
+    .panel--neutral { --panel-accent: var(--color-neutral); --panel-tint: var(--color-neutral-tint); }
 
     /* Winner emphasis — green outline + ring for a "this one won" panel. */
     .panel--winner {

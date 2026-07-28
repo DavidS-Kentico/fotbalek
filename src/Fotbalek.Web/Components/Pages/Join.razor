@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @inject IScopedSender Sender
 @inject NavigationManager Navigation
+@inject ToastService Toasts
 
 <PageTitle>Join Team - Foosball Manager</PageTitle>
 
@@ -47,7 +48,7 @@
 
                     <div class="grid gap-2 mt-6">
                         <SpinnerButton Type="submit" Busy="_loading" CssClass="btn-lg">Join team</SpinnerButton>
-                        <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                        <a href="/" class="btn btn-outline-neutral">Cancel</a>
                     </div>
                 </EditForm>
             </div>
@@ -87,6 +88,9 @@
                 var result = await Sender.Send(new JoinTeamByShareTokenCommand(Token, TeamCode));
                 if (result.IsSuccess)
                 {
+                    // The share link joins silently on arrival, so a toast is the only signal
+                    // that anything happened. Parked, because forceLoad drops the circuit.
+                    await Toasts.ShowAfterReloadAsync($"You joined '{result.Value.Name}'.");
                     Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
                     return;
                 }
@@ -129,6 +133,7 @@
                 return;
             }
 
+            await Toasts.ShowAfterReloadAsync($"You joined '{result.Value.Name}'.");
             Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)

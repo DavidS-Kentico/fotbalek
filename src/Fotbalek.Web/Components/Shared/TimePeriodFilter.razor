@@ -5,23 +5,23 @@
     <div class="btn-group" role="group">
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}All")" value="all"
                checked="@(SelectedPeriod == "all")" @onchange="@(() => OnPeriodClicked("all"))">
-        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}All")">All</label>
+        <label class="btn btn-outline-brand btn-sm" for="@($"{_radioGroupName}All")">All</label>
 
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Today")" value="today"
                checked="@(SelectedPeriod == "today")" @onchange="@(() => OnPeriodClicked("today"))">
-        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Today")">Today</label>
+        <label class="btn btn-outline-brand btn-sm" for="@($"{_radioGroupName}Today")">Today</label>
 
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Week")" value="week"
                checked="@(SelectedPeriod == "week")" @onchange="@(() => OnPeriodClicked("week"))">
-        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Week")">This Week</label>
+        <label class="btn btn-outline-brand btn-sm" for="@($"{_radioGroupName}Week")">This Week</label>
 
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Month")" value="month"
                checked="@(SelectedPeriod == "month")" @onchange="@(() => OnPeriodClicked("month"))">
-        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Month")">This Month</label>
+        <label class="btn btn-outline-brand btn-sm" for="@($"{_radioGroupName}Month")">This Month</label>
 
         <input type="radio" class="btn-check" name="@_radioGroupName" id="@($"{_radioGroupName}Custom")" value="custom"
                checked="@(SelectedPeriod == "custom")" @onchange="@(() => OnPeriodClicked("custom"))">
-        <label class="btn btn-outline-success btn-sm" for="@($"{_radioGroupName}Custom")">Custom</label>
+        <label class="btn btn-outline-brand btn-sm" for="@($"{_radioGroupName}Custom")">Custom</label>
     </div>
 
     @if (SelectedPeriod == "custom")

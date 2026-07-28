@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject CurrentTeamProvider TeamAccess
 @inject IScopedSender Sender
+@inject ToastService Toasts
 @inject NavigationManager Navigation
 @inject TimeZoneService Tz
 @using System.Globalization
@@ -19,13 +20,11 @@ else
     <PageContainer Focused>
         <PageHeader Title="Match History" Icon="bi bi-clock-history">
             <Actions>
-                <a href="/team/@TeamCode/match/new" class="btn btn-success">
+                <a href="/team/@TeamCode/match/new" class="btn btn-brand">
                     <i class="bi bi-plus-lg me-1"></i> New Match
                 </a>
             </Actions>
         </PageHeader>
-
-        <AlertMessage Message="@_message" Variant="success" Dismissible="true" OnDismiss="() => _message = null" />
 
         <Panel Class="mb-6 match-history-filters" BodyClass="py-2">
                 <div class="flex flex-wrap items-center gap-4 mb-2">
@@ -58,7 +57,7 @@ else
                     @if (MyPlayerId.HasValue)
                     {
                         <button type="button"
-                                class="btn btn-sm @(_myMatchesOnly ? "btn-success" : "btn-outline-success")"
+                                class="btn btn-sm @(_myMatchesOnly ? "btn-brand" : "btn-outline-brand")"
                                 @onclick="ToggleMyMatches">
                             <i class="bi bi-person-check me-1"></i> My matches
                             @if (_myMatchesOnly)
@@ -72,10 +71,10 @@ else
                     {
                         <div class="btn-group btn-group-sm" role="group" aria-label="Outcome filter">
                             <button type="button"
-                                    class="btn @(_outcome == null ? "btn-secondary" : "btn-outline-secondary")"
+                                    class="btn @(_outcome == null ? "btn-neutral" : "btn-outline-neutral")"
                                     @onclick='() => SetOutcome(null)'>All</button>
                             <button type="button"
-                                    class="btn @(_outcome == "wins" ? "btn-success" : "btn-outline-success")"
+                                    class="btn @(_outcome == "wins" ? "btn-brand" : "btn-outline-brand")"
                                     @onclick='() => SetOutcome("wins")'>
                                 <i class="bi bi-trophy me-1"></i>Wins
                             </button>
@@ -96,7 +95,7 @@ else
                         {
                             var isSelected = _selectedPlayerIds.Contains(player.Id);
                             <button type="button"
-                                    class="btn btn-sm @(isSelected ? "btn-success" : "btn-outline-secondary")"
+                                    class="btn btn-sm @(isSelected ? "btn-brand" : "btn-outline-neutral")"
                                     @onclick="() => TogglePlayer(player.Id)"
                                     disabled="@(!isSelected && _selectedPlayerIds.Count >= 4)">
                                 @player.Name
@@ -163,7 +162,7 @@ else
             <MatchDayList Matches="GetVisibleMatches()" TeamCode="@TeamCode" ShowSeasonChip="@(_seasons.Count > 0)">
                 <Actions Context="match">
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary border-0" type="button"
+                        <button class="btn btn-sm btn-outline-neutral border-0" type="button"
                                 data-toggle="dropdown" aria-expanded="false" aria-label="Match actions">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
@@ -205,11 +204,11 @@ else
                         Message="@(HasActiveFilters ? "Try adjusting your filters or selecting a different time period." : "Start playing and record your first match!")">
                 @if (HasActiveFilters)
                 {
-                    <button class="btn btn-outline-success" @onclick="ClearAllFilters">Clear Filters</button>
+                    <button class="btn btn-outline-brand" @onclick="ClearAllFilters">Clear Filters</button>
                 }
                 else
                 {
-                    <a href="/team/@TeamCode/match/new" class="btn btn-success">Record First Match</a>
+                    <a href="/team/@TeamCode/match/new" class="btn btn-brand">Record First Match</a>
                 }
             </EmptyState>
         }
@@ -220,7 +219,7 @@ else
             @if (_pendingDelete != null)
             {
                 <p>Are you sure you want to delete this match? ELO changes will be reversed.</p>
-                <div class="alert alert-secondary mb-0">
+                <div class="alert alert-neutral mb-0">
                     <strong>Score:</strong> @_pendingDelete.Team1Score : @_pendingDelete.Team2Score<br />
                     <strong>Date:</strong>
                     <span class="match-date" data-utc="@_pendingDelete.PlayedAt.ToString("o")">
@@ -232,7 +231,7 @@ else
                           Dismissible="true" OnDismiss="() => _deleteError = null" />
         </Body>
         <Footer>
-            <button type="button" class="btn btn-secondary" @onclick="() => _pendingDelete = null">Cancel</button>
+            <button type="button" class="btn btn-neutral" @onclick="() => _pendingDelete = null">Cancel</button>
             <SpinnerButton Variant="danger" Busy="_deleting" OnClick="ConfirmDelete">Delete Match</SpinnerButton>
         </Footer>
     </Modal>
@@ -241,7 +240,6 @@ else
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
 
-    [SupplyParameterFromQuery(Name = "message")] public string? MessageParam { get; set; }
     [SupplyParameterFromQuery(Name = "player")]  public int? PlayerParam { get; set; }
     [SupplyParameterFromQuery(Name = "period")]  public string? PeriodParam { get; set; }
     [SupplyParameterFromQuery(Name = "players")] public string? PlayersParam { get; set; }
@@ -264,7 +262,6 @@ else
     // Load-more window: how many of _filteredMatches are rendered; grows by DefaultPageSize
     // per "Load more" click and resets to one page whenever the filters change.
     private int _visibleCount = Constants.Pagination.DefaultPageSize;
-    private string? _message;
 
     private string _selectedPeriod = "all";
     private HashSet<int> _selectedPlayerIds = [];
@@ -338,8 +335,6 @@ else
 
                 // Load after the URL filters are known — season + period filter server-side.
                 await LoadMatchesAsync();
-
-                _message = MessageParam;
 
                 _dataLoaded = true;
                 _lastMyPlayerId = MyPlayerId;
@@ -604,7 +599,7 @@ else
             if (result.IsSuccess)
             {
                 _scopedMatches.Remove(_pendingDelete);
-                _message = "Match deleted successfully.";
+                Toasts.Success("Match deleted.");
                 _pendingDelete = null;
                 ApplyFilter();
             }

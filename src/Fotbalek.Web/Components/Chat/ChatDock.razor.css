@@ -218,16 +218,24 @@
     min-width: 0;
 }
 
-/* In-app banners — bottom-left so an open panel (bottom-right) is never covered. */
+/* In-app banners — stacked directly above the launcher, sharing its corner and the same
+   anchor `calc` as the panel. A banner is a trigger for the panel (clicking it opens that
+   conversation), so it has to sit where the panel comes from; the launcher's unread badge and
+   the banner describing that unread also belong in one place, not in opposite corners.
+   Occlusion by an open panel is handled upstream instead: ChatDock raises no banner while the
+   panel is open, and clears any standing ones when it opens — the team rail inside the panel
+   already carries per-team unread counts and previews. */
 .chat-banners {
     position: fixed;
-    left: 1rem;
-    bottom: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + 52px + .75rem);
     z-index: var(--z-chat-overlay);
     display: flex;
+    /* Column + bottom anchor: the stack grows upward and the newest banner (appended last)
+       lands nearest the launcher. */
     flex-direction: column;
     gap: .5rem;
-    width: min(340px, calc(100vw - 6rem));
+    width: min(340px, calc(100vw - 2rem));
 }
 
 .chat-banner {
@@ -333,8 +341,11 @@
         margin-top: 0;
     }
 
+    /* Full-bleed like the mobile panel, still clearing the launcher. */
     .chat-banners {
         left: .5rem;
-        bottom: .75rem;
+        right: .5rem;
+        bottom: calc(.75rem + 52px + .5rem);
+        width: auto;
     }
 }

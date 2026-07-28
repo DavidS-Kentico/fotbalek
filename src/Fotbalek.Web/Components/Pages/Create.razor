@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @inject IScopedSender Sender
 @inject NavigationManager Navigation
+@inject ToastService Toasts
 
 <PageTitle>Create Team - Foosball Manager</PageTitle>
 
@@ -50,7 +51,7 @@
 
                 <div class="grid gap-2 mt-6">
                     <SpinnerButton Type="submit" Busy="_loading" CssClass="btn-lg">Create team</SpinnerButton>
-                    <a href="/" class="btn btn-outline-secondary">Cancel</a>
+                    <a href="/" class="btn btn-outline-neutral">Cancel</a>
                 </div>
             </EditForm>
         </div>
@@ -117,6 +118,8 @@
                 return;
             }
 
+            // forceLoad rebuilds the team context, so the confirmation has to survive the reload.
+            await Toasts.ShowAfterReloadAsync($"Team '{result.Value.Name}' created. You're the captain.");
             Navigation.NavigateTo($"/team/{result.Value.CodeName}/claim", forceLoad: true);
         }
         catch (Exception)

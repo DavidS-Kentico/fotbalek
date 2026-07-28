@@ -236,6 +236,9 @@
        the user can still act on, and the dock is full-screen on a phone. */
     --z-error: 1040;
     --z-modal: 1055;
+    /* Toasts top the ladder: one raised from inside a dialog (saving a season, renaming a
+       player) has to clear the dialog's own scrim, and the stack is transient anyway. */
+    --z-toast: 1060;
 }
 
 /* Dark theme. `data-theme` is set on <html> before first paint (inline script in

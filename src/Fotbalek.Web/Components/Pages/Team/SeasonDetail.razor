@@ -162,7 +162,7 @@ else
                                     @foreach (var row in _standings)
                                     {
                                         var isMine = row.PlayerId == MyPlayerId;
-                                        <tr class="@(isMine ? "table-success" : "")">
+                                        <tr class="@(isMine ? "table-brand" : "")">
                                             <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
                                             <td>
                                                 <a href="/team/@TeamCode/players/@row.PlayerId" class="no-underline inline-flex items-center gap-2">
@@ -252,7 +252,7 @@ else
                                     @foreach (var pair in _pairs)
                                     {
                                         var pairContainsMe = MyPlayerId.HasValue && (pair.Player1Id == MyPlayerId || pair.Player2Id == MyPlayerId);
-                                        <tr class="@(pairContainsMe ? "table-success" : "")">
+                                        <tr class="@(pairContainsMe ? "table-brand" : "")">
                                             <td class="text-center"><RankBadge Rank="@pairRank" Large="true" /></td>
                                             <td>
                                                 <div class="flex items-center gap-2">
@@ -286,7 +286,7 @@ else
                     }
                 </Panel>
 
-            <a href="/team/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-secondary btn-sm">
+            <a href="/team/@TeamCode/matches?season=@_season.Id" class="btn btn-outline-neutral btn-sm">
                 <i class="bi bi-list-ul me-1"></i> View the season's matches
             </a>
         }

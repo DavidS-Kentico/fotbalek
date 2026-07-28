@@ -1,6 +1,8 @@
 @if (Show)
 {
-    <div class="modal show block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    @* `.modal` is position:fixed and paints its own scrim (Styles/components/overlay.css).
+       It is only rendered while open, so it needs no `.show`/display override. *@
+    <div class="modal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered @SizeClass">
             <div class="modal-content">
                 <div class="modal-header">

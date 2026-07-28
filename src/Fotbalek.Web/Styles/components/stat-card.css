@@ -51,10 +51,10 @@
         font-size: 0.85rem;
         font-weight: 500;
     }
-    .stat-card--success   { --stat-accent: var(--color-brand); --stat-tint: var(--color-brand-tint); }
-    .stat-card--primary   { --stat-accent: var(--color-primary); --stat-tint: var(--color-primary-tint); }
-    .stat-card--info      { --stat-accent: var(--color-info-strong); --stat-tint: var(--color-info-tint); }
-    .stat-card--warning   { --stat-accent: var(--color-warning-strong); --stat-tint: var(--color-warning-tint); }
-    .stat-card--danger    { --stat-accent: var(--color-danger); --stat-tint: var(--color-danger-tint); }
-    .stat-card--secondary { --stat-accent: var(--color-neutral); --stat-tint: var(--color-neutral-tint); }
+    .stat-card--brand   { --stat-accent: var(--color-brand); --stat-tint: var(--color-brand-tint); }
+    .stat-card--primary { --stat-accent: var(--color-primary); --stat-tint: var(--color-primary-tint); }
+    .stat-card--info    { --stat-accent: var(--color-info-strong); --stat-tint: var(--color-info-tint); }
+    .stat-card--warning { --stat-accent: var(--color-warning-strong); --stat-tint: var(--color-warning-tint); }
+    .stat-card--danger  { --stat-accent: var(--color-danger); --stat-tint: var(--color-danger-tint); }
+    .stat-card--neutral { --stat-accent: var(--color-neutral); --stat-tint: var(--color-neutral-tint); }
 }

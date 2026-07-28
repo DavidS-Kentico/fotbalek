@@ -27,7 +27,7 @@ else if (_team != null && _user != null)
                     <div class="lg-hero__icon">🎮</div>
                     <h4>@(_roomEnded ? "The game has ended" : "No live game right now")</h4>
                     <p>Play foosball in the browser against your teammates — up to 4 players, everyone else can watch.</p>
-                    <button class="btn btn-success btn-lg" @onclick="StartGame">
+                    <button class="btn btn-brand btn-lg" @onclick="StartGame">
                         <i class="bi bi-play-fill me-1"></i> Start live game
                     </button>
                 </div>
@@ -139,7 +139,7 @@ else if (_team != null && _user != null)
                                     </div>
                                     @if (IsSeated)
                                     {
-                                        <button class="btn btn-success mt-4" @onclick="Rematch">
+                                        <button class="btn btn-brand mt-4" @onclick="Rematch">
                                             <i class="bi bi-arrow-repeat me-1"></i> Rematch
                                         </button>
                                     }
@@ -342,7 +342,7 @@ else if (_team != null && _user != null)
             <p>End the live game for everyone? The score will be lost.</p>
         </Body>
         <Footer>
-            <button type="button" class="btn btn-secondary" @onclick="() => _showEndModal = false">Cancel</button>
+            <button type="button" class="btn btn-neutral" @onclick="() => _showEndModal = false">Cancel</button>
             <button type="button" class="btn btn-danger" @onclick="EndGame">End game</button>
         </Footer>
     </Modal>

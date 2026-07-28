@@ -1,7 +1,7 @@
 /* ============================================================================
    Tables
    ----------------------------------------------------------------------------
-   Row tint (hover, .table-light head, .table-success highlight) is painted with
+   Row tint (hover, .table-light head, .table-brand highlight) is painted with
    a full-bleed inset shadow rather than background-color, so a tint can layer
    over the cell's own opaque background without a second element.
    ============================================================================ */
@@ -37,7 +37,7 @@
     }
 
     /* Green tint marking the signed-in user's row. */
-    .table-success {
+    .table-brand {
         --table-tint: var(--color-brand-tint);
     }
 
@@ -52,11 +52,11 @@
     /* Dark mode: the green highlight needs to be stronger to read at all, and
        must survive being hovered (the hover rule targets the cell, which would
        otherwise win over the row's inherited value). */
-    :root[data-theme='dark'] .table-success {
+    :root[data-theme='dark'] .table-brand {
         --table-tint: rgba(25, 135, 84, 0.22);
     }
 
-    :root[data-theme='dark'] .table-hover > tbody > tr.table-success:hover > * {
+    :root[data-theme='dark'] .table-hover > tbody > tr.table-brand:hover > * {
         --table-tint: rgba(25, 135, 84, 0.3);
     }
 

@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject IScopedSender Sender
 @inject TimeZoneService Tz
+@inject ToastService Toasts
 @inject IJSRuntime JS
 
 <PageTitle>My account - Foosball Manager</PageTitle>
@@ -9,14 +10,15 @@
 <PageContainer Focused Padding="py-6 lg:py-12">
     <PageHeader Title="My account" Icon="bi bi-person-circle">
         <Actions>
-            <a href="/" class="btn btn-sm btn-outline-secondary">
+            <a href="/" class="btn btn-sm btn-outline-neutral">
                 <i class="bi bi-house-door me-1"></i> Overview
             </a>
         </Actions>
     </PageHeader>
 
-    <AlertMessage Message="@(string.IsNullOrEmpty(Success) ? null : SuccessMessage)" Variant="success" Icon="bi bi-check-circle" />
-    <AlertMessage Message="@Error" Variant="danger" />
+    @* The password form posts to /account/change-password and comes back as a redirect, so the
+       outcome arrives in the querystring. Success is a toast (raised on first render); a failure
+       stays inline in the form's own panel, because it is always something to correct and retry. *@
 
     @if (_loading)
     {
@@ -74,8 +76,8 @@
                 <div class="panel__body">
                     <EmptyState Icon="bi bi-shield" Message="You are not a member of any team yet." />
                     <div class="text-center">
-                        <a href="/create" class="btn btn-success btn-sm me-2">Create team</a>
-                        <a href="/join" class="btn btn-outline-success btn-sm">Join team</a>
+                        <a href="/create" class="btn btn-brand btn-sm me-2">Create team</a>
+                        <a href="/join" class="btn btn-outline-brand btn-sm">Join team</a>
                     </div>
                 </div>
             }
@@ -131,6 +133,11 @@
                 <h2 class="panel__title">Change password</h2>
             </div>
             <div class="panel__body">
+                @* Every ?error= here is a rejected submission ("Incorrect password.", the policy
+                   messages, the mismatch check) — the form is still on screen and the user has to
+                   act on the reason, so it belongs beside it and not in a toast that times out. *@
+                <AlertMessage Message="@Error" Variant="danger" Icon="bi bi-exclamation-triangle" />
+
                 <form method="post" action="/account/change-password">
                     <AntiforgeryToken />
 
@@ -150,7 +157,7 @@
                         <input id="confirmPassword" name="confirmPassword" type="password" class="form-control" autocomplete="new-password" required minlength="6" />
                     </div>
 
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-brand">
                         <i class="bi bi-check-lg me-1"></i>Change password
                     </button>
                 </form>
@@ -166,7 +173,7 @@
     private string _theme = "system";
 
     private string ThemeButtonClass(string value) =>
-        _theme == value ? "btn-success" : "btn-outline-secondary";
+        _theme == value ? "btn-brand" : "btn-outline-neutral";
 
     private async Task SetTheme(string value)
     {
@@ -189,6 +196,10 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+
+        // Outcome of the change-password POST, which redirects back here with a querystring.
+        // Only the success half is a toast; ?error= renders inline next to the form.
+        if (!string.IsNullOrEmpty(Success)) Toasts.Success(SuccessMessage);
 
         try
         {

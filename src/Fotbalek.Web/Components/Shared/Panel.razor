@@ -5,7 +5,7 @@
 
    Params:
      Title / Icon  — leading head text + icon (omit both, with no Header, for a headless panel)
-     Variant       — success/primary/info/warning/danger/secondary → tinted accented head
+     Variant       — brand/primary/info/warning/danger/neutral → tinted accented head
      Flush         — body has no padding and is clipped to the corners (tables, list-groups)
      Header        — fully custom head, replacing the icon/title/actions layout
      Actions        — right-aligned head content (buttons, badges)
@@ -54,7 +54,7 @@
     /// <summary>Bootstrap-icon class for the leading title icon, e.g. "bi bi-people-fill".</summary>
     [Parameter] public string? Icon { get; set; }
 
-    /// <summary>Optional accent variant (success/primary/info/warning/danger/secondary) — tints the head.</summary>
+    /// <summary>Optional accent variant (brand/primary/info/warning/danger/neutral) — tints the head.</summary>
     [Parameter] public string? Variant { get; set; }
 
     /// <summary>When true, the body has no padding and is clipped to the rounded corners (tables, list-groups).</summary>
