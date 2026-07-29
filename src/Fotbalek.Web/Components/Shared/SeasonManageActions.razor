@@ -237,8 +237,14 @@
             // OnDeleted soft-navigates off the season page; the circuit survives, so the toast
             // is still standing when the seasons list renders.
             Toasts.Success($"Season '{Season.Name}' deleted.");
-            await OnDeleted.InvokeAsync();
-            await OnChanged.InvokeAsync();
+            // The two callbacks are alternatives here, not a sequence: a host that navigates away
+            // on delete (the detail page) must not also be told to reload — its reload would query
+            // the season this click just deleted, whose membership probe now fails. Only a host
+            // that stays put (the list page) wants OnChanged.
+            if (OnDeleted.HasDelegate)
+                await OnDeleted.InvokeAsync();
+            else
+                await OnChanged.InvokeAsync();
         }
         catch
         {

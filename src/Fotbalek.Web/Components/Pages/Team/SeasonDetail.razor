@@ -328,8 +328,11 @@ else
     {
         if (_team == null) return;
 
-        var season = (await Sender.Send(new GetSeasonQuery(SeasonId))).Value;
-        if (season == null || season.TeamId != _team.Id)
+        // A failure here is "no such season for you": the membership probe deliberately answers
+        // NotMember for a nonexistent id (no id-probing), and the season can vanish mid-circuit —
+        // deleted from this very page, or a mistyped URL. Either way this page shows not-found.
+        var seasonResult = await Sender.Send(new GetSeasonQuery(SeasonId));
+        if (seasonResult.IsFailure || seasonResult.Value is not { } season || season.TeamId != _team.Id)
         {
             _season = null;
             return;
