@@ -1,14 +1,19 @@
 @* Summary stat tile — accent stripe, tinted icon chip, big number. Shared across
    the overview, dashboard and stats pages so every summary stat looks the same.
-   Style lives in Styles/components/stat-card.css; Variant maps to the accent colour. *@
+   Style lives in Styles/components/stat-card.css; Variant maps to the accent colour.
 
-<div class="stat-card stat-card--@Variant h-full">
+   Dense lays the same parts out side by side instead of stacked, for a KPI band
+   that has to stay out of the way of the content below it. *@
+
+<div class="stat-card stat-card--@Variant @(Dense ? "stat-card--dense" : "") h-full">
     @if (!string.IsNullOrEmpty(Icon))
     {
         <span class="stat-card__icon"><i class="@Icon"></i></span>
     }
-    <span class="stat-card__value">@Value</span>
-    <span class="stat-card__label">@Label</span>
+    <span class="stat-card__text">
+        <span class="stat-card__value">@Value</span>
+        <span class="stat-card__label">@Label</span>
+    </span>
 </div>
 
 @code {
@@ -16,4 +21,7 @@
     [Parameter] public string? Icon { get; set; }
     [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    /// <summary>Compact row layout — icon beside the number rather than above it.</summary>
+    [Parameter] public bool Dense { get; set; }
 }

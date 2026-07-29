@@ -1,0 +1,50 @@
+@* Horizontal tab strip used to split a long page into panes (Player detail,
+   Statistics). Renders the .tab-strip design-system nav (Styles/components/nav.css):
+   an underlined row that scrolls sideways rather than wrapping, so a growing tab
+   set never turns into two rows of chrome.
+
+   The component owns the strip only — the caller renders the active pane and
+   decides whether the selection lives in a field or in the query string.
+
+   Usage:
+     <TabStrip Tabs="Tabs" ActiveId="@_tab" OnSelect="SwitchTab" /> *@
+
+<ul class="nav tab-strip @Class" role="tablist">
+    @foreach (var tab in Tabs)
+    {
+        var isActive = string.Equals(tab.Id, ActiveId, StringComparison.OrdinalIgnoreCase);
+        <li class="nav-item" role="presentation">
+            @* Spelled out rather than bound to the bool: Blazor renders a true bool
+               attribute with an empty value, and aria-selected="" is not valid ARIA. *@
+            <button type="button" role="tab" aria-selected="@(isActive ? "true" : "false")"
+                    class="nav-link @(isActive ? "active" : "")"
+                    @onclick="() => OnSelect.InvokeAsync(tab.Id)">
+                @if (!string.IsNullOrEmpty(tab.Icon))
+                {
+                    <i class="@tab.Icon me-1"></i>
+                }
+                @tab.Label
+                @if (tab.Count is int count)
+                {
+                    <span class="tab-strip__count">@count</span>
+                }
+            </button>
+        </li>
+    }
+</ul>
+
+@code {
+    /// <summary>One tab: its id (used for selection), leading icon, label and an optional count pill.</summary>
+    public sealed record TabItem(string Id, string Icon, string Label, int? Count = null);
+
+    [Parameter, EditorRequired] public IReadOnlyList<TabItem> Tabs { get; set; } = [];
+
+    /// <summary>Id of the tab currently shown.</summary>
+    [Parameter, EditorRequired] public string ActiveId { get; set; } = string.Empty;
+
+    /// <summary>Raised with the clicked tab's id — including when it is already active.</summary>
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+
+    /// <summary>Wrapper classes; controls spacing below the strip.</summary>
+    [Parameter] public string Class { get; set; } = "mb-4";
+}

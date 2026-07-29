@@ -56,43 +56,8 @@
 .form-pill-w { background-color: var(--color-brand); }
 .form-pill-l { background-color: var(--color-danger); }
 
-/* ---------- Tabs ---------- */
-.player-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-bottom: 1px solid var(--color-gray-300);
-}
-
-.player-tabs::-webkit-scrollbar {
-    height: 0;
-}
-
-.player-tabs .nav-item {
-    flex-shrink: 0;
-}
-
-.player-tabs .nav-link {
-    color: var(--color-gray-700);
-    border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    padding: 0.6rem 1rem;
-    background: none;
-    white-space: nowrap;
-}
-
-.player-tabs .nav-link:hover {
-    color: var(--color-brand);
-    border-bottom-color: rgba(25, 135, 84, 0.3);
-}
-
-.player-tabs .nav-link.active {
-    color: var(--color-brand);
-    border-bottom-color: var(--color-brand);
-    background: none;
-    font-weight: 600;
-}
+/* Tabs live in the design system now — .tab-strip in Styles/components/nav.css,
+   rendered by the shared TabStrip component. */
 
 /* ---------- Stat cards (Overview / Quirks) ----------
    Page-specific rich stat card (label / value / sub). Named .pd-stat-card so
@@ -259,12 +224,6 @@
 /* Lighten the low-contrast greys and swap light surfaces for theme tokens. */
 :root[data-theme='dark'] .kpi-strip {
     border-top-color: var(--color-line);
-}
-:root[data-theme='dark'] .player-tabs {
-    border-bottom-color: var(--color-line);
-}
-:root[data-theme='dark'] .player-tabs .nav-link {
-    color: var(--color-ink-muted);
 }
 :root[data-theme='dark'] .wr-bar {
     background-color: var(--color-surface-sunken);

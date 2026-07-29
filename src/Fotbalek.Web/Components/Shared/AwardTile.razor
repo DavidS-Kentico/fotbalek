@@ -1,0 +1,56 @@
+@* One themed stat award, as a compact tile: emoji chip + the award's name, who
+   holds it and their number. Rendered in an .award-grid (Styles/components/stats.css),
+   which auto-fills columns — so the award catalogue can grow without the layout
+   or this component changing.
+
+   An award with no holder still gets a tile (muted, em-dash value) so the page
+   shows what is up for grabs, not only what has been won. *@
+
+<div class="award-tile award-tile--@Accent @(HasHolders ? "" : "award-tile--open")"
+     title="@Display.Description">
+    <span class="award-tile__chip">@Display.Emoji</span>
+    <span class="award-tile__body">
+        <span class="award-tile__name">@Display.Name</span>
+        @if (HasHolders)
+        {
+            <span class="award-tile__holder">@Holders</span>
+            <span class="award-tile__value">@Display.FormatValue(Stat.Holders[0])</span>
+        }
+        else
+        {
+            <span class="award-tile__holder award-tile__holder--open">Unclaimed</span>
+        }
+    </span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public StatResult Stat { get; set; } = null!;
+
+    private StatPresentation Display => Stat.Display();
+
+    private bool HasHolders => Stat.Holders.Count > 0;
+
+    /// <summary>Joint holders are listed together — a tie is the stat's answer, not a tiebreak to make.</summary>
+    private string Holders => string.Join(", ", Stat.Holders.Select(h => h.PlayerName).Distinct());
+
+    /// <summary>
+    /// Tints the tile with the award's badge colour so it reads the same here as it does
+    /// as an inline badge elsewhere. Awards without a badge fall back to the grey accent.
+    /// </summary>
+    private string Accent
+    {
+        get
+        {
+            var css = Display.Badge?.CssClass;
+            if (css == null) return "neutral";
+            if (css.Contains("bg-warning")) return "warning";
+            if (css.Contains("bg-danger")) return "danger";
+            if (css.Contains("bg-info")) return "info";
+            if (css.Contains("bg-brand")) return "brand";
+            if (css.Contains("bg-primary")) return "primary";
+            if (css.Contains("bg-purple")) return "purple";
+            if (css.Contains("bg-gray-900")) return "dark";
+            return "neutral";
+        }
+    }
+}

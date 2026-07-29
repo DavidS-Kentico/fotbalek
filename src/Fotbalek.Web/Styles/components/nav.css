@@ -36,28 +36,72 @@
         pointer-events: none;
     }
 
-    /* ---- Tabs -------------------------------------------------------------- */
-    /* The active tab's bottom border is painted in the page background so the
-       tab appears to merge with the panel beneath it. */
-    .nav-tabs {
+    /* ---- Tab strip --------------------------------------------------------- */
+    /* The app's page-level tabs, and the only tab style it has (rendered by the
+       TabStrip component): an underlined row with the active tab marked by a
+       brand-green rule. It scrolls sideways on a phone rather than wrapping into
+       two rows, which is what lets a page's pane set grow without the chrome
+       growing with it.
+
+       This replaced the boxed `.nav-tabs` look, which had one caller and was
+       removed with it — a second tab style is a second answer to the same
+       question. Add variants here rather than reviving one. */
+    .tab-strip {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
         border-bottom: 1px solid var(--color-line);
     }
 
-    .nav-tabs .nav-link {
-        margin-bottom: -1px;
-        border: 1px solid transparent;
-        border-top-left-radius: var(--radius-sm);
-        border-top-right-radius: var(--radius-sm);
+    .tab-strip::-webkit-scrollbar {
+        height: 0;
     }
 
-    .nav-tabs .nav-link:hover {
-        border-color: var(--color-surface-sunken) var(--color-surface-sunken) var(--color-line);
+    .tab-strip .nav-item {
+        flex-shrink: 0;
     }
 
-    .nav-tabs .nav-link.active {
-        color: var(--color-ink-strong);
-        background-color: var(--color-surface);
-        border-color: var(--color-line) var(--color-line) var(--color-surface);
+    .tab-strip .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: var(--color-ink-muted);
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        padding: 0.6rem 1rem;
+        background: none;
+        white-space: nowrap;
+    }
+
+    .tab-strip .nav-link:hover {
+        color: var(--color-brand);
+        border-bottom-color: rgba(var(--color-brand-rgb), 0.3);
+    }
+
+    .tab-strip .nav-link.active {
+        color: var(--color-brand);
+        border-bottom-color: var(--color-brand);
+        background: none;
+        font-weight: 600;
+    }
+
+    /* Count pill — the "how many are in here" hint on a tab. */
+    .tab-strip__count {
+        min-width: 1.35rem;
+        padding: 0 0.3rem;
+        border-radius: var(--radius-full);
+        background: var(--color-surface-sunken);
+        color: var(--color-ink-muted);
+        font-size: var(--text-xs);
+        font-weight: 600;
+        line-height: 1.35rem;
+        text-align: center;
+    }
+
+    .tab-strip .nav-link.active .tab-strip__count {
+        background: var(--color-brand-tint);
+        color: var(--color-brand);
     }
 
     /* ---- Navbar shell ------------------------------------------------------ */

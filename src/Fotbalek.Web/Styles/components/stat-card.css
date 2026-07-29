@@ -26,6 +26,14 @@
         width: 4px;
         background: var(--stat-accent);
     }
+    /* Value + label as one block, so the dense variant can put it beside the icon
+       while the default variant keeps them stacked under it. */
+    .stat-card__text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+    }
     .stat-card__icon {
         width: 40px;
         height: 40px;
@@ -51,6 +59,30 @@
         font-size: 0.85rem;
         font-weight: 500;
     }
+    /* Dense — a KPI band rather than a row of cards. Same anatomy, laid out as a
+       row and a size step down, so a page can lead with its headline numbers
+       without spending a third of the first screen on them. */
+    .stat-card--dense {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: var(--radius-2xl);
+    }
+    .stat-card--dense .stat-card__icon {
+        width: 34px;
+        height: 34px;
+        margin-bottom: 0;
+        font-size: 1rem;
+    }
+    .stat-card--dense .stat-card__value {
+        font-size: 1.4rem;
+    }
+    .stat-card--dense .stat-card__label {
+        margin-top: 0.05rem;
+        font-size: 0.78rem;
+    }
+
     .stat-card--brand   { --stat-accent: var(--color-brand); --stat-tint: var(--color-brand-tint); }
     .stat-card--primary { --stat-accent: var(--color-primary); --stat-tint: var(--color-primary-tint); }
     .stat-card--info    { --stat-accent: var(--color-info-strong); --stat-tint: var(--color-info-tint); }

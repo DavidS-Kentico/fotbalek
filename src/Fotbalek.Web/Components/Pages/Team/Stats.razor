@@ -6,6 +6,7 @@
 @inject IScopedSender Sender
 @inject TimeZoneService Tz
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <PageTitle>Statistics - Foosball Manager</PageTitle>
 
@@ -15,8 +16,13 @@
 }
 else
 {
+    @* The page is one scope (season + period) shown through four panes. Everything
+       above the tab strip describes the scope and applies to every pane; each pane
+       below it is a self-contained grid, so a new chart is one more block in the
+       pane it belongs to — never another screen of scrolling on the way to the
+       next thing. *@
     <PageContainer>
-        <PageHeader Title="Statistics" Icon="bi bi-graph-up">
+        <PageHeader Title="Statistics" Icon="bi bi-graph-up" Class="mb-3">
             <Actions>
                 @if (_seasons.Count > 0)
                 {
@@ -25,142 +31,147 @@ else
             </Actions>
         </PageHeader>
 
-        <Panel BodyClass="py-2">
-            <div class="flex flex-wrap items-center gap-4">
-                <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
-                                  @bind-CustomStartDate="_customStartDate"
-                                  @bind-CustomEndDate="_customEndDate"
-                                  LimitCustomRangeToThreeMonths="true"
-                                  Today="Tz.Today"
-                                  OnFilterChanged="OnFilterChanged" />
+        <div class="scope-bar mb-4">
+            <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
+                              @bind-CustomStartDate="_customStartDate"
+                              @bind-CustomEndDate="_customEndDate"
+                              LimitCustomRangeToThreeMonths="true"
+                              Today="Tz.Today"
+                              OnFilterChanged="OnFilterChanged" />
+            <span class="scope-bar__meta">@ScopeSummary</span>
+        </div>
 
-                @if (_selectedPeriod != "all")
-                {
-                    <span class="badge bg-neutral">@GetFilterDescription()</span>
-                }
+        @* Headline numbers describe the scope rather than any one pane, so they sit
+           above the tabs and stay put while panes change. *@
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <StatTile Dense Variant="brand" Icon="bi bi-people"
+                      Value="@_filteredPlayerCount.ToString()" Label="Players" />
+            <StatTile Dense Variant="primary" Icon="bi bi-controller"
+                      Value="@_filteredMatchCount.ToString()" Label="Matches" />
+            <StatTile Dense Variant="info" Icon="bi bi-bullseye"
+                      Value="@_filteredTotalGoals.ToString()" Label="Goals" />
+            <StatTile Dense Variant="warning" Icon="bi bi-calculator"
+                      Value="@_filteredAvgGoalsPerMatch.ToString("F1")" Label="Goals / match" />
+        </div>
+
+        <TabStrip Tabs="@BuildTabs()" ActiveId="@_tab" OnSelect="SwitchTab" />
+
+        @* ---------------- OVERVIEW ---------------- *@
+        @if (_tab == TabOverview)
+        {
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12">
+                    <ChartCard CanvasId="eloTrajectoryChart"
+                               Title="ELO Trajectory" Icon="bi bi-activity"
+                               Subtitle="Each player's ELO after every match. Click legend entries to toggle players."
+                               Height="240"
+                               HasData="_eloTrajectoryDatasets.Count > 0" />
+                </div>
+                <div class="col-span-12 lg:col-span-6">
+                    <ChartCard CanvasId="eloDistributionChart"
+                               Title="@(IsSeasonScope ? "Seasonal ELO Distribution" : "ELO Distribution")"
+                               Icon="bi bi-graph-up-arrow"
+                               HasData="@(IsSeasonScope ? _seasonEloByPlayer.Count > 0 : _rankings.Count > 0)" />
+                </div>
+                <div class="col-span-12 lg:col-span-6">
+                    <ChartCard CanvasId="winRateChart" Title="Win Rate Distribution" Icon="bi bi-pie-chart"
+                               HasData="_filteredRankings.Count > 0" />
+                </div>
             </div>
-        </Panel>
-
-        <Panel Title="Stats" Icon="bi bi-trophy" Class="mb-6" BodyClass="py-2">
-                @foreach (var themeGroup in _stats.GroupBy(s => s.Theme).OrderBy(g => (int)g.Key))
-                {
-                    <div class="stats-theme-row">
-                        <small class="text-ink-muted font-semibold stats-theme-label">
-                            <i class="@themeGroup.Key.Icon() me-1"></i>@themeGroup.Key.DisplayName()
-                        </small>
-                        <div class="stats-theme-pills">
-                            @foreach (var stat in themeGroup)
-                            {
-                                var display = stat.Display();
-                                var hasHolders = stat.Holders.Count > 0;
-                                <div class="flex items-center gap-1 px-2 py-1 rounded-sm text-small @(hasHolders ? StatPillCss(display.Badge) : "bg-neutral/10 opacity-50")"
-                                     title="@display.Description">
-                                    <span>@display.Emoji</span>
-                                    <span class="font-semibold">@display.Name:</span>
-                                    @if (hasHolders)
-                                    {
-                                        <span>@string.Join(", ", stat.Holders.Select(h => h.PlayerName).Distinct())</span>
-                                        <span class="text-ink-muted">(@display.FormatValue(stat.Holders[0]))</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-ink-muted italic">—</span>
-                                    }
-                                </div>
-                            }
+        }
+        @* ---------------- AWARDS ---------------- *@
+        else if (_tab == TabAwards)
+        {
+            <Panel>
+                <Header>
+                    <i class="bi bi-trophy"></i>
+                    <div>
+                        <h2 class="panel__title">Awards</h2>
+                        <div class="text-ink-muted text-small">
+                            @_claimedAwardCount of @_stats.Count held in this scope
                         </div>
                     </div>
-                }
-        </Panel>
+                </Header>
+                <ChildContent>
+                    @* Themes filter rather than head the grid: one chip row costs a line,
+                       one heading per theme costs eleven. *@
+                    <div class="award-filters">
+                        <button type="button" class="btn btn-sm @ThemeChipCss(null)"
+                                @onclick="() => _themeFilter = null">All</button>
+                        @foreach (var theme in _awardThemes)
+                        {
+                            <button type="button" class="btn btn-sm @ThemeChipCss(theme)"
+                                    @onclick="() => _themeFilter = theme">
+                                <i class="@theme.Icon() me-1"></i>@theme.DisplayName()
+                            </button>
+                        }
+                    </div>
 
-        <div class="grid grid-cols-12 gap-x-6 mb-6">
-            <div class="col-span-12 md:col-span-3 mb-4">
-                <StatTile Variant="brand" Icon="bi bi-people"
-                          Value="@_filteredPlayerCount.ToString()"
-                          Label="@(_selectedPeriod == "all" ? "Active Players" : "Players in Period")" />
+                    @if (VisibleAwards.Count == 0)
+                    {
+                        <EmptyState Icon="bi bi-trophy" IconSize="md" Padding="py-4"
+                                    Message="No awards in this scope yet." />
+                    }
+                    else
+                    {
+                        <div class="award-grid">
+                            @foreach (var stat in VisibleAwards)
+                            {
+                                <AwardTile Stat="stat" />
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </Panel>
+        }
+        @* ---------------- ACTIVITY ---------------- *@
+        else if (_tab == TabActivity)
+        {
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 lg:col-span-6">
+                    <ChartCard CanvasId="matchesOverTimeChart" Title="Matches Over Time" Icon="bi bi-calendar-week"
+                               HasData="_matchesOverTime.Count > 0" />
+                </div>
+                <div class="col-span-12 lg:col-span-6">
+                    <ChartCard CanvasId="dayOfWeekChart" Title="Activity by Day of Week" Icon="bi bi-calendar3"
+                               HasData="_dayOfWeekStats.Any(d => d > 0)" />
+                </div>
+                <div class="col-span-12 lg:col-span-6">
+                    <ChartCard CanvasId="gamesPerPlayerChart" Title="Games per Player" Icon="bi bi-person-lines-fill"
+                               HasData="_filteredRankings.Count > 0" />
+                </div>
             </div>
-            <div class="col-span-12 md:col-span-3 mb-4">
-                <StatTile Variant="primary" Icon="bi bi-controller"
-                          Value="@_filteredMatchCount.ToString()"
-                          Label="@(_selectedPeriod == "all" ? "Total Matches" : "Matches in Period")" />
+        }
+        @* ---------------- MATCHUPS ---------------- *@
+        else if (_tab == TabMatchups)
+        {
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12">
+                    <ChartCard CanvasId="commonPairsChart" Title="Most Common Pairs" Icon="bi bi-people-fill"
+                               Height="200"
+                               HasData="_filteredPairStats.Count > 0" />
+                </div>
+                <div class="col-span-12">
+                    <PlayerMatrix Rows="_h2hMatrix"
+                                  Title="Head-to-Head Matrix" Icon="bi bi-grid-3x3"
+                                  Subtitle="Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size."
+                                  TooltipConnector="vs" />
+                </div>
+                <div class="col-span-12">
+                    <PlayerMatrix Rows="_teammateMatrix"
+                                  Title="Teammate Matrix" Icon="bi bi-people"
+                                  Subtitle="Win rate when row player teams up with column player. Cell brightness reflects sample size."
+                                  TooltipConnector="with" />
+                </div>
             </div>
-            <div class="col-span-12 md:col-span-3 mb-4">
-                <StatTile Variant="info" Icon="bi bi-bullseye"
-                          Value="@_filteredTotalGoals.ToString()"
-                          Label="@(_selectedPeriod == "all" ? "Total Goals" : "Goals in Period")" />
-            </div>
-            <div class="col-span-12 md:col-span-3 mb-4">
-                <StatTile Variant="warning" Icon="bi bi-calculator"
-                          Value="@_filteredAvgGoalsPerMatch.ToString("F1")"
-                          Label="Avg Goals/Match" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 mb-6">
-                <ChartCard CanvasId="eloTrajectoryChart"
-                           Title="ELO Trajectory" Icon="bi bi-activity"
-                           Subtitle="Each player's ELO after every match. Click legend entries to toggle players."
-                           Height="200"
-                           HasData="_eloTrajectoryDatasets.Count > 0" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="eloDistributionChart" Title="@(IsSeasonScope ? "Seasonal ELO Distribution" : "ELO Distribution")" Icon="bi bi-graph-up-arrow"
-                           HasData="@(IsSeasonScope ? _seasonEloByPlayer.Count > 0 : _rankings.Count > 0)" />
-            </div>
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="winRateChart" Title="Win Rate Distribution" Icon="bi bi-pie-chart"
-                           HasData="_filteredRankings.Count > 0" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="gamesPerPlayerChart" Title="Games per Player" Icon="bi bi-person-lines-fill"
-                           HasData="_filteredRankings.Count > 0" />
-            </div>
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="matchesOverTimeChart" Title="Matches Over Time" Icon="bi bi-calendar-week"
-                           HasData="_matchesOverTime.Count > 0" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="dayOfWeekChart" Title="Activity by Day of Week" Icon="bi bi-calendar3"
-                           HasData="_dayOfWeekStats.Any(d => d > 0)" />
-            </div>
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <ChartCard CanvasId="commonPairsChart" Title="Most Common Pairs" Icon="bi bi-people-fill"
-                           HasData="_filteredPairStats.Count > 0" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 mb-6">
-                <PlayerMatrix Rows="_h2hMatrix"
-                              Title="Head-to-Head Matrix" Icon="bi bi-grid-3x3"
-                              Subtitle="Row player's win rate when facing column player as an opponent. Cell brightness reflects sample size."
-                              TooltipConnector="vs" />
-            </div>
-        </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 mb-6">
-                <PlayerMatrix Rows="_teammateMatrix"
-                              Title="Teammate Matrix" Icon="bi bi-people"
-                              Subtitle="Win rate when row player teams up with column player. Cell brightness reflects sample size."
-                              TooltipConnector="with" />
-            </div>
-        </div>
+        }
     </PageContainer>
 }
 
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
 
     private TeamDto? _team;
     private bool _loading = true;
@@ -193,10 +204,64 @@ else
     private List<string> _eloTrajectoryLabels = [];
     private List<EloTrajectoryDataset> _eloTrajectoryDatasets = [];
 
+    // ---- Panes ----
+    // Ids double as the ?tab= value, so a pane is linkable and survives a refresh
+    // (same contract as the Player detail page).
+    private const string TabOverview = "overview";
+    private const string TabAwards = "awards";
+    private const string TabActivity = "activity";
+    private const string TabMatchups = "matchups";
+
+    private static readonly string[] TabIds = [TabOverview, TabAwards, TabActivity, TabMatchups];
+
+    private string _tab = TabOverview;
+
+    /// <summary>Charts are drawn into canvases that only exist while their pane is shown, so a
+    /// pane switch (or a scope change) has to wait for the render that puts them in the DOM.</summary>
+    private bool _needsChartRender;
+
+    // ---- Awards pane state ----
+    private StatTheme? _themeFilter;
+    private List<StatTheme> _awardThemes = [];
+    private int _claimedAwardCount;
+
+    /// <summary>Held awards first, then the ones still up for grabs — theme order within each.</summary>
+    private List<StatResult> _orderedAwards = [];
+
+    private List<StatResult> VisibleAwards => _themeFilter is StatTheme theme
+        ? _orderedAwards.Where(s => s.Theme == theme).ToList()
+        : _orderedAwards;
+
+    protected override void OnParametersSet()
+    {
+        var requested = (TabParam ?? TabOverview).ToLowerInvariant();
+        if (!TabIds.Contains(requested)) requested = TabOverview;
+        if (_tab != requested)
+        {
+            _tab = requested;
+            _needsChartRender = true;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (firstRender)
+        {
+            await LoadAsync();
+            _needsChartRender = false;
+            await RenderCharts();
+            return;
+        }
 
+        if (_needsChartRender && !_loading)
+        {
+            _needsChartRender = false;
+            await RenderCharts();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
         await Tz.EnsureResolvedAsync();
         _team = await TeamAccess.GetCurrentTeamAsync();
         if (_team != null)
@@ -219,8 +284,6 @@ else
         }
         _loading = false;
         StateHasChanged();
-
-        await RenderCharts();
     }
 
     private async Task ResolveScopeAsync()
@@ -235,9 +298,43 @@ else
     {
         await ResolveScopeAsync();
         await ApplyFilterAsync();
+        _needsChartRender = true;
         StateHasChanged();
-        await RenderCharts();
     }
+
+    private void SwitchTab(string tab)
+    {
+        if (_tab == tab) return;
+        // Overview is the default, so it stays out of the URL.
+        var target = string.Equals(tab, TabOverview, StringComparison.OrdinalIgnoreCase) ? null : tab;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", target), replace: true);
+    }
+
+    private List<TabStrip.TabItem> BuildTabs() =>
+    [
+        new(TabOverview, "bi bi-speedometer2", "Overview"),
+        new(TabAwards, "bi bi-trophy", "Awards", _claimedAwardCount),
+        new(TabActivity, "bi bi-calendar-week", "Activity"),
+        new(TabMatchups, "bi bi-grid-3x3", "Matchups"),
+    ];
+
+    /// <summary>Season, period and match count in one line — what every pane below is filtered to.</summary>
+    private string ScopeSummary
+    {
+        get
+        {
+            var parts = new List<string> { _selectedSeason?.Name ?? "All-time" };
+            if (DateFilterDisplay.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate) is string period)
+            {
+                parts.Add(period);
+            }
+            parts.Add($"{_filteredMatchCount} {(_filteredMatchCount == 1 ? "match" : "matches")}");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private string ThemeChipCss(StatTheme? theme) =>
+        _themeFilter == theme ? "btn-brand" : "btn-outline-neutral";
 
     /// <summary>The selected scope's matches — the season's subset, or every match for all-time.</summary>
     private IEnumerable<MatchDto> ScopeMatches => _selectedSeason is { } season
@@ -316,10 +413,29 @@ else
         // ladder-aware context so ELO-based badges show seasonal numbers.
         var (from, toExclusive) = PeriodInstantRange();
         _stats = (await Sender.Send(new GetTeamStatsQuery(_team!.Id, _selectedSeason?.Id, from, toExclusive))).Value;
+        RebuildAwards();
 
         _h2hMatrix = BuildMatrix(includeAcrossTeams: true);
         _teammateMatrix = BuildMatrix(includeAcrossTeams: false);
         CalculateEloTrajectory();
+    }
+
+    /// <summary>
+    /// Orders the award grid and refreshes what the pane's chrome reports. Held awards lead
+    /// so the eye can stop before the unclaimed tail; theme order within each half keeps
+    /// related awards adjacent whether or not a theme filter is on.
+    /// </summary>
+    private void RebuildAwards()
+    {
+        _orderedAwards = _stats
+            .OrderByDescending(s => s.Holders.Count > 0)
+            .ThenBy(s => (int)s.Theme)
+            .ThenBy(s => (int)s.Key)
+            .ToList();
+        _claimedAwardCount = _stats.Count(s => s.Holders.Count > 0);
+        _awardThemes = _stats.Select(s => s.Theme).Distinct().OrderBy(t => (int)t).ToList();
+        // A theme can drop out of the catalogue between scopes; don't leave the grid empty.
+        if (_themeFilter is StatTheme selected && !_awardThemes.Contains(selected)) _themeFilter = null;
     }
 
     /// <summary>The period selection as a [From, ToExclusive) instant range for server-side filtering.</summary>
@@ -538,100 +654,90 @@ else
     private async Task OnFilterChanged()
     {
         await ApplyFilterAsync();
+        _needsChartRender = true;
         StateHasChanged();
-        await RenderCharts();
     }
 
-    private string GetFilterDescription()
-    {
-        var periodDesc = DateFilterDisplay.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
-        return periodDesc != null ? $"{periodDesc} ({_filteredMatchCount} matches)" : $"{_filteredMatchCount} matches";
-    }
-
-    private static string StatPillCss(StatBadgeStyle? badge)
-    {
-        // Tint badge-eligible stats with their badge color so the page mirrors how they appear elsewhere.
-        // bg-surface-muted (a theme-aware token) so the neutral pill stays readable in dark mode.
-        if (badge == null) return "bg-surface-muted";
-
-        var css = badge.CssClass;
-        if (css.Contains("bg-warning"))  return "bg-warning/10";
-        if (css.Contains("bg-danger"))   return "bg-danger/10";
-        if (css.Contains("bg-info"))     return "bg-info/10";
-        if (css.Contains("bg-brand"))    return "bg-brand/10";
-        if (css.Contains("bg-primary"))  return "bg-primary/10";
-        if (css.Contains("bg-gray-900")) return "bg-gray-900/10";
-        if (css.Contains("bg-neutral"))  return "bg-neutral/10";
-        if (css.Contains("bg-purple"))   return "bg-purple-tint";
-        return "bg-surface-muted";
-    }
-
+    /// <summary>
+    /// Draws the charts of the pane on screen. Canvases outside the active pane are not in
+    /// the DOM, so each group is gated on its own pane — the JS side would no-op anyway, but
+    /// there is no reason to pay for the interop round-trip.
+    /// </summary>
     private async Task RenderCharts()
     {
-        // ELO distribution: seasonal ladder (participants' SeasonPlayer.Elo) in season scope,
-        // all-time Player.Elo otherwise.
-        if (IsSeasonScope)
+        if (_tab == TabOverview)
         {
-            var participants = _seasonEloByPlayer
-                .Where(kv => _playersById.TryGetValue(kv.Key, out var p) && p.IsActive)
-                .OrderByDescending(kv => kv.Value)
-                .ToList();
-            if (participants.Count > 0)
+            // ELO distribution: seasonal ladder (participants' SeasonPlayer.Elo) in season scope,
+            // all-time Player.Elo otherwise.
+            if (IsSeasonScope)
             {
-                var eloLabels = participants.Select(kv => _playersById[kv.Key].Name).ToArray();
-                var eloData = participants.Select(kv => kv.Value).ToArray();
-                await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "Seasonal ELO", "#198754");
+                var participants = _seasonEloByPlayer
+                    .Where(kv => _playersById.TryGetValue(kv.Key, out var p) && p.IsActive)
+                    .OrderByDescending(kv => kv.Value)
+                    .ToList();
+                if (participants.Count > 0)
+                {
+                    var eloLabels = participants.Select(kv => _playersById[kv.Key].Name).ToArray();
+                    var eloData = participants.Select(kv => kv.Value).ToArray();
+                    await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "Seasonal ELO", "#198754");
+                }
+            }
+            else if (_rankings.Count > 0)
+            {
+                var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
+                var eloData = _rankings.Select(r => r.Elo).ToArray();
+                await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "ELO", "#198754");
+            }
+
+            if (_filteredRankings.Count > 0)
+            {
+                var withMatches = _filteredRankings.Where(r => r.Matches > 0).ToArray();
+                var wrLabels = withMatches.Select(r => r.PlayerName).ToArray();
+                var wrData = withMatches.Select(r => r.WinRate).ToArray();
+                await JS.InvokeVoidAsync("renderBarChart", "winRateChart", wrLabels, wrData, "Win Rate %", "#0d6efd");
+            }
+
+            if (_eloTrajectoryDatasets.Count > 0)
+            {
+                var datasets = _eloTrajectoryDatasets
+                    .Select(d => new { label = d.Label, data = d.Data, color = d.Color })
+                    .ToArray();
+                await JS.InvokeVoidAsync("renderMultiLineChart", "eloTrajectoryChart", _eloTrajectoryLabels.ToArray(), datasets);
             }
         }
-        else if (_rankings.Count > 0)
+
+        if (_tab == TabActivity)
         {
-            var eloLabels = _rankings.Select(r => r.PlayerName).ToArray();
-            var eloData = _rankings.Select(r => r.Elo).ToArray();
-            await JS.InvokeVoidAsync("renderBarChart", "eloDistributionChart", eloLabels, eloData, "ELO", "#198754");
+            if (_matchesOverTime.Count > 0)
+            {
+                await JS.InvokeVoidAsync("renderLineChart", "matchesOverTimeChart",
+                    _matchesOverTime.Keys.ToArray(),
+                    _matchesOverTime.Values.ToArray(),
+                    "Matches", "#fd7e14");
+            }
+
+            if (_dayOfWeekStats.Any(d => d > 0))
+            {
+                var dayLabels = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+                await JS.InvokeVoidAsync("renderBarChart", "dayOfWeekChart", dayLabels, _dayOfWeekStats, "Matches", "#20c997");
+            }
+
+            if (_filteredRankings.Count > 0)
+            {
+                var byGames = _filteredRankings.OrderByDescending(r => r.Matches).ToArray();
+                var pieColors = new[] { "#198754", "#0d6efd", "#6f42c1", "#fd7e14", "#20c997", "#e83e8c", "#ffc107", "#dc3545", "#6c757d", "#17a2b8" };
+                await JS.InvokeVoidAsync("renderPieChart", "gamesPerPlayerChart",
+                    byGames.Select(r => r.PlayerName).ToArray(),
+                    byGames.Select(r => r.Matches).ToArray(),
+                    pieColors);
+            }
         }
 
-        if (_filteredRankings.Count > 0)
-        {
-            var withMatches = _filteredRankings.Where(r => r.Matches > 0).ToArray();
-            var wrLabels = withMatches.Select(r => r.PlayerName).ToArray();
-            var wrData = withMatches.Select(r => r.WinRate).ToArray();
-            await JS.InvokeVoidAsync("renderBarChart", "winRateChart", wrLabels, wrData, "Win Rate %", "#0d6efd");
-
-            var byGames = _filteredRankings.OrderByDescending(r => r.Matches).ToArray();
-            var pieColors = new[] { "#198754", "#0d6efd", "#6f42c1", "#fd7e14", "#20c997", "#e83e8c", "#ffc107", "#dc3545", "#6c757d", "#17a2b8" };
-            await JS.InvokeVoidAsync("renderPieChart", "gamesPerPlayerChart",
-                byGames.Select(r => r.PlayerName).ToArray(),
-                byGames.Select(r => r.Matches).ToArray(),
-                pieColors);
-        }
-
-        if (_matchesOverTime.Count > 0)
-        {
-            await JS.InvokeVoidAsync("renderLineChart", "matchesOverTimeChart",
-                _matchesOverTime.Keys.ToArray(),
-                _matchesOverTime.Values.ToArray(),
-                "Matches", "#fd7e14");
-        }
-
-        if (_dayOfWeekStats.Any(d => d > 0))
-        {
-            var dayLabels = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-            await JS.InvokeVoidAsync("renderBarChart", "dayOfWeekChart", dayLabels, _dayOfWeekStats, "Matches", "#20c997");
-        }
-
-        if (_filteredPairStats.Count > 0)
+        if (_tab == TabMatchups && _filteredPairStats.Count > 0)
         {
             var pairLabels = _filteredPairStats.Select(p => $"{p.Player1Name} & {p.Player2Name}").ToArray();
             var pairData = _filteredPairStats.Select(p => p.Matches).ToArray();
             await JS.InvokeVoidAsync("renderHorizontalBarChart", "commonPairsChart", pairLabels, pairData, "Matches", "#e83e8c");
-        }
-
-        if (_eloTrajectoryDatasets.Count > 0)
-        {
-            var datasets = _eloTrajectoryDatasets
-                .Select(d => new { label = d.Label, data = d.Data, color = d.Color })
-                .ToArray();
-            await JS.InvokeVoidAsync("renderMultiLineChart", "eloTrajectoryChart", _eloTrajectoryLabels.ToArray(), datasets);
         }
     }
 

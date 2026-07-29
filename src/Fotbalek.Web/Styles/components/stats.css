@@ -1,37 +1,143 @@
 @layer components {
-    /* Themed stats rows on the Statistics page */
-    .stats-theme-row {
-        display: grid;
-        grid-template-columns: 110px 1fr;
-        column-gap: 12px;
-        align-items: start;
-        padding: 8px 0;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    .stats-theme-row:last-child {
-        border-bottom: none;
-    }
-
-    .stats-theme-label {
-        padding-top: 4px;
-    }
-
-    .stats-theme-pills {
+    /* ============================================================
+       Scope bar — the season / period controls on the Statistics page.
+       A hairline strip rather than a panel: it is chrome for everything
+       below it, so it should not read as one of the page's cards.
+       ============================================================ */
+    .scope-bar {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        align-items: center;
+        gap: 0.5rem 1rem;
+        padding: 0.5rem 0.85rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-xl);
+        background: var(--color-surface-muted);
     }
 
-    @media (width < theme(--breakpoint-sm)) {
-        .stats-theme-row {
-            grid-template-columns: 1fr;
-            row-gap: 4px;
-        }
+    /* The "what you're looking at" summary, pushed to the trailing edge. */
+    .scope-bar__meta {
+        margin-left: auto;
+        color: var(--color-ink-muted);
+        font-size: var(--text-small);
+    }
 
-        .stats-theme-label {
-            padding-top: 0;
+    @media (width < theme(--breakpoint-md)) {
+        .scope-bar__meta {
+            margin-left: 0;
         }
+    }
+
+    /* ============================================================
+       Award tiles — the themed stat awards, rendered by AwardTile.
+       An auto-filling grid: adding awards to the catalogue adds tiles,
+       never rows of chrome.
+       ============================================================ */
+    .award-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .award-tile {
+        --award-accent: var(--color-neutral);
+        --award-tint: var(--color-neutral-tint);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        min-width: 0;
+        padding: 0.5rem 0.65rem;
+        border: 1px solid var(--color-line);
+        border-left: 3px solid var(--award-accent);
+        border-radius: var(--radius-lg);
+        background: var(--color-surface);
+    }
+
+    .award-tile__chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.85rem;
+        height: 1.85rem;
+        border-radius: var(--radius-md);
+        background: var(--award-tint);
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+
+    /* min-width:0 on both the flex child and its lines is what lets long player
+       names ellipsize instead of stretching the grid column. */
+    .award-tile__body {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .award-tile__name {
+        font-size: var(--text-xs);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--award-accent);
+    }
+
+    .award-tile__holder,
+    .award-tile__value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .award-tile__holder {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--color-ink-strong);
+        line-height: 1.25;
+    }
+
+    .award-tile__value {
+        font-size: var(--text-xs);
+        color: var(--color-ink-muted);
+    }
+
+    /* Up for grabs: same tile, dialled back so held awards read first. */
+    .award-tile--open {
+        border-left-color: var(--color-line);
+        background: var(--color-surface-muted);
+    }
+    .award-tile--open .award-tile__chip {
+        background: var(--color-surface-sunken);
+        filter: grayscale(1);
+        opacity: 0.65;
+    }
+    .award-tile--open .award-tile__name {
+        color: var(--color-ink-faint);
+    }
+    .award-tile__holder--open {
+        font-weight: 400;
+        font-style: italic;
+        color: var(--color-ink-faint);
+    }
+
+    /* Accent set mirrors .stat-card--* / .panel--* so the palette stays one palette.
+       `dark` is the near-black badge accent (Last Place, Slump King). */
+    .award-tile--brand   { --award-accent: var(--color-brand); --award-tint: var(--color-brand-tint); }
+    .award-tile--primary { --award-accent: var(--color-primary); --award-tint: var(--color-primary-tint); }
+    .award-tile--info    { --award-accent: var(--color-info-strong); --award-tint: var(--color-info-tint); }
+    .award-tile--warning { --award-accent: var(--color-warning-strong); --award-tint: var(--color-warning-tint); }
+    .award-tile--danger  { --award-accent: var(--color-danger); --award-tint: var(--color-danger-tint); }
+    .award-tile--neutral { --award-accent: var(--color-neutral); --award-tint: var(--color-neutral-tint); }
+    .award-tile--purple  { --award-accent: var(--color-purple); --award-tint: var(--color-purple-tint); }
+    .award-tile--dark    { --award-accent: var(--color-ink); --award-tint: var(--color-surface-sunken); }
+
+    /* Theme filter row above the grid. Chips are .btn-sm buttons so they inherit
+       the app's control sizing; only the fill state is stated here. */
+    .award-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin-bottom: 0.75rem;
     }
 
     /* Head-to-Head Matrix */
@@ -111,8 +217,4 @@
         background-color: var(--color-surface-sunken);
         color: var(--color-ink-faint);
     }
-    :root[data-theme='dark'] .stats-theme-row {
-        border-bottom-color: var(--color-line-strong);
-    }
-
 }

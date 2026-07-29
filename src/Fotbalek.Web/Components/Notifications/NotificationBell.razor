@@ -134,6 +134,10 @@
     private int _userId;
     private bool _subscribed;
 
+    /// <summary>Set the moment teardown starts, so a live event that arrives during it does no work.
+    /// Disposal is not the same instant on every path — see <see cref="RunLiveUpdateAsync"/>.</summary>
+    private bool _disposed;
+
     private List<NotificationDto> _feed = [];
     private bool _feedLoaded;
     private bool _hasMore;
@@ -176,46 +180,79 @@
     {
         if (userId != _userId)
             return;
-        try
+        await RunLiveUpdateAsync(async () =>
         {
-            await InvokeAsync(async () =>
-            {
-                _arrivals++;
-                await RefreshBadgeAsync();
-                // Only re-read the feed if this circuit has already loaded it; an arrival while the
-                // panel has never been opened just bumps the badge and fetches nothing (§9.3).
-                if (_feedLoaded)
-                    await LoadFirstPageAsync();
-                StateHasChanged();
-            });
-        }
-        catch (ObjectDisposedException) { }
+            _arrivals++;
+            await RefreshBadgeAsync();
+            // Only re-read the feed if this circuit has already loaded it; an arrival while the
+            // panel has never been opened just bumps the badge and fetches nothing (§9.3).
+            if (_feedLoaded)
+                await LoadFirstPageAsync();
+            StateHasChanged();
+        });
     }
 
     private async void OnReadStateChanged(int userId)
     {
         if (userId != _userId)
             return;
-        try
+        await RunLiveUpdateAsync(async () =>
         {
-            await InvokeAsync(async () =>
-            {
-                await RefreshBadgeAsync();
-                if (_feedLoaded)
-                    await LoadFirstPageAsync();
-                StateHasChanged();
-            });
-        }
-        catch (ObjectDisposedException) { }
+            await RefreshBadgeAsync();
+            if (_feedLoaded)
+                await LoadFirstPageAsync();
+            StateHasChanged();
+        });
     }
 
-    private async void OnUnseenCountChanged()
+    private async void OnUnseenCountChanged() =>
+        await RunLiveUpdateAsync(() =>
+        {
+            StateHasChanged();
+            return Task.CompletedTask;
+        });
+
+    /// <summary>
+    /// Marshals a live-event update onto the renderer and absorbs the ways it can fail while this
+    /// circuit is going away.
+    /// <para>
+    /// The callers are <c>async void</c> — they are event handlers, so they have to be — which means
+    /// the compiler has nowhere to put a fault: anything escaping one is posted to the renderer as an
+    /// <em>unhandled</em> exception, and that terminates the circuit and drops the user into the
+    /// reconnect bar. A notification landing in the same instant the user navigates away is a routine
+    /// race, so every way teardown can break the update has to be absorbed here rather than only the
+    /// first one we happened to hit: the DI scope going away
+    /// (<see cref="ObjectDisposedException"/> from a query), a call already in flight being cancelled
+    /// with the circuit (<see cref="TaskCanceledException"/>, hence its
+    /// <see cref="OperationCanceledException"/> base), and the browser already being gone
+    /// (<see cref="JSDisconnectedException"/>).
+    /// </para>
+    /// <para>
+    /// Deliberately narrow: a genuine bug inside <paramref name="update"/> still faults the circuit
+    /// loudly, which is what should happen to a bug.
+    /// </para>
+    /// </summary>
+    private async Task RunLiveUpdateAsync(Func<Task> update)
     {
+        if (_disposed)
+            return;
         try
         {
-            await InvokeAsync(StateHasChanged);
+            // Re-checked on the renderer: disposal can land between the guard above and the renderer
+            // picking this up, and that gap is exactly the race that used to kill the circuit.
+            await InvokeAsync(async () =>
+            {
+                if (_disposed)
+                    return;
+                await update();
+            });
         }
-        catch (ObjectDisposedException) { }
+        catch (Exception e) when (e is ObjectDisposedException
+                                      or OperationCanceledException
+                                      or JSDisconnectedException)
+        {
+            // The circuit went away mid-update. There is nothing left to render to.
+        }
     }
 
     // ── Loading ────────────────────────────────────────────────────────────────────────────────
@@ -244,7 +281,15 @@
         {
             await JS.InvokeVoidAsync("fotbalekTitleBadge.set", "notifications", count);
         }
-        catch (Exception e) when (e is JSDisconnectedException or JSException or InvalidOperationException)
+        // OperationCanceledException covers the TaskCanceledException a circuit raises when it tears
+        // down with this call still in flight — the common case, because the two places that reach
+        // here are an arriving notification and DisposeAsync itself. It was the one teardown fault
+        // this filter missed, and missing it killed the circuit rather than the tab title.
+        catch (Exception e) when (e is JSDisconnectedException
+                                      or JSException
+                                      or InvalidOperationException
+                                      or OperationCanceledException
+                                      or ObjectDisposedException)
         {
             // A tab title is never worth failing a render over.
         }
@@ -395,6 +440,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        // Before unsubscribing, not after: an event already past the += check is racing this method,
+        // and this flag is what stops it doing work against a half-torn-down circuit.
+        _disposed = true;
+
         if (!_subscribed)
             return;
         Notifier.Created -= OnCreated;

@@ -142,17 +142,7 @@ else if (_player != null && _stats != null)
         }
 
         @* ---------------- TABS ---------------- *@
-        <ul class="nav nav-tabs player-tabs mb-6" role="tablist">
-            @TabButton("overview", "bi-speedometer2", "Overview")
-            @TabButton("performance", "bi-graph-up", "Performance")
-            @TabButton("positions", "bi-person-badge", "Positions")
-            @TabButton("relationships", "bi-people", "Relationships")
-            @TabButton("activity", "bi-activity", $"Activity ({_totalMatchCount})")
-            @if (HasQuirks)
-            {
-                @TabButton("quirks", "bi-stars", "Quirks")
-            }
-        </ul>
+        <TabStrip Tabs="@BuildTabs()" ActiveId="@_tab" OnSelect="SwitchTab" Class="mb-6" />
 
         @* ---------------- OVERVIEW ---------------- *@
         @if (_tab == "overview")
@@ -1076,14 +1066,19 @@ else
     private static string WinRateColor(double wr) =>
         wr >= 55 ? "text-brand" : wr <= 45 ? "text-danger" : string.Empty;
 
-    private RenderFragment TabButton(string id, string icon, string label) => __builder =>
+    private List<TabStrip.TabItem> BuildTabs()
     {
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link @(_tab == id ? "active" : "")" @onclick="() => SwitchTab(id)">
-                <i class="bi @icon me-1"></i>@label
-            </button>
-        </li>;
-    };
+        var tabs = new List<TabStrip.TabItem>
+        {
+            new("overview", "bi bi-speedometer2", "Overview"),
+            new("performance", "bi bi-graph-up", "Performance"),
+            new("positions", "bi bi-person-badge", "Positions"),
+            new("relationships", "bi bi-people", "Relationships"),
+            new("activity", "bi bi-activity", "Activity", _totalMatchCount),
+        };
+        if (HasQuirks) tabs.Add(new("quirks", "bi bi-stars", "Quirks"));
+        return tabs;
+    }
 
     private static RenderFragment StatRow(string label, string value, string? tooltip = null, string? valueClass = null) => __builder =>
     {
