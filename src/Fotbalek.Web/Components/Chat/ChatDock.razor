@@ -155,6 +155,7 @@
         Notifier.ReadStateChanged += OnReadStateChanged;
         Presence.Changed += OnPresenceChanged;
         UiState.Changed += OnUnreadCacheChanged;
+        UiState.OpenRequested += OnOpenRequested;
         _subscribed = true;
 
         await Tz.EnsureResolvedAsync();
@@ -298,6 +299,22 @@
         catch (ObjectDisposedException) { }
     }
 
+    // Another component (the notification bell) opened the dock. Unlike OpenFromBanner — which is
+    // this component's own @onclick and therefore re-renders automatically — a handler invoked from
+    // outside must ask for the render explicitly.
+    private async void OnOpenRequested()
+    {
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                _banners.Clear();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
     private async void OnUnreadCacheChanged()
     {
         try
@@ -433,6 +450,7 @@
             Notifier.ReadStateChanged -= OnReadStateChanged;
             Presence.Changed -= OnPresenceChanged;
             UiState.Changed -= OnUnreadCacheChanged;
+            UiState.OpenRequested -= OnOpenRequested;
             _subscribed = false;
         }
         if (_js != null)

@@ -1,35 +1,17 @@
 // Team chat interop — loaded on demand as an ES module by ChatDock (mirrors game.js).
-// In-app only: tab-title unread prefix, visibility/focus reporting, composer and scroll
-// helpers, and the vendored emoji-picker-element wiring. No Notification API in v1.
+// In-app only: visibility/focus reporting, composer and scroll helpers, and the vendored
+// emoji-picker-element wiring. No Notification API in v1.
+//
+// The tab-title unread prefix used to live here. It now belongs to window.fotbalekTitleBadge in
+// app.js, because the notification bell feeds the same title and the two counts are summed — this
+// module only reports chat's share of it.
 
-// ── Dock: tab title + browser-active reporting ─────────────────────────────────────────
+// ── Dock: browser-active reporting ─────────────────────────────────────────────────────
 
 let dockRef = null;
-let unreadCount = 0;
-let titleObserver = null;
 
 function isBrowserActive() {
     return document.visibilityState === 'visible' && document.hasFocus();
-}
-
-function desiredTitle() {
-    let base = document.title.replace(/^\(\d+\)\s/, '');
-    // Team pages render no <PageTitle> during prerender (pre-existing quirk: TeamLayout
-    // gates @Body until after first render), so the title can be empty — don't show a
-    // bare "(3) ".
-    if (unreadCount > 0 && !base) {
-        base = 'Fotbalek';
-    }
-    return unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
-}
-
-// Idempotent, so the MutationObserver below can't loop: the write it triggers
-// re-enters with an already-correct title and does nothing.
-function applyTitle() {
-    const want = desiredTitle();
-    if (document.title !== want) {
-        document.title = want;
-    }
 }
 
 function reportActive() {
@@ -47,14 +29,6 @@ export function initDock(ref) {
     window.addEventListener('focus', reportActive);
     window.addEventListener('blur', reportActive);
 
-    // Blazor's <PageTitle> overwrites document.title on navigation; watch <head> (a page
-    // may start with no <title> element at all — see desiredTitle) and re-apply the unread
-    // prefix. applyTitle is idempotent, so this cannot loop.
-    if (!titleObserver) {
-        titleObserver = new MutationObserver(applyTitle);
-        titleObserver.observe(document.head, { childList: true, characterData: true, subtree: true });
-    }
-
     return {
         token: dockToken,
         active: isBrowserActive(),
@@ -65,8 +39,7 @@ export function initDock(ref) {
 }
 
 export function setUnread(n) {
-    unreadCount = n;
-    applyTitle();
+    window.fotbalekTitleBadge.set('chat', n);
 }
 
 export function disposeDock(token) {
@@ -74,11 +47,9 @@ export function disposeDock(token) {
     document.removeEventListener('visibilitychange', reportActive);
     window.removeEventListener('focus', reportActive);
     window.removeEventListener('blur', reportActive);
-    titleObserver?.disconnect();
-    titleObserver = null;
     dockRef = null;
-    unreadCount = 0;
-    applyTitle();
+    // Drop chat's share only — the notification bell's count is not this module's to clear.
+    window.fotbalekTitleBadge.set('chat', 0);
 }
 
 // ── Composer ────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,148 @@
+@inject IScopedSender Sender
+
+@* The "Notifications" option group for ONE team, rendered inside that team's card on the Account page.
+   Self-contained: it owns its label, its collapsed summary, its disclosure and its contents, so the
+   card can compose it without knowing what a notification is — and so a future group (push channels,
+   per-team display prefs) is the same shape dropped in beside it.
+
+   Collapsed by default. The Teams panel's job is a scannable "who am I in each team" list, and five
+   switches plus their hints turn a two-line row into a ten-line block; the summary below carries the
+   answer most visits are looking for, so expanding is usually unnecessary. Arriving from the bell's cog
+   expands it, because that visitor came for exactly these switches.
+
+   Open state lives in the DOM as `.show`, driven by ui.js's delegated data-toggle="collapse" — the same
+   reasoning as the bell's dropdown (§9.1): the parent re-renders this card after every save, and a
+   Blazor-owned flag would be one more thing to keep from fighting that.
+
+   The five categories arrive already resolved against the defaults, so this never has to know that
+   storage is sparse (AI/notifications.md §8.2, §8.4). *@
+
+<div class="team-card__group">
+    <button type="button" class="team-card__group-toggle"
+            data-toggle="collapse" data-target="#@RegionId"
+            aria-controls="@RegionId" aria-expanded="@(StartExpanded ? "true" : "false")">
+        <span class="team-card__group-label"><i class="bi bi-bell me-1"></i>Notifications</span>
+        <span class="team-card__group-summary">@Summary</span>
+        <i class="bi bi-chevron-down team-card__group-chevron"></i>
+    </button>
+
+    <div class="collapsible @(StartExpanded ? "show" : "")" id="@RegionId">
+        <div class="team-card__group-body">
+            <div class="team-card__group-bar">
+                <span class="text-ink-muted text-small">Tell me about</span>
+                @* A UI shortcut that writes all five categories; there is no "team muted" concept in
+                   storage (§8.5). *@
+                <div class="team-card__group-actions">
+                    <button type="button" class="btn btn-sm btn-outline-neutral"
+                            disabled="@_busy" @onclick="() => SetAllAsync(true)">All</button>
+                    <button type="button" class="btn btn-sm btn-outline-neutral"
+                            disabled="@_busy" @onclick="() => SetAllAsync(false)">None</button>
+                </div>
+            </div>
+
+            @* A failed save reports itself here, beside the team it belongs to, and the reload puts the
+               switch back to what the server actually holds — a toast carrying the only copy of an
+               error and then vanishing is a bug, not a style (ToastService's own rule). *@
+            <AlertMessage Message="@_error" Variant="danger" Icon="bi bi-exclamation-triangle" />
+
+            <div class="team-card__toggles">
+                @foreach (var category in Preferences)
+                {
+                    var presentation = NotificationDisplay.Describe(category.Category);
+                    var id = $"notif-{TeamId}-{category.Category}";
+                    <div class="form-check form-switch team-card__toggle">
+                        @* Saving is per toggle, immediately, with NO toast: a switch flipping is its own
+                           feedback, which is ToastService's documented "neither" case. *@
+                        <input class="form-check-input" type="checkbox" role="switch" id="@id"
+                               checked="@category.InAppEnabled" disabled="@_busy"
+                               @onchange="e => SaveAsync(category.Category, e.Value is true)" />
+                        <label class="form-check-label" for="@id">
+                            <i class="@presentation.Icon me-1"></i>@presentation.Label
+                        </label>
+                        <div class="team-card__toggle-hint">@presentation.Hint</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int TeamId { get; set; }
+
+    /// <summary>All five categories, resolved against the defaults by the query.</summary>
+    [Parameter, EditorRequired] public List<NotificationCategoryPreferenceDto> Preferences { get; set; } = [];
+
+    /// <summary>Start expanded — set when the visitor came from the bell's cog.</summary>
+    [Parameter] public bool StartExpanded { get; set; }
+
+    /// <summary>Raised after a write so the page re-reads the stored values. Re-reading on success
+    /// confirms them, and on failure it is what flips the switch back.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _busy;
+    private string? _error;
+
+    private string RegionId => $"team-notif-{TeamId}";
+
+    /// <summary>
+    /// What the collapsed row says. Deliberately not a switch count dressed up as prose: "All", "Off"
+    /// or "3 of 5" answers "what is this team allowed to tell me" at a glance, which is what makes
+    /// collapsing an improvement rather than just hiding the controls.
+    /// </summary>
+    private string Summary
+    {
+        get
+        {
+            var enabled = Preferences.Count(p => p.InAppEnabled);
+            if (Preferences.Count == 0) return string.Empty;
+            if (enabled == Preferences.Count) return "All";
+            if (enabled == 0) return "Off";
+            return $"{enabled} of {Preferences.Count}";
+        }
+    }
+
+    private async Task SaveAsync(NotificationCategory category, bool enabled)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Sender.Send(new SetNotificationPreferenceCommand(TeamId, category, enabled));
+            if (result.IsFailure)
+                _error = result.Error.Message;
+            await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SetAllAsync(bool enabled)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            // All five, including the ones already at the target value: an explicit row is the record
+            // of an explicit choice, and it is what the reserved global tier will need in order to
+            // override correctly (§8.4, §8.5).
+            foreach (var category in Preferences.ToList())
+            {
+                var result = await Sender.Send(
+                    new SetNotificationPreferenceCommand(TeamId, category.Category, enabled));
+                if (result.IsFailure)
+                {
+                    _error = result.Error.Message;
+                    break;
+                }
+            }
+            await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

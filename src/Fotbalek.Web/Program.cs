@@ -132,6 +132,11 @@ builder.Services.AddSingleton<ChatNotifier>();
 builder.Services.AddScoped<ChatUiState>();
 builder.Services.AddScoped<ChatTypingService>();
 
+// Notification bell: the same shape — in-process pub/sub singleton fed by the post-commit event
+// bridge, plus a per-circuit cache of the unseen count (AI/notifications.md §3.6).
+builder.Services.AddSingleton<NotificationNotifier>();
+builder.Services.AddScoped<NotificationUiState>();
+
 // Live game (in-memory foosball mini-game): rooms + dedicated hub for the JS canvas client.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameRoomManager>();

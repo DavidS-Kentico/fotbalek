@@ -1,5 +1,6 @@
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.Contracts.Matches;
 using Fotbalek.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,8 @@ public sealed record DeleteMatchCommand(int TeamId, int MatchId) : ICommand;
 internal sealed class DeleteMatchCommandHandler(
     IAppDbContext db,
     IUserContext userContext,
-    IDbLocks dbLocks)
+    IDbLocks dbLocks,
+    IEventCollector events)
     : ICommandHandler<DeleteMatchCommand>
 {
     private static readonly Error CannotDelete = Error.Conflict(
@@ -98,8 +100,21 @@ internal sealed class DeleteMatchCommandHandler(
             }
         }
 
+        // Notification.MatchId is a restricted FK (the cascade-diamond guard, AI/notifications.md
+        // §3.1), so its rows are cleaned up here — which is also the right behaviour on its own: a
+        // deleted match must not leave a feed row linking to a 404.
+        var deletedSeasonId = match.SeasonId;
+        await db.Notifications
+            .Where(n => n.MatchId == command.MatchId)
+            .ExecuteDeleteAsync(cancellationToken);
+
         db.Matches.Remove(match);
         await db.SaveChangesAsync(cancellationToken);
+
+        // Deleting reverses ELO, so leads can revert: re-evaluate SILENTLY. Without this the snapshot
+        // goes stale and a later match produces a "you took #1" for a lead nobody ever lost (§6.3).
+        // The season id rides the event because the handler cannot read it off a row that is gone.
+        events.Enqueue(new MatchAftermathDueEvent(command.TeamId, command.MatchId, deletedSeasonId, Notify: false));
         return Result.Success();
     }
 }

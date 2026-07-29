@@ -17,7 +17,8 @@ internal sealed class EditChatMessageCommandHandler(
     IAppDbContext db,
     IUserContext userContext,
     TeamAccess teamAccess,
-    IEventCollector events)
+    IEventCollector events,
+    INotificationWriter notifications)
     : ICommandHandler<EditChatMessageCommand>
 {
     private static readonly Error EditFailed =
@@ -43,6 +44,11 @@ internal sealed class EditChatMessageCommandHandler(
 
         message.Body = newBody;
         message.EditedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+
+        // Only NEWLY added mentions notify: the mention:{messageId} dedup key makes that automatic
+        // (AI/notifications.md §5.2).
+        await ChatMentionWriter.WriteAsync(db, notifications, command.TeamId, userId, command.MessageId, newBody, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         events.Enqueue(new ChatMessageEditedEvent(command.TeamId, command.MessageId, newBody, message.EditedAt.Value));

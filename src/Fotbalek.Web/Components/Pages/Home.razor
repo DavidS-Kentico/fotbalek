@@ -94,16 +94,23 @@
                 @foreach (var team in _myTeams)
                 {
                     var chatUnread = ChatUi.GetUnread(team.Id);
+                    var notifUnseen = _unseenNotificationsByTeam.GetValueOrDefault(team.Id);
                     <a href="/team/@team.CodeName" class="ov-team-card">
                         <span class="ov-team-crest"><i class="bi bi-shield-fill"></i></span>
                         <span class="ov-team-main">
                             <span class="ov-team-name">@team.Name</span>
                             <span class="ov-team-code">@@@team.CodeName</span>
                         </span>
+                        @if (notifUnseen > 0)
+                        {
+                            <span class="badge rounded-full bg-warning text-gray-900" title="New notifications">
+                                <i class="bi bi-bell-fill me-1"></i>@Cap(notifUnseen)
+                            </span>
+                        }
                         @if (chatUnread > 0)
                         {
                             <span class="badge rounded-full bg-danger text-white" title="Unread chat messages">
-                                <i class="bi bi-chat-dots me-1"></i>@(chatUnread > 99 ? "99+" : chatUnread.ToString())
+                                <i class="bi bi-chat-dots me-1"></i>@Cap(chatUnread)
                             </span>
                         }
                         <i class="bi bi-chevron-right ov-team-chevron"></i>
@@ -276,6 +283,18 @@
     private LandingActivityPointDto? _busiestDay;
     private bool _chatSubscribed;
 
+    /// <summary>
+    /// The bell lives in TeamLayout, so it is absent from this page — but this is the overview a
+    /// logged-in user lands on, and its teams list already carries per-team chat badges
+    /// (AI/notifications.md §9.4). Deliberately a one-shot query on load with NO live subscription:
+    /// nothing on MainLayout maintains a notification cache (the chat badges here are live only because
+    /// ChatDock is present), and this is a page you pass through.
+    /// </summary>
+    private Dictionary<int, int> _unseenNotificationsByTeam = [];
+
+    private static string Cap(int count) =>
+        count > Constants.Notifications.BadgeCap ? $"{Constants.Notifications.BadgeCap}+" : count.ToString();
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
@@ -291,6 +310,9 @@
         {
             _isAuthenticated = true;
             _myTeams = (await Sender.Send(new GetMyTeamsQuery())).Value;
+            // Unseen, matching the bell's own badge — so opening the bell once clears both surfaces,
+            // which is the consistent reading of "new since you last looked".
+            _unseenNotificationsByTeam = (await Sender.Send(new GetUnseenNotificationCountsByTeamQuery())).Value;
             // Per-team chat badges render from ChatUiState's cache, which the dock (also on
             // this page) keeps current.
             ChatUi.Changed += OnChatUnreadChanged;

@@ -1,6 +1,7 @@
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
 using Fotbalek.Application.Common.Authorization;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +10,8 @@ namespace Fotbalek.Application.Features.Players;
 /// <summary>Deactivates a player. Captain only; never their own player; recent-activity rule applies.</summary>
 public sealed record DeactivatePlayerCommand(int TeamId, int PlayerId) : ICommand;
 
-internal sealed class DeactivatePlayerCommandHandler(IAppDbContext db, IUserContext userContext, TeamAccess teamAccess)
+internal sealed class DeactivatePlayerCommandHandler(
+    IAppDbContext db, IUserContext userContext, TeamAccess teamAccess, IEventCollector events)
     : ICommandHandler<DeactivatePlayerCommand>
 {
     public async Task<Result> Handle(DeactivatePlayerCommand command, CancellationToken cancellationToken)
@@ -36,6 +38,12 @@ internal sealed class DeactivatePlayerCommandHandler(IAppDbContext db, IUserCont
 
         player.IsActive = false;
         await db.SaveChangesAsync(cancellationToken);
+
+        // All four ladders filter on IsActive in both scopes, so this can change a #1 with no match
+        // involved — and the snapshot would otherwise stay stale until the next match blamed an
+        // innocent match for it. Refreshed SILENTLY: "you are now #1 because somebody left" is not a
+        // thing to celebrate (AI/notifications.md §6.3).
+        events.Enqueue(new LadderRefreshDueEvent(command.TeamId));
         return Result.Success();
     }
 }

@@ -1,6 +1,7 @@
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
 using Fotbalek.Application.Common.Authorization;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,8 @@ namespace Fotbalek.Application.Features.Seasons;
 /// </summary>
 public sealed record UpdateSeasonEndsAtCommand(int SeasonId, DateTimeOffset? NewEndsAt, bool AllowUnassign) : ICommand;
 
-internal sealed class UpdateSeasonEndsAtCommandHandler(IAppDbContext db, TeamAccess teamAccess, IDbLocks dbLocks)
+internal sealed class UpdateSeasonEndsAtCommandHandler(
+    IAppDbContext db, TeamAccess teamAccess, IDbLocks dbLocks, IEventCollector events)
     : ICommandHandler<UpdateSeasonEndsAtCommand>
 {
     public async Task<Result> Handle(UpdateSeasonEndsAtCommand command, CancellationToken cancellationToken)
@@ -76,6 +78,13 @@ internal sealed class UpdateSeasonEndsAtCommandHandler(IAppDbContext db, TeamAcc
                 .Where(sp => sp.SeasonId == command.SeasonId)
                 .ToListAsync(cancellationToken);
             SeasonLadderReplay.Replay(db, command.SeasonId, existingLadder, remaining);
+
+            // The replay moves SeasonPlayer.Elo with no match recorded, so the season's ladder-lead
+            // snapshot goes stale exactly like the (de)activation case. Refresh it SILENTLY after this
+            // transaction commits (AI/notifications.md §6.3). The other two SeasonLadderReplay call
+            // sites need nothing: season creation replays a season that has no snapshot rows yet, and
+            // season deletion clears its rows outright.
+            events.Enqueue(new LadderRefreshDueEvent(season.TeamId));
         }
 
         season.EndsAt = command.NewEndsAt;

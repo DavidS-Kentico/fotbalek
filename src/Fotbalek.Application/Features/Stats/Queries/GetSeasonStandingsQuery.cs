@@ -57,13 +57,15 @@ internal sealed class GetSeasonStandingsQueryHandler(IAppDbContext db, TeamAcces
 
         var (ladder, aggregates) = await SeasonAggregateLoader.LoadLiveAsync(db, season.Id, cancellationToken);
 
-        // Live ladder: seasonal ELO desc → wins desc → matches played desc → PlayerId asc.
+        // Live ladder: seasonal ELO desc → wins desc → matches played desc → PlayerId asc (the
+        // shared chain, which the ladder-lead snapshot compares against).
         var rows = ladder
             .Where(sp => sp.Player.IsActive)
-            .OrderByDescending(sp => sp.Elo)
-            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.Wins : 0)
-            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.MatchesPlayed : 0)
-            .ThenBy(sp => sp.PlayerId)
+            .OrderSolo(sp =>
+            {
+                var agg = aggregates.GetValueOrDefault(sp.PlayerId);
+                return new LadderLeaders.SoloKey(sp.Elo, agg?.Wins ?? 0, agg?.MatchesPlayed ?? 0, sp.PlayerId);
+            })
             .Select((sp, index) =>
             {
                 var agg = aggregates.TryGetValue(sp.PlayerId, out var a) ? a : new SeasonAggregates.ParticipantAggregate();

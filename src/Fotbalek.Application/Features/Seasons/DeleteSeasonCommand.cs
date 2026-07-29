@@ -41,6 +41,16 @@ internal sealed class DeleteSeasonCommandHandler(IAppDbContext db, TeamAccess te
             .Where(m => m.SeasonId == command.SeasonId)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.SeasonId, (int?)null), cancellationToken);
 
+        // Notification.SeasonId and LadderLeader.SeasonId are restricted FKs (the cascade-diamond
+        // guard, AI/notifications.md §3.1/§3.4), so both are cleared explicitly. Dropping the snapshot
+        // rows is also what makes the next evaluation of this scope a silent first write again.
+        await db.Notifications
+            .Where(n => n.SeasonId == command.SeasonId)
+            .ExecuteDeleteAsync(cancellationToken);
+        await db.LadderLeaders
+            .Where(l => l.SeasonId == command.SeasonId)
+            .ExecuteDeleteAsync(cancellationToken);
+
         // SeasonPlayer (with its SeasonPlayerResult), SeasonPair and SeasonAward rows cascade.
         db.Seasons.Remove(season);
         await db.SaveChangesAsync(cancellationToken);

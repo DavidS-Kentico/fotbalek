@@ -1,6 +1,7 @@
 using FluentValidation;
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.Application.Features.Seasons;
 using Fotbalek.Contracts.Matches;
 using Fotbalek.Domain.Entities;
@@ -47,7 +48,9 @@ internal sealed class CreateMatchCommandValidator : AbstractValidator<CreateMatc
 internal sealed class CreateMatchCommandHandler(
     IAppDbContext db,
     IUserContext userContext,
-    IDbLocks dbLocks)
+    IDbLocks dbLocks,
+    IEventCollector events,
+    INotificationWriter notifications)
     : ICommandHandler<CreateMatchCommand, MatchCreationResultDto>
 {
     public async Task<Result<MatchCreationResultDto>> Handle(CreateMatchCommand command, CancellationToken cancellationToken)
@@ -163,6 +166,31 @@ internal sealed class CreateMatchCommandHandler(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // "Someone recorded a match with you" — the other three players, never the recorder: they
+        // already see the result panel on New Match, which is ToastService's documented "neither"
+        // case (AI/notifications.md §5.1). Informational, not a confirmation.
+        var recipients = await NotificationRecipients.ForPlayersAsync(db, command.TeamId, playerIds, cancellationToken);
+        var actorPlayerId = await db.Players
+            .AsNoTracking()
+            .Where(p => p.TeamId == command.TeamId && p.UserId == userId)
+            .Select(p => (int?)p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        await notifications.AddAsync(
+            new NotificationDraft(NotificationType.MatchRecorded, command.TeamId, $"match:{match.Id}")
+            {
+                ActorUserId = userId,
+                ActorPlayerId = actorPlayerId,
+                MatchId = match.Id,
+            },
+            recipients,
+            cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+
+        // The ladder leads and personal milestones need the team's WHOLE history, which must not run
+        // inside this transaction — it holds the season row lock on the seasonal path. The event's
+        // post-commit bridge dispatches the evaluation with its own transaction and lock (§6.3).
+        events.Enqueue(new MatchAftermathDueEvent(command.TeamId, match.Id, season?.Id, Notify: true));
 
         // Load navigation for DTO mapping (players are already tracked).
         foreach (var mp in matchPlayers)

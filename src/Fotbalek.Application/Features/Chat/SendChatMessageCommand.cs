@@ -19,7 +19,8 @@ internal sealed class SendChatMessageCommandHandler(
     IAppDbContext db,
     IUserContext userContext,
     TeamAccess teamAccess,
-    IEventCollector events)
+    IEventCollector events,
+    INotificationWriter notifications)
     : ICommandHandler<SendChatMessageCommand, ChatMessageDto>
 {
     public async Task<Result<ChatMessageDto>> Handle(SendChatMessageCommand command, CancellationToken cancellationToken)
@@ -44,6 +45,12 @@ internal sealed class SendChatMessageCommandHandler(
         await db.SaveChangesAsync(cancellationToken);
 
         await ChatReadStateAdvancer.AdvanceAsync(db, events, userId, command.TeamId, message.Id, cancellationToken);
+
+        // A mention leaves a permanent bell row alongside chat's transient banner — the one point the
+        // two features overlap, deliberately (AI/notifications.md §5.2). One extra roster query per
+        // send, which nothing else here can share.
+        await ChatMentionWriter.WriteAsync(db, notifications, command.TeamId, userId, message.Id, body, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
 
         var sender = await ResolveSenderAsync(command.TeamId, userId, cancellationToken);
         var dto = new ChatMessageDto(

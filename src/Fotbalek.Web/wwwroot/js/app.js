@@ -104,6 +104,70 @@ window.fotbalekToast = (function () {
     };
 })();
 
+// ===== Tab-title unread badge =====
+// The single "(N) " prefix on document.title, fed by SEVERAL sources — chat's unread messages and
+// the bell's unseen notifications — and summed, because a tab title has room for exactly one number
+// and a reader takes it as "N things want me".
+//
+// It lives here rather than in chat.js because it is no longer chat's alone: app.js is where every
+// window.* interop helper lives, and it is what a component can reach by name without importing a
+// module it has no other business with.
+window.fotbalekTitleBadge = (function () {
+    var counts = {};
+    var observer = null;
+
+    function total() {
+        var sum = 0;
+        for (var source in counts) sum += counts[source];
+        return sum;
+    }
+
+    function desiredTitle() {
+        var n = total();
+        var base = document.title.replace(/^\(\d+\)\s/, '');
+        // Team pages render no <PageTitle> during prerender (TeamLayout gates @Body until after its
+        // first render), so the title can be empty — don't show a bare "(3) ".
+        if (n > 0 && !base) base = 'Fotbalek';
+        return n > 0 ? '(' + n + ') ' + base : base;
+    }
+
+    // Idempotent, so the MutationObserver below cannot loop: the write it triggers re-enters with an
+    // already-correct title and does nothing.
+    function apply() {
+        var want = desiredTitle();
+        if (document.title !== want) document.title = want;
+    }
+
+    return {
+        // Replaces one source's count. Sources are independent, so chat and notifications can be set
+        // in any order and either can drop to zero without disturbing the other.
+        set: function (source, count) {
+            counts[source] = count > 0 ? count : 0;
+            // Blazor's <PageTitle> overwrites document.title on navigation, so re-apply the prefix
+            // whenever <head> changes (a page may start with no <title> element at all — see
+            // desiredTitle). Installed on first use and then left in place: it is one cheap observer,
+            // and tearing it down would need the sources to agree on who owns it.
+            if (!observer) {
+                observer = new MutationObserver(apply);
+                observer.observe(document.head, { childList: true, characterData: true, subtree: true });
+            }
+            apply();
+        }
+    };
+})();
+
+// Scroll an element into view by id. The Account page renders its panels only after its data loads,
+// so a plain "/account#notifications" fragment cannot work — the element does not exist when the
+// browser handles the fragment. The page uses "?section=..." and calls this once loaded.
+//
+// This lives here rather than in ui.js on purpose: app.js is where every window.* interop helper
+// lives and is the file IJSRuntime.InvokeVoidAsync reaches by name, while ui.js is a closed IIFE with
+// no export surface at all (AI/notifications.md §8.5).
+window.fotbalekScrollToId = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 // Theme-aware colours for Chart.js (grid lines, axis ticks, pie borders) read
 // at render time from the active data-theme.
 function chartThemeColors() {

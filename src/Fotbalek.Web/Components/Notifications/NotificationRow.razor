@@ -1,0 +1,86 @@
+@* One feed row: an actor face or a per-type icon, the wording from NotificationDisplay, the team chip
+   (only when the user has more than one team) and a short local time. Unread rows carry a dot and
+   heavier weight.
+
+   The element follows Href, because js/ui.js decides whether to dismiss the menu from the markup:
+   an <a href> navigates and closes it, a plain <button> acts and closes it. Neither carries
+   data-keep-open — see NotificationBell for the two controls that do. The parent decides which shape a
+   row gets, since only it knows whether the target can be reached without a full reload.
+
+   All text is ordinary component content, never MarkupString (AI/notifications.md §11). *@
+
+@if (Href is { Length: > 0 })
+{
+    <a class="@RowClass" href="@Href" @onclick="OnActivate" @onclick:preventDefault="false">
+        @Lead
+        @Main
+        @Meta
+    </a>
+}
+else
+{
+    <button type="button" class="@RowClass" @onclick="OnActivate">
+        @Lead
+        @Main
+        @Meta
+    </button>
+}
+
+@code {
+    [Parameter, EditorRequired] public NotificationDto Notification { get; set; } = null!;
+
+    /// <summary>Renders the row as a link when set; as a button otherwise (chat rows, and pages that
+    /// need a full reload to reach).</summary>
+    [Parameter] public string? Href { get; set; }
+
+    /// <summary>Local-time text, formatted by the parent (which owns the TimeZoneService).</summary>
+    [Parameter] public string TimeText { get; set; } = string.Empty;
+
+    /// <summary>Show the team chip. False when the user belongs to a single team, where it is noise.</summary>
+    [Parameter] public bool ShowTeamChip { get; set; }
+
+    [Parameter] public EventCallback OnActivate { get; set; }
+
+    private NotificationPresentation Presentation => NotificationDisplay.Describe(Notification);
+
+    private string RowClass => Notification.IsRead ? "notif-row" : "notif-row notif-row--unread";
+
+    @* Actor rows get a face; system rows (season lifecycle, ladder leads, milestones) get the per-type
+       icon. The split is ActorPlayerId, not "does an avatar exist" — Player.AvatarId is non-nullable,
+       so every player always has one. *@
+    private RenderFragment Lead => @<span class="notif-row__lead">
+        @if (Notification.ActorPlayerId != null && Notification.ActorAvatarId is int avatarId)
+        {
+            <Avatar AvatarId="avatarId" Size="sm" Title="@Notification.ActorName" />
+        }
+        else
+        {
+            <span class="notif-row__icon"><i class="@Presentation.Icon"></i></span>
+        }
+    </span>;
+
+    private RenderFragment Main => @<span class="notif-row__main">
+        <span class="notif-row__title">@Presentation.Title</span>
+        @if (ShowTeamChip || Presentation.Detail != null)
+        {
+            <span class="notif-row__sub">
+                @if (ShowTeamChip)
+                {
+                    <span class="notif-row__chip">@Notification.TeamName</span>
+                }
+                @if (Presentation.Detail is { Length: > 0 } detail)
+                {
+                    <span>@detail</span>
+                }
+            </span>
+        }
+    </span>;
+
+    private RenderFragment Meta => @<span class="notif-row__meta">
+        @if (!Notification.IsRead)
+        {
+            <span class="notif-row__dot" title="Unread"></span>
+        }
+        <span class="notif-row__time">@TimeText</span>
+    </span>;
+}

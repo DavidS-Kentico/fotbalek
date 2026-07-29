@@ -107,6 +107,11 @@
                         <i class="bi bi-plus-lg"></i> <span class="hidden lg:inline">New match</span>
                     </a>
 
+                    @* The bell sits immediately left of the account menu — the near-universal
+                       convention, and the slot this actions group already had (AI/notifications.md
+                       §9.1). The feed itself is account-wide: it spans every team, not just this one. *@
+                    <NotificationBell TeamCount="_userTeams.Count" CurrentTeamId="_team.Id" />
+
                     <div class="dropdown">
                         <button class="btn btn-outline-neutral dropdown-toggle account-btn flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
                             @if (_myPlayer != null)

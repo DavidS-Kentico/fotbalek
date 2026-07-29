@@ -19,6 +19,26 @@ public class ChatUiState
     /// <summary>Raised whenever the unread cache is replaced.</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised by <see cref="RequestOpen"/> so the dock redraws when ANOTHER component opens it — the
+    /// notification bell's chat rows do exactly that.
+    /// </summary>
+    public event Action? OpenRequested;
+
+    /// <summary>
+    /// Opens the dock on a team from outside the dock. Setting <see cref="IsOpen"/> and
+    /// <see cref="SelectedTeamId"/> directly would change the state and render nothing: the dock is a
+    /// SIBLING component, and Blazor only re-renders the component whose handler fired — and this
+    /// class raises <see cref="Changed"/> from the unread cache and nowhere else, so nothing would tell
+    /// the dock to redraw (AI/notifications.md §5.2).
+    /// </summary>
+    public void RequestOpen(int teamId)
+    {
+        IsOpen = true;
+        SelectedTeamId = teamId;
+        OpenRequested?.Invoke();
+    }
+
     public int TotalUnread { get; private set; }
 
     public int GetUnread(int teamId) => _unreadByTeam.GetValueOrDefault(teamId);

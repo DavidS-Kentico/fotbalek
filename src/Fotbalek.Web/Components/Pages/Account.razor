@@ -66,10 +66,23 @@
             </div>
         </div>
 
-        <div class="panel">
+        @* The page's ONE per-team list: each team's identity plus that team's own options. The bell's
+           cog deep-links here via ?section=teams. *@
+        <div class="panel" id="teams">
             <div class="panel__head">
                 <i class="bi bi-people-fill"></i>
                 <h2 class="panel__title">Teams</h2>
+                @if (_memberships.Count > 0)
+                {
+                    <div class="panel__actions">
+                        <a href="/create" class="btn btn-sm btn-outline-brand">
+                            <i class="bi bi-plus-lg me-1"></i>Create
+                        </a>
+                        <a href="/join" class="btn btn-sm btn-outline-neutral">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Join
+                        </a>
+                    </div>
+                }
             </div>
             @if (_memberships.Count == 0)
             {
@@ -84,44 +97,14 @@
             else
             {
                 <div class="list-group list-group-flush">
-                    @foreach (var m in _memberships)
+                    @foreach (var membership in _memberships)
                     {
-                        <div class="list-group-item py-4">
-                            <div class="flex justify-between items-center flex-wrap gap-2">
-                                <div>
-                                    <a href="/team/@m.Team.CodeName" class="no-underline font-semibold">
-                                        <i class="bi bi-shield-fill text-brand me-1"></i>@m.Team.Name
-                                    </a>
-                                    <small class="text-ink-muted ms-1">@@@m.Team.CodeName</small>
-                                    @if (m.IsCaptain)
-                                    {
-                                        <span class="badge bg-warning text-gray-900 ms-2">Captain</span>
-                                    }
-                                    <div class="text-ink-muted text-small mt-1">Joined @Tz.FormatLocalDate(m.JoinedAt)</div>
-                                </div>
-                                <div class="text-right">
-                                    @if (m.MyPlayer != null)
-                                    {
-                                        <div class="flex items-center gap-2 justify-end">
-                                            <Avatar AvatarId="@m.MyPlayer.AvatarId" Size="sm" />
-                                            <span class="font-semibold">@m.MyPlayer.Name</span>
-                                            <EloBadge Elo="@m.MyPlayer.Elo" />
-                                            @if (!m.MyPlayer.IsActive)
-                                            {
-                                                <span class="badge bg-neutral">Inactive</span>
-                                            }
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-ink-muted text-small">
-                                            No player claimed —
-                                            <a href="/team/@m.Team.CodeName/claim">claim one</a>
-                                        </span>
-                                    }
-                                </div>
-                            </div>
-                        </div>
+                        <TeamCard @key="membership.Team.Id"
+                                  Membership="membership"
+                                  Preferences="PreferencesFor(membership.Team.Id)"
+                                  JoinedText="@Tz.FormatLocalDate(membership.JoinedAt)"
+                                  ExpandOptions="DeepLinkedToTeams"
+                                  OnPreferencesChanged="ReloadPreferencesAsync" />
                     }
                 </div>
             }
@@ -172,6 +155,25 @@
     private bool _loading = true;
     private string _theme = "system";
 
+    /// <summary>
+    /// Resolved notification categories per team id. Keyed separately from <see cref="_memberships"/>
+    /// because the two lists are deliberately different: memberships covers every team, preferences
+    /// only the ones where the user has a claimed player. A team present in the first and absent from
+    /// the second is exactly the "claim a player" case, which the card renders as such.
+    /// </summary>
+    private Dictionary<int, List<NotificationCategoryPreferenceDto>> _preferencesByTeam = [];
+
+    private List<NotificationCategoryPreferenceDto>? PreferencesFor(int teamId) =>
+        _preferencesByTeam.GetValueOrDefault(teamId);
+
+    /// <summary>
+    /// True when the bell's cog sent the visitor here. Only that link targets this section, and it
+    /// exists precisely to reach the per-team switches — so the option groups start open rather than
+    /// making someone who was deep-linked to a setting hunt for it behind a disclosure.
+    /// </summary>
+    private bool DeepLinkedToTeams =>
+        string.Equals(Section, "teams", StringComparison.OrdinalIgnoreCase);
+
     private string ThemeButtonClass(string value) =>
         _theme == value ? "btn-brand" : "btn-outline-neutral";
 
@@ -187,15 +189,36 @@
     [SupplyParameterFromQuery(Name = "success")]
     public string? Success { get; set; }
 
+    /// <summary>Which section to scroll to — the bell panel's cog sends "teams". A plain URL fragment
+    /// cannot do this: the panels only exist after the load below finishes, so the browser has nothing
+    /// to scroll to when it handles the fragment (AI/notifications.md §8.5).</summary>
+    [SupplyParameterFromQuery(Name = "section")]
+    public string? Section { get; set; }
+
     private string SuccessMessage => Success switch
     {
         "password-changed" => "Your password has been changed.",
         _ => "Done."
     };
 
+    /// <summary>
+    /// Set once the data has loaded, consumed on the NEXT render pass. <c>StateHasChanged</c> only
+    /// queues a render, so scrolling straight after it would look for a section that is not in the DOM
+    /// yet — which is the same reason a plain URL fragment cannot work here (AI/notifications.md §8.5).
+    /// </summary>
+    private bool _scrollPending;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (!firstRender)
+        {
+            if (_scrollPending)
+            {
+                _scrollPending = false;
+                await ScrollToSectionAsync();
+            }
+            return;
+        }
 
         // Outcome of the change-password POST, which redirects back here with a querystring.
         // Only the success half is a toast; ?error= renders inline next to the form.
@@ -214,12 +237,41 @@
             if (_user != null)
             {
                 _memberships = (await Sender.Send(new GetMembershipOverviewQuery())).Value;
+                await ReloadPreferencesAsync();
             }
         }
         finally
         {
             _loading = false;
+            _scrollPending = !string.IsNullOrEmpty(Section);
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Re-reads the stored preferences after any card writes one. One query for every team, which is
+    /// what the card's per-toggle save needs: on success it confirms the stored value, and on failure it
+    /// is what puts the switch back to what the server actually holds.
+    /// </summary>
+    private async Task ReloadPreferencesAsync()
+    {
+        var result = await Sender.Send(new GetNotificationPreferencesQuery());
+        if (result.IsSuccess)
+            _preferencesByTeam = result.Value.ToDictionary(t => t.TeamId, t => t.Categories);
+    }
+
+    private async Task ScrollToSectionAsync()
+    {
+        if (string.IsNullOrEmpty(Section)) return;
+        try
+        {
+            await JS.InvokeVoidAsync("fotbalekScrollToId", Section);
+        }
+        catch (Exception e) when (e is JSDisconnectedException or JSException)
+        {
+            // A scroll nicety is never worth failing a render over — the circuit may be tearing
+            // down mid-call. (A missing section id is not an error at all: the helper itself
+            // silently no-ops on an unknown element.)
         }
     }
 }

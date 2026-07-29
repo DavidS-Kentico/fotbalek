@@ -25,6 +25,9 @@ public interface IAppDbContext
     DbSet<ChatMessage> ChatMessages { get; }
     DbSet<ChatMessageReaction> ChatMessageReactions { get; }
     DbSet<ChatReadState> ChatReadStates { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<NotificationPreference> NotificationPreferences { get; }
+    DbSet<LadderLeader> LadderLeaders { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

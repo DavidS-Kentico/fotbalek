@@ -34,6 +34,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>, 
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatMessageReaction> ChatMessageReactions => Set<ChatMessageReaction>();
     public DbSet<ChatReadState> ChatReadStates => Set<ChatReadState>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<LadderLeader> LadderLeaders => Set<LadderLeader>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +158,9 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>, 
             entity.HasIndex(e => e.TeamId);
             // Supports the lazy-close guard query (ClosedAt == null && EndsAt <= now) per team.
             entity.HasIndex(e => new { e.TeamId, e.ClosedAt, e.EndsAt });
+            // The announcement lookup filters on different columns than the due-close one
+            // (StartAnnouncedAt == null && StartsAt <= now), so it needs its own index.
+            entity.HasIndex(e => new { e.TeamId, e.StartAnnouncedAt, e.StartsAt });
 
             entity.HasOne(e => e.Team)
                 .WithMany(t => t.Seasons)
@@ -310,6 +316,132 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>, 
                 .WithMany()
                 .HasForeignKey(e => e.TeamId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Notification configuration (per-recipient feed row)
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Category).HasMaxLength(16);
+            entity.Property(e => e.Emoji).HasMaxLength(Constants.Chat.MaxReactionEmojiLength);
+            entity.Property(e => e.DedupKey).IsRequired().HasMaxLength(128);
+
+            // The feed page and its keyset cursor.
+            entity.HasIndex(e => new { e.UserId, e.Id }).IsDescending(false, true);
+            // The badge count (runs on every bell render) and Home's per-team breakdown. ReadAt
+            // needs no index: it is only ever read on rows the feed has already loaded.
+            entity.HasIndex(e => e.UserId)
+                .HasFilter("[SeenAt] IS NULL")
+                .IncludeProperties(e => e.TeamId)
+                .HasDatabaseName("IX_Notifications_UserId_Unseen");
+            // Idempotency backstop (AI/notifications.md §4.3).
+            entity.HasIndex(e => new { e.UserId, e.DedupKey }).IsUnique();
+            // The two hard-delete cleanups and the chat read-sync.
+            entity.HasIndex(e => e.MatchId);
+            entity.HasIndex(e => e.SeasonId);
+            entity.HasIndex(e => e.ChatMessageId);
+
+            // Restrict, matching the repo's convention for CONTENT-bearing user FKs
+            // (ChatMessage.SenderUserId, ChatMessageReaction.UserId); per-user STATE rows like
+            // ChatReadState cascade instead, which is what NotificationPreference mirrors.
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // A deleted team takes its notifications, like its chat.
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Every subject FK is Restrict: TeamId already cascades, and Team → Match →
+            // Notification alongside Team → Notification would be two delete paths from one root,
+            // which SQL Server rejects (the hazard ChatMessage documents). Restrict emits the same
+            // NO ACTION constraint AND stops EF's change tracker from quietly fixing things up.
+            // Consequence: DeleteMatchCommand and DeleteSeasonCommand delete their rows explicitly.
+            entity.HasOne(e => e.ActorPlayer)
+                .WithMany()
+                .HasForeignKey(e => e.ActorPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubjectPlayer)
+                .WithMany()
+                .HasForeignKey(e => e.SubjectPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Match)
+                .WithMany()
+                .HasForeignKey(e => e.MatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Season)
+                .WithMany()
+                .HasForeignKey(e => e.SeasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ChatMessage)
+                .WithMany()
+                .HasForeignKey(e => e.ChatMessageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // NotificationPreference configuration (sparse per-team overrides)
+        modelBuilder.Entity<NotificationPreference>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // SQL Server's unique index permits a single NULL, so the reserved global-defaults
+            // tier (TeamId == null) fits without changing this. HasFilter(null) is required:
+            // EF's default for a unique index over a nullable column is a
+            // "WHERE [TeamId] IS NOT NULL" filter, which would leave that tier unconstrained.
+            entity.HasIndex(e => new { e.UserId, e.TeamId, e.Category }).IsUnique().HasFilter(null);
+            entity.HasIndex(e => e.UserId);
+
+            // Two cascade FKs from DIFFERENT roots is fine and already precedented by
+            // ChatReadState / TeamMembership. The rejected pattern is two paths from ONE root.
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // LadderLeader configuration (current #1 snapshot per team, scope and category)
+        modelBuilder.Entity<LadderLeader>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Category).IsRequired().HasMaxLength(16);
+            // Exactly one row per (team, scope, category); the single permitted NULL SeasonId is
+            // the all-time scope. HasFilter(null) is load-bearing: EF's default for a unique index
+            // over a nullable column is a "WHERE [SeasonId] IS NOT NULL" filter, which would leave
+            // the all-time rows — the ones this must constrain most — entirely unconstrained.
+            entity.HasIndex(e => new { e.TeamId, e.SeasonId, e.Category }).IsUnique().HasFilter(null);
+
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Cascade-diamond again (Team → Season → LadderLeader alongside Team → LadderLeader):
+            // DeleteSeasonCommand clears these rows explicitly.
+            entity.HasOne(e => e.Season)
+                .WithMany()
+                .HasForeignKey(e => e.SeasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Player)
+                .WithMany()
+                .HasForeignKey(e => e.PlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PartnerPlayer)
+                .WithMany()
+                .HasForeignKey(e => e.PartnerPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // TeamMembership configuration

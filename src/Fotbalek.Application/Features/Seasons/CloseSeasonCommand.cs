@@ -11,7 +11,8 @@ namespace Fotbalek.Application.Features.Seasons;
 /// </summary>
 public sealed record CloseSeasonCommand(int SeasonId) : ICommand;
 
-internal sealed class CloseSeasonCommandHandler(IAppDbContext db, IDbLocks dbLocks)
+internal sealed class CloseSeasonCommandHandler(
+    IAppDbContext db, IDbLocks dbLocks, INotificationWriter notifications)
     : ICommandHandler<CloseSeasonCommand>
 {
     public async Task<Result> Handle(CloseSeasonCommand command, CancellationToken cancellationToken)
@@ -24,7 +25,8 @@ internal sealed class CloseSeasonCommandHandler(IAppDbContext db, IDbLocks dbLoc
         var now = DateTimeOffset.UtcNow;
         if (season.EndsAt == null || season.EndsAt > now) return Result.Success(); // not actually due
 
-        await SeasonCloseProcedure.CloseAsync(db, season, now, cancellationToken);
+        var frozen = await SeasonCloseProcedure.CloseAsync(db, season, now, cancellationToken);
+        await SeasonNotifications.WriteCloseAsync(db, notifications, season, frozen, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }

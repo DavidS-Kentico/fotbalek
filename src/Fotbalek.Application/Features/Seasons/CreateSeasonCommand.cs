@@ -42,7 +42,8 @@ internal sealed class CreateSeasonCommandHandler(
     IAppDbContext db,
     TeamAccess teamAccess,
     IDbLocks dbLocks,
-    IEventCollector events)
+    IEventCollector events,
+    INotificationWriter notifications)
     : ICommandHandler<CreateSeasonCommand, SeasonDto>
 {
     public async Task<Result<SeasonDto>> Handle(CreateSeasonCommand command, CancellationToken cancellationToken)
@@ -104,9 +105,28 @@ internal sealed class CreateSeasonCommandHandler(
             await db.SaveChangesAsync(cancellationToken);
         }
 
+        var now = DateTimeOffset.UtcNow;
+
+        // A season that starts immediately is announced here; a SCHEDULED one is announced lazily by
+        // the team-page hook once StartsAt passes, because nothing runs at StartsAt (§5.4).
+        if (season.StartsAt <= now)
+        {
+            // Stamp the guard either way, so the lazy hook never revisits this season...
+            season.StartAnnouncedAt = now;
+            // ...but stay silent when the season is already over: it is closed by the end of this
+            // same round trip (below), and delivering "Spring has started" together with "Spring
+            // ended — you finished #3" is nonsense. The close still announces the result, which is
+            // the only part anybody wants.
+            if (season.EndsAt == null || season.EndsAt > now)
+            {
+                await SeasonNotifications.WriteStartedAsync(db, notifications, season, teamAccess.UserId, cancellationToken);
+            }
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         // A season created entirely in the past is already due — close it immediately after
         // this command's transaction commits (see SeasonCreatedPastDueEvent).
-        if (season.EndsAt != null && season.EndsAt <= DateTimeOffset.UtcNow)
+        if (season.EndsAt != null && season.EndsAt <= now)
         {
             events.Enqueue(new SeasonCreatedPastDueEvent(season.Id));
         }

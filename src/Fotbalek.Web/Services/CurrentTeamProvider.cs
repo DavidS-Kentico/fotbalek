@@ -36,9 +36,9 @@ public class CurrentTeamProvider(
             string.Equals(_cachedCode, code, StringComparison.OrdinalIgnoreCase) &&
             _cachedUserId == userId)
         {
-            // The lazy-close check must run before the cache fast-path — a check placed after it
+            // The lazy season hooks must run before the cache fast-path — a check placed after it
             // would fire at most once per (potentially hours-long) Blazor circuit.
-            await CloseDueSeasonsAsync(_cachedTeam.Id);
+            await RunSeasonHooksAsync(_cachedTeam.Id);
             return _cachedTeam;
         }
 
@@ -46,9 +46,10 @@ public class CurrentTeamProvider(
         var team = result.IsSuccess ? result.Value : null;
         if (team == null) return null;
 
-        // Lazy close: seasons past their end date are closed by the first page load — a system
-        // action triggered by any member, not a captain action.
-        await CloseDueSeasonsAsync(team.Id);
+        // Lazy season hooks: seasons past their end date are closed, and seasons that have started
+        // are announced, by the first page load — system actions triggered by any member, not
+        // captain actions.
+        await RunSeasonHooksAsync(team.Id);
 
         _cachedTeam = team;
         _cachedCode = code;
@@ -88,16 +89,23 @@ public class CurrentTeamProvider(
     }
 
     /// <summary>
-    /// Lazy close (system action, triggered by any member's page load): closes every season of the
-    /// team past its end date, each in its own dispatch/transaction. Failures are logged, never
-    /// propagated to the page load.
+    /// The lazy season hooks (system actions, triggered by any member's page load), in one lookup:
+    /// close every season past its end date, then announce every season that has started without
+    /// being announced — the app has no scheduler, so nothing runs at StartsAt (AI/notifications.md
+    /// §5.4). Each runs in its own dispatch/transaction; failures are logged, never propagated to
+    /// the page load.
+    /// <para>
+    /// ⚠ <b>Close first.</b> A season can run its whole course between two visits — scheduled,
+    /// started, ended, all while nobody opened a team page. Closing first lets the announce command's
+    /// ClosedAt re-check suppress the start announcement, so only "ended" is delivered.
+    /// </para>
     /// </summary>
-    private async Task CloseDueSeasonsAsync(int teamId)
+    private async Task RunSeasonHooksAsync(int teamId)
     {
-        var dueIds = await sender.Send(new GetDueSeasonIdsQuery(teamId));
-        if (dueIds.IsFailure) return;
+        var hooks = await sender.Send(new GetTeamSeasonHooksQuery(teamId));
+        if (hooks.IsFailure) return;
 
-        foreach (var seasonId in dueIds.Value)
+        foreach (var seasonId in hooks.Value.DueClose)
         {
             try
             {
@@ -109,6 +117,20 @@ public class CurrentTeamProvider(
             {
                 logger.LogError(ex, "Lazy close of season {SeasonId} failed", seasonId);
             }
+        }
+
+        if (hooks.Value.Unannounced.Count == 0) return;
+
+        try
+        {
+            var result = await sender.Send(new AnnounceStartedSeasonsCommand(teamId));
+            if (result.IsFailure)
+                logger.LogError(
+                    "Lazy season-start announcement for team {TeamId} failed: {Error}", teamId, result.Error.Code);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lazy season-start announcement for team {TeamId} failed", teamId);
         }
     }
 }

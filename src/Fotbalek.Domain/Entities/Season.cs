@@ -20,6 +20,19 @@ public class Season
     /// <summary>When the season was closed and results frozen. Null = not yet closed.</summary>
     public DateTimeOffset? ClosedAt { get; set; }
 
+    /// <summary>
+    /// When the "season started" notification was sent. Null until it has been. Mirrors
+    /// <see cref="ClosedAt"/>: a single-row guard written under the season row lock, so concurrent
+    /// page loads cannot double-announce without relying on a unique-index violation as flow
+    /// control (AI/notifications.md §3.5).
+    /// <para>
+    /// Also stamped WITHOUT sending anything in the two cases where the announcement would be
+    /// nonsense: a season created entirely in the past (it closes in the same round trip), and a
+    /// season that ran its whole course before anyone opened a team page (§5.4).
+    /// </para>
+    /// </summary>
+    public DateTimeOffset? StartAnnouncedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public Team Team { get; set; } = null!;

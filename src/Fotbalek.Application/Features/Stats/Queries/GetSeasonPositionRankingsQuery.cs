@@ -68,15 +68,13 @@ internal sealed class GetSeasonPositionRankingsQueryHandler(IAppDbContext db, Te
                 .ToList();
         }
 
-        var minGames = Constants.TimeThresholds.MinGamesForPositionBadge;
-
-        // Goals per game (conceded asc / scored desc) → matches in position desc → seasonal ELO desc → PlayerId asc.
+        // Goals per game (conceded asc / scored desc) → matches in position desc → seasonal ELO
+        // desc → PlayerId asc (the shared chain).
         var goalkeepers = participants
-            .Where(p => p.Agg.GoalkeeperMatches >= minGames)
-            .OrderBy(p => (double)p.Agg.GoalsConcededAsGoalkeeper / p.Agg.GoalkeeperMatches)
-            .ThenByDescending(p => p.Agg.GoalkeeperMatches)
-            .ThenByDescending(p => p.Elo)
-            .ThenBy(p => p.PlayerId)
+            .Where(p => LadderLeaders.IsPositionEligible(p.Agg.GoalkeeperMatches))
+            .OrderGoalkeepers(p => new LadderLeaders.PositionKey(
+                (double)p.Agg.GoalsConcededAsGoalkeeper / p.Agg.GoalkeeperMatches,
+                p.Agg.GoalkeeperMatches, p.Elo, p.PlayerId))
             .Select((p, index) => new PositionRanking
             {
                 Rank = index + 1,
@@ -90,11 +88,10 @@ internal sealed class GetSeasonPositionRankingsQueryHandler(IAppDbContext db, Te
             .ToList();
 
         var attackers = participants
-            .Where(p => p.Agg.AttackerMatches >= minGames)
-            .OrderByDescending(p => (double)p.Agg.GoalsScoredAsAttacker / p.Agg.AttackerMatches)
-            .ThenByDescending(p => p.Agg.AttackerMatches)
-            .ThenByDescending(p => p.Elo)
-            .ThenBy(p => p.PlayerId)
+            .Where(p => LadderLeaders.IsPositionEligible(p.Agg.AttackerMatches))
+            .OrderAttackers(p => new LadderLeaders.PositionKey(
+                (double)p.Agg.GoalsScoredAsAttacker / p.Agg.AttackerMatches,
+                p.Agg.AttackerMatches, p.Elo, p.PlayerId))
             .Select((p, index) => new PositionRanking
             {
                 Rank = index + 1,

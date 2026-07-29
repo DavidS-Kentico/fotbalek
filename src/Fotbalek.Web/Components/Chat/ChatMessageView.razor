@@ -132,8 +132,8 @@
     [Parameter] public string? EditedTimeText { get; set; }
     [Parameter] public int MyUserId { get; set; }
     [Parameter] public string? MyPlayerName { get; set; }
-    /// <summary>Roster names sorted longest-first so mention matching is longest-match.</summary>
-    [Parameter] public IReadOnlyList<string> RosterNames { get; set; } = [];
+    /// <summary>The team roster the shared <see cref="MentionScanner"/> matches against.</summary>
+    [Parameter] public IReadOnlyList<RosterName> Roster { get; set; } = [];
     /// <summary>Resolves a user id to a display name (reaction chip tooltips).</summary>
     [Parameter] public Func<int, string> ResolveUserName { get; set; } = _ => "?";
     [Parameter] public EventCallback<string> OnToggleReaction { get; set; }
@@ -197,36 +197,29 @@
         }
     }
 
-    /// <summary>Splits the raw body into text/mention segments: after each '@', the roster is
-    /// tried longest-name-first (case-insensitive). No HTML is ever built from user text.</summary>
+    /// <summary>
+    /// Splits the raw body into text/mention segments from the shared <see cref="MentionScanner"/>'s
+    /// spans. No HTML is ever built from user text.
+    /// <para>
+    /// Driving the pills from the same matcher the server writes notifications with is not optional:
+    /// two copies of the rule would drift and produce a highlighted mention with no notification, or
+    /// worse the reverse (AI/notifications.md §5.2).
+    /// </para>
+    /// </summary>
     private List<Segment> ComputeSegments(string body)
     {
         var segments = new List<Segment>();
-        int lastEmit = 0, i = 0;
-        while (i < body.Length && (i = body.IndexOf('@', i)) >= 0)
+        var lastEmit = 0;
+        foreach (var span in MentionScanner.Scan(body, Roster))
         {
-            string? matched = null;
-            foreach (var name in RosterNames)
-            {
-                if (i + 1 + name.Length <= body.Length &&
-                    string.Compare(body, i + 1, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) == 0)
-                {
-                    matched = name;
-                    break;
-                }
-            }
-            if (matched == null)
-            {
-                i++;
-                continue;
-            }
-            if (i > lastEmit)
-                segments.Add(new Segment(body[lastEmit..i], false, false));
+            if (span.Start > lastEmit)
+                segments.Add(new Segment(body[lastEmit..span.Start], false, false));
+
+            var text = body.Substring(span.Start, span.Length);
             var isMe = MyPlayerName != null &&
-                string.Equals(matched, MyPlayerName, StringComparison.OrdinalIgnoreCase);
-            segments.Add(new Segment(body.Substring(i, 1 + matched.Length), true, isMe));
-            i += 1 + matched.Length;
-            lastEmit = i;
+                string.Equals(text[1..], MyPlayerName, StringComparison.OrdinalIgnoreCase);
+            segments.Add(new Segment(text, true, isMe));
+            lastEmit = span.Start + span.Length;
         }
         if (lastEmit < body.Length)
             segments.Add(new Segment(body[lastEmit..], false, false));

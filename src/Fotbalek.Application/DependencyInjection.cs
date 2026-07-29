@@ -5,6 +5,7 @@ using Fotbalek.Application.Common.Abstractions;
 using Fotbalek.Application.Common.Authorization;
 using Fotbalek.Application.Common.Behaviors;
 using Fotbalek.Application.Common.Events;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.Application.Features.Stats;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,6 +41,10 @@ public static class DependencyInjection
         services.AddScoped<IUserContext>(sp => sp.GetRequiredService<UserContext>());
         services.AddScoped<IEventCollector, EventCollector>();
         services.AddScoped<TeamAccess>();
+        // Scoped so its muted-preference and dedup caches live exactly as long as one dispatch —
+        // which is what makes the match-aftermath run one lookup per category, not per draft.
+        services.AddScoped<INotificationWriter, NotificationWriter>();
+        services.AddScoped<LadderLeaderSync>();
 
         services.AddFoosballStats();
 

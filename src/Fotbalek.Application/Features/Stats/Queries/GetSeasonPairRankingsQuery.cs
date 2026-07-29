@@ -100,11 +100,12 @@ internal sealed class GetSeasonPairRankingsQueryHandler(IAppDbContext db, TeamAc
         }
 
         return pairs
-            .Where(p => p.Matches >= Constants.TimeThresholds.MinGamesForPartnerStats)
-            .OrderByDescending(p => p.WinRate)
-            .ThenByDescending(p => p.Matches)
-            .ThenByDescending(p => eloByPlayer.GetValueOrDefault(p.Player1Id) + eloByPlayer.GetValueOrDefault(p.Player2Id))
-            .ThenBy(p => Math.Min(p.Player1Id, p.Player2Id))
+            .Where(p => LadderLeaders.IsPairEligible(p.Matches))
+            .OrderPairs(p => new LadderLeaders.PairKey(
+                p.WinRate,
+                p.Matches,
+                eloByPlayer.GetValueOrDefault(p.Player1Id) + eloByPlayer.GetValueOrDefault(p.Player2Id),
+                Math.Min(p.Player1Id, p.Player2Id)))
             .ToList();
     }
 }

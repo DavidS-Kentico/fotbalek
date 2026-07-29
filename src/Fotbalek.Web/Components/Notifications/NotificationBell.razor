@@ -1,0 +1,411 @@
+@implements IAsyncDisposable
+@inject IScopedSender Sender
+@inject CurrentUserAccessor CurrentUser
+@inject NotificationNotifier Notifier
+@inject NotificationUiState UiState
+@inject ChatUiState ChatUi
+@inject TimeZoneService Tz
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@* The bell in the team navbar, left of the account menu — where every comparable app puts it. A plain
+   ui.js dropdown, NOT a Blazor-owned open flag: ui.js keeps the open state in the DOM as a .show class
+   specifically so a re-render cannot close a menu whose contents update live, which is exactly what an
+   arriving-notification feed needs (AI/notifications.md §9.1).
+
+   The feed is account-scoped and cross-team: being rendered inside one team's navbar does not narrow
+   it (§1, §9.3). It loads lazily on the first interaction with the trigger — the badge alone is one
+   filtered-index count. *@
+
+<div class="dropdown notif">
+    @* The trigger carries BOTH data-toggle (ui.js opens/closes it) and @onclick (one idempotent
+       "the user touched the bell" routine). Both listeners fire: ui.js calls preventDefault, which
+       suppresses only the browser's default action, and never stopPropagation, so Blazor's delegated
+       handler still runs.
+
+       Running it on the CLOSING click too is deliberate and harmless — the rows were just seen, and a
+       repeat ExecuteUpdate matches zero rows. That is what lets this work at all: ui.js handles Escape
+       and outside clicks without telling .NET, so a mirrored open flag would drift and then invert,
+       marking nothing seen while the menu opened (§7.2). *@
+    <button class="btn btn-outline-neutral btn-icon notif-trigger" type="button"
+            data-toggle="dropdown" aria-expanded="false"
+            title="Notifications" aria-label="Notifications"
+            @onclick="OnBellTouched">
+        <i class="bi bi-bell-fill @(_arrivals > 0 ? "notif-shake" : "")" @key="_arrivals"></i>
+        @if (UiState.UnseenCount > 0)
+        {
+            <span class="badge notif-badge">@Cap(UiState.UnseenCount)</span>
+        }
+    </button>
+
+    <div class="dropdown-menu dropdown-menu-end notif-menu">
+        <div class="notif-head">
+            <span class="notif-head__title">Notifications</span>
+            @* data-keep-open exempts a BUTTON and nothing else: ui.js's selector is
+               ".dropdown-item, a[href], button:not([data-keep-open])", so a keep-open button that also
+               carried .dropdown-item would match the first alternative and close the menu anyway (§9.1). *@
+            @if (_hasUnread)
+            {
+                <button type="button" class="notif-head__action" data-keep-open @onclick="MarkAllReadAsync">
+                    <i class="bi bi-check2-all"></i> Mark all as read
+                </button>
+            }
+            <button type="button" class="notif-head__action" title="Notification settings"
+                    aria-label="Notification settings" @onclick="OpenSettings">
+                <i class="bi bi-gear"></i>
+            </button>
+        </div>
+
+        <div class="notif-list">
+            @if (!_feedLoaded)
+            {
+                <LoadingSpinner />
+            }
+            else if (_feed.Count == 0)
+            {
+                @if (_everythingMuted)
+                {
+                    <EmptyState Icon="bi bi-bell-slash" Message="Every category is muted, so nothing lands here.">
+                        <button type="button" class="btn btn-sm btn-outline-brand" @onclick="OpenSettings">
+                            Notification settings
+                        </button>
+                    </EmptyState>
+                }
+                else
+                {
+                    <EmptyState Icon="bi bi-bell" Message="Nothing yet. Matches, mentions and milestones show up here." />
+                }
+            }
+            else
+            {
+                DateOnly? lastDay = null;
+                @foreach (var notification in _feed)
+                {
+                    var day = Tz.ToLocalDate(notification.CreatedAt);
+                    if (day != lastDay)
+                    {
+                        lastDay = day;
+                        <div class="notif-day">@DayLabel(day)</div>
+                    }
+                    <NotificationRow @key="notification.Id"
+                                     Notification="notification"
+                                     Href="@HrefFor(notification)"
+                                     TimeText="@TimeText(notification.CreatedAt)"
+                                     ShowTeamChip="TeamCount > 1"
+                                     OnActivate="() => ActivateAsync(notification)" />
+                }
+
+                @if (_hasMore)
+                {
+                    @* A plain button rather than the shared LoadMoreButton: that component takes
+                       Remaining as [EditorRequired] to render its "(N more)" hint, and a keyset cursor
+                       has no total to put there — and it passes no arbitrary attributes, so it could
+                       not carry data-keep-open either (§9.1). *@
+                    <button type="button" class="notif-more" data-keep-open disabled="@_loadingMore"
+                            @onclick="LoadMoreAsync">
+                        @if (_loadingMore)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-arrow-down-circle me-1"></i>
+                        }
+                        Load more
+                    </button>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>How many teams the user is in. Above one, rows carry a team chip — a cross-team list
+    /// needs it to stay legible from inside one team (AI/notifications.md §16). Passed in by the layout,
+    /// which already has the list.</summary>
+    [Parameter] public int TeamCount { get; set; }
+
+    /// <summary>The team whose pages the layout is currently rendering. A row targeting a DIFFERENT
+    /// team cannot be reached by in-circuit navigation — TeamLayout resolves its team once per circuit,
+    /// so it would keep showing the old team's navbar. Those rows force a reload, exactly as the team
+    /// switcher does.</summary>
+    [Parameter] public int CurrentTeamId { get; set; }
+
+    private int _userId;
+    private bool _subscribed;
+
+    private List<NotificationDto> _feed = [];
+    private bool _feedLoaded;
+    private bool _hasMore;
+    private bool _loadingMore;
+    private bool _everythingMuted;
+
+    /// <summary>Whether ANY row is unread, anywhere — not `_feed.Any(!IsRead)`: "Mark all as read"
+    /// clears the whole history, so its visibility must see past the loaded page, or a backlog
+    /// below an all-read first page would hide the one button that clears it.</summary>
+    private bool _hasUnread;
+
+    /// <summary>Bumped on each arrival. Used as the bell icon's @@key so the element is recreated and
+    /// the CSS animation replays — a bare bool would already be true when the second one lands.</summary>
+    private int _arrivals;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var userId = await CurrentUser.GetUserIdAsync();
+        if (userId == null)
+            return;
+        _userId = userId.Value;
+
+        await Tz.EnsureResolvedAsync();
+
+        Notifier.Created += OnCreated;
+        Notifier.ReadStateChanged += OnReadStateChanged;
+        UiState.Changed += OnUnseenCountChanged;
+        _subscribed = true;
+
+        await RefreshBadgeAsync();
+        StateHasChanged();
+    }
+
+    // ── Live events (raised on other circuits' threads — marshal via InvokeAsync) ───────────────
+
+    private async void OnCreated(int userId)
+    {
+        if (userId != _userId)
+            return;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                _arrivals++;
+                await RefreshBadgeAsync();
+                // Only re-read the feed if this circuit has already loaded it; an arrival while the
+                // panel has never been opened just bumps the badge and fetches nothing (§9.3).
+                if (_feedLoaded)
+                    await LoadFirstPageAsync();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnReadStateChanged(int userId)
+    {
+        if (userId != _userId)
+            return;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshBadgeAsync();
+                if (_feedLoaded)
+                    await LoadFirstPageAsync();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async void OnUnseenCountChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    // ── Loading ────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Recomputed, never incremented — the same discipline as chat's unread counts (§7.2).</summary>
+    private async Task RefreshBadgeAsync()
+    {
+        var count = await Sender.Send(new GetUnseenNotificationCountQuery());
+        if (!count.IsSuccess)
+            return;
+
+        UiState.SetUnseenCount(count.Value);
+
+        // Also feed the tab title, so a backgrounded tab shows that something arrived. The badge and
+        // the bell's shake are only visible to someone already looking at the navbar; chat has carried
+        // its unread count in the title from the start, and the two counts are summed there.
+        //
+        // Pushed here rather than from UiState.Changed on purpose: this is the one place the count is
+        // (re)computed, and Changed does not fire when the value is unchanged.
+        await SetTitleBadgeAsync(count.Value);
+    }
+
+    private async Task SetTitleBadgeAsync(int count)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("fotbalekTitleBadge.set", "notifications", count);
+        }
+        catch (Exception e) when (e is JSDisconnectedException or JSException or InvalidOperationException)
+        {
+            // A tab title is never worth failing a render over.
+        }
+    }
+
+    /// <summary>
+    /// Fetches PageSize + 1 rows and uses the extra one as the has-more flag, so "load more" is a
+    /// keyset page rather than an offset (§9.1).
+    /// <para>
+    /// Re-reading resets the list to one page, so an arrival collapses any scrolled-back pages. Accepted:
+    /// the panel is a short dropdown and an arrival while it is open is rare.
+    /// </para>
+    /// </summary>
+    private async Task LoadFirstPageAsync()
+    {
+        var page = await Sender.Send(new GetNotificationsQuery(null, Constants.Notifications.PageSize + 1));
+        if (page.IsFailure)
+            return;
+
+        _hasMore = page.Value.Count > Constants.Notifications.PageSize;
+        _feed = page.Value.Take(Constants.Notifications.PageSize).ToList();
+        _feedLoaded = true;
+
+        // Recomputed on every (re)load — this method re-runs on each ReadStateChanged echo, so the
+        // flag follows mark-all, row clicks and the chat-read clearing without its own wiring. The
+        // loaded page can answer "true" on its own; only an all-read page needs the probe.
+        _hasUnread = _feed.Any(n => !n.IsRead) || await HasUnreadBeyondLoadedAsync();
+
+        // An empty feed reads as a bug when the real reason is that everything is muted, so say which
+        // it is — one extra query, and only in the empty case (§9.1).
+        _everythingMuted = _feed.Count == 0 && await IsEverythingMutedAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_loadingMore || _feed.Count == 0)
+            return;
+        _loadingMore = true;
+        try
+        {
+            var page = await Sender.Send(
+                new GetNotificationsQuery(_feed[^1].Id, Constants.Notifications.PageSize + 1));
+            if (page.IsFailure)
+                return;
+
+            _hasMore = page.Value.Count > Constants.Notifications.PageSize;
+            _feed.AddRange(page.Value.Take(Constants.Notifications.PageSize));
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
+    }
+
+    private async Task<bool> HasUnreadBeyondLoadedAsync()
+    {
+        var hasUnread = await Sender.Send(new HasUnreadNotificationsQuery());
+        return hasUnread.IsSuccess && hasUnread.Value;
+    }
+
+    private async Task<bool> IsEverythingMutedAsync()
+    {
+        var preferences = await Sender.Send(new GetNotificationPreferencesQuery());
+        return preferences.IsSuccess
+            && preferences.Value.Count > 0
+            && preferences.Value.All(team => team.Categories.All(c => !c.InAppEnabled));
+    }
+
+    // ── Actions ────────────────────────────────────────────────────────────────────────────────
+
+    private async Task OnBellTouched()
+    {
+        if (!_feedLoaded)
+            await LoadFirstPageAsync();
+
+        // Every unseen row, not just the page that rendered: the badge means "arrived since you last
+        // looked", and a badge that stayed lit because unseen rows sat below the fold would reintroduce
+        // exactly the problem the seen/read split solves (§7.2).
+        //
+        // No refresh here: when the update touched any row it raises ReadStateChanged, and
+        // OnReadStateChanged recomputes the badge (and re-reads the feed) exactly once — refreshing
+        // here too would run both queries twice on every opening click. When it touched nothing,
+        // the badge was already right.
+        await Sender.Send(new MarkNotificationsSeenCommand());
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        // The write always changes rows when this button is visible (it only renders while some row
+        // is unread), so the ReadStateChanged echo re-reads the feed — reloading here too would
+        // double it.
+        await Sender.Send(new MarkAllNotificationsReadCommand());
+    }
+
+    private async Task ActivateAsync(NotificationDto notification)
+    {
+        await Sender.Send(new MarkNotificationReadCommand(notification.Id));
+
+        switch (NotificationDisplay.Target(notification))
+        {
+            case NotificationTarget.OpenChat chat:
+                // Not a URL: the conversation is a panel. RequestOpen exists because the dock is a
+                // sibling component — setting the state directly would change nothing on screen (§5.2).
+                ChatUi.RequestOpen(chat.TeamId);
+                break;
+
+            case NotificationTarget.Url url when notification.TeamId != CurrentTeamId:
+                Navigation.NavigateTo(url.Href, forceLoad: true);
+                break;
+
+            // Same-team page rows are rendered as <a href> and navigate natively.
+        }
+    }
+
+    // The per-team notification switches live inside each team's card on the Account page, so the cog
+    // lands on the Teams section rather than a panel of its own.
+    private void OpenSettings() => Navigation.NavigateTo("/account?section=teams");
+
+    // ── Rendering helpers ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>Null for the rows that must be buttons: chat targets, and any page on another team.</summary>
+    private string? HrefFor(NotificationDto notification) =>
+        NotificationDisplay.Target(notification) is NotificationTarget.Url url && notification.TeamId == CurrentTeamId
+            ? url.Href
+            : null;
+
+    private static string Cap(int count) =>
+        count > Constants.Notifications.BadgeCap ? $"{Constants.Notifications.BadgeCap}+" : count.ToString();
+
+    private string DayLabel(DateOnly day)
+    {
+        var today = Tz.Today;
+        if (day == today) return "Today";
+        if (day == today.AddDays(-1)) return "Yesterday";
+        return day.ToString("MMM d, yyyy");
+    }
+
+    /// <summary>Same short format as the chat rail.</summary>
+    private string TimeText(DateTimeOffset createdAt)
+    {
+        var local = Tz.ToLocalTime(createdAt);
+        var day = Tz.ToLocalDate(createdAt);
+        var today = Tz.Today;
+        if (day == today) return local.ToString("HH:mm");
+        if (day > today.AddDays(-7)) return local.ToString("ddd");
+        return local.ToString("MMM d");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_subscribed)
+            return;
+        Notifier.Created -= OnCreated;
+        Notifier.ReadStateChanged -= OnReadStateChanged;
+        UiState.Changed -= OnUnseenCountChanged;
+        _subscribed = false;
+
+        // The bell only lives in TeamLayout, so leaving on the nav-less pages (/account, /create,
+        // /join, /claim) takes its title contribution with it — nothing would keep the number current
+        // there, and a frozen count is worse than none. Chat's share is untouched: its dock renders on
+        // every authenticated page.
+        await SetTitleBadgeAsync(0);
+    }
+}

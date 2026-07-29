@@ -1,6 +1,7 @@
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
 using Fotbalek.Application.Common.Authorization;
+using Fotbalek.Application.Features.Notifications;
 using Fotbalek.SharedKernel;
 
 namespace Fotbalek.Application.Features.Players;
@@ -8,7 +9,8 @@ namespace Fotbalek.Application.Features.Players;
 /// <summary>Reactivates a player. Captain only.</summary>
 public sealed record ReactivatePlayerCommand(int TeamId, int PlayerId) : ICommand;
 
-internal sealed class ReactivatePlayerCommandHandler(IAppDbContext db, TeamAccess teamAccess)
+internal sealed class ReactivatePlayerCommandHandler(
+    IAppDbContext db, TeamAccess teamAccess, IEventCollector events)
     : ICommandHandler<ReactivatePlayerCommand>
 {
     public async Task<Result> Handle(ReactivatePlayerCommand command, CancellationToken cancellationToken)
@@ -22,6 +24,10 @@ internal sealed class ReactivatePlayerCommandHandler(IAppDbContext db, TeamAcces
 
         player.IsActive = true;
         await db.SaveChangesAsync(cancellationToken);
+
+        // Re-entering the ladders can change a #1 with no match involved — refresh the snapshot
+        // silently, exactly as deactivation does (AI/notifications.md §6.3).
+        events.Enqueue(new LadderRefreshDueEvent(command.TeamId));
         return Result.Success();
     }
 }

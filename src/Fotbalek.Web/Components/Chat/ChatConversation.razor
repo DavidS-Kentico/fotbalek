@@ -73,7 +73,7 @@
                                  EditedTimeText="@(message.EditedAt is { } edited ? Tz.ToLocalTime(edited).ToString("MMM d, HH:mm") : null)"
                                  MyUserId="MyUserId"
                                  MyPlayerName="@MyPlayerName"
-                                 RosterNames="_mentionNames"
+                                 Roster="_mentionRoster"
                                  ResolveUserName="ResolveUserName"
                                  Seen="@(message.Id == lastOwnId ? BuildSeenState(message.Id) : null)"
                                  OnToggleReaction="emoji => ToggleReaction(message.Id, emoji)"
@@ -158,7 +158,9 @@
 
     private List<PlayerDto> _roster = [];
     private Dictionary<int, PlayerDto> _playersByUserId = [];
-    private List<string> _mentionNames = [];
+    /// <summary>The roster the shared MentionScanner matches against — the same one the server uses to
+    /// decide who gets a bell row, so a pill and a notification can never disagree.</summary>
+    private List<RosterName> _mentionRoster = [];
     /// <summary>userId → their highest read message id in this team, for the "seen by" readout.
     /// Seeded once on load and kept live via <see cref="OnReadStateChanged"/> (monotonic).</summary>
     private readonly Dictionary<int, int> _readWatermarks = [];
@@ -219,10 +221,10 @@
                 .Where(p => p.UserId.HasValue)
                 .GroupBy(p => p.UserId!.Value)
                 .ToDictionary(g => g.Key, g => g.First());
-            _mentionNames = _roster
-                .Select(p => p.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(n => n.Length)
+            // Includes inactive players (IncludeInactive above) — a mention of a deactivated player
+            // still pills, and still notifies. The scanner sorts longest-first itself.
+            _mentionRoster = _roster
+                .Select(p => new RosterName(p.Id, p.Name))
                 .ToList();
 
             // Max-merge: a live ReadStateChanged may have landed since we subscribed; never let

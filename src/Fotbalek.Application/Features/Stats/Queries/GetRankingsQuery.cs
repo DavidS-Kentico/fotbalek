@@ -7,7 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Application.Features.Stats.Queries;
 
-/// <summary>All-time team rankings by ELO (active players).</summary>
+/// <summary>All-time team rankings by ELO (active players), ordered through the shared ladder
+/// chain — ELO alone left ties in whatever order the server felt like, so the same page could
+/// render them differently on two loads (see LadderLeaders).</summary>
 public sealed record GetRankingsQuery(int TeamId) : IQuery<List<PlayerRanking>>;
 
 internal sealed class GetRankingsQueryHandler(IAppDbContext db, TeamAccess teamAccess)
@@ -21,7 +23,6 @@ internal sealed class GetRankingsQueryHandler(IAppDbContext db, TeamAccess teamA
         var players = await db.Players
             .AsNoTracking()
             .Where(p => p.TeamId == query.TeamId && p.IsActive)
-            .OrderByDescending(p => p.Elo)
             .ToListAsync(cancellationToken);
 
         if (players.Count == 0)
@@ -47,7 +48,14 @@ internal sealed class GetRankingsQueryHandler(IAppDbContext db, TeamAccess teamA
         var rankings = new List<PlayerRanking>();
         var rank = 1;
 
-        foreach (var player in players)
+        // ELO desc → wins desc → matches desc → PlayerId asc (the shared chain).
+        var ordered = players.OrderSolo(p =>
+        {
+            var s = matchStats.GetValueOrDefault(p.Id);
+            return new LadderLeaders.SoloKey(p.Elo, s?.Wins ?? 0, s?.MatchCount ?? 0, p.Id);
+        });
+
+        foreach (var player in ordered)
         {
             var stats = matchStats.GetValueOrDefault(player.Id);
             var matchCount = stats?.MatchCount ?? 0;

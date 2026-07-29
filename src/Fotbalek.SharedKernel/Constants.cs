@@ -127,6 +127,36 @@ public static class Constants
     }
 
     /// <summary>
+    /// Notification feed limits and milestone thresholds
+    /// </summary>
+    public static class Notifications
+    {
+        /// <summary>Feed page / "load more". The same number as
+        /// <see cref="Pagination.DefaultPageSize"/>, kept as its own constant for the same reason
+        /// <see cref="Chat.HistoryPageSize"/> is: a feed page is tuned against its own surface.
+        /// The feed fetches PageSize + 1 rows to detect has-more.</summary>
+        public const int PageSize = 20;
+
+        /// <summary>Unseen counts above this render as "99+", like chat's.</summary>
+        public const int BadgeCap = 99;
+
+        /// <summary>What a category resolves to when the user has never touched it (no stored row).</summary>
+        public const NotificationChannel DefaultChannels = NotificationChannel.InApp;
+
+        /// <summary>Win-streak lengths worth telling someone about, before the repeat step kicks in.</summary>
+        public static readonly int[] WinStreakThresholds = [3, 5, 10];
+
+        /// <summary>Past the last explicit threshold, every multiple of this counts.</summary>
+        public const int WinStreakRepeatEvery = 5;
+
+        /// <summary>Matches-played milestones, before the repeat step kicks in.</summary>
+        public static readonly int[] MatchMilestones = [10, 25, 50, 100];
+
+        /// <summary>Past the last explicit milestone, every multiple of this counts.</summary>
+        public const int MatchMilestoneRepeatEvery = 100;
+    }
+
+    /// <summary>
     /// Pagination defaults
     /// </summary>
     public static class Pagination

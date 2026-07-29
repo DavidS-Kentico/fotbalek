@@ -1,0 +1,135 @@
+/* ============================================================================
+   Account page — the per-team card
+   ----------------------------------------------------------------------------
+   The Account page has ONE per-team list. A card is an identity header plus a
+   stack of labelled option groups, so adding a per-team option means adding a
+   group inside the card — not another panel, and not another page.
+
+   Groups are separated by a rule and sit below the header, which is what makes
+   them read as belonging to the team above rather than as siblings of the next
+   team in the list.
+   ============================================================================ */
+
+@layer components {
+    .team-card {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+
+    .team-card__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Who you are in this team: avatar, name, ELO — or the unclaimed note. */
+    .team-card__me {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    /* ---- One option group: a disclosure row plus its collapsible body ----
+       Collapsed by default, so the list above stays two lines per team. The row
+       carries a summary ("All" / "Off" / "3 of 5"), which is what makes hiding
+       the controls an improvement rather than just burying them. */
+    .team-card__group {
+        margin-top: 0.75rem;
+        border-top: 1px solid var(--color-line);
+    }
+
+    /* Full-width so the whole row is the hit target, not just the chevron. */
+    .team-card__group-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.6rem 0.25rem;
+        border: 0;
+        background: none;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+    .team-card__group-toggle:hover {
+        color: var(--color-brand);
+    }
+
+    /* Quiet, uppercase: a group label is a signpost, not a heading competing
+       with the team name above it. */
+    .team-card__group-label {
+        margin-right: auto;
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .team-card__group-summary {
+        color: var(--color-ink);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* ui.js maintains aria-expanded on the trigger, so the chevron follows the
+       DOM-owned open state without Blazor needing to know about it. */
+    .team-card__group-chevron {
+        color: var(--color-ink-muted);
+        font-size: 0.75rem;
+        transition: transform 0.15s ease-in-out;
+    }
+    .team-card__group-toggle[aria-expanded='true'] .team-card__group-chevron {
+        transform: rotate(180deg);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .team-card__group-chevron {
+            transition: none;
+        }
+    }
+
+    .team-card__group-body {
+        padding: 0.25rem 0.25rem 0.6rem;
+    }
+
+    .team-card__group-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .team-card__group-actions {
+        display: flex;
+        gap: 0.35rem;
+    }
+
+    /* Switches wrap into as many columns as fit; one column on a phone. */
+    .team-card__toggles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+        gap: 0.6rem 1.25rem;
+    }
+
+    /* Inherits .form-check's left padding, so the hint lines up under its label. */
+    .team-card__toggle-hint {
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        line-height: 1.3;
+    }
+
+    /* The unclaimed-team case: no options apply, so there is nothing to disclose
+       and the note sits where a group would. */
+    .team-card__note {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-line);
+        color: var(--color-ink-muted);
+        font-size: 0.85rem;
+    }
+}

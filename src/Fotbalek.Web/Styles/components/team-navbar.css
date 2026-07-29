@@ -111,6 +111,234 @@
         border: 2px solid var(--color-white);
     }
 
+    /* ===== Notification bell + panel =====
+       Styled here, beside .presence-menu, because this is a navbar dropdown and belongs with its
+       siblings — not in nav.css (the generic bar shell, which has no .dropdown-menu rules; the base
+       lives in overlay.css) and not in a scoped .razor.css. */
+    .team-navbar .notif-trigger {
+        position: relative;
+    }
+
+    /* Unread badge, sitting on the bell's top-right corner like chat's launcher badge. */
+    .notif-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 1.1rem;
+        padding: 0.1rem 0.25rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        line-height: 1;
+        border-radius: var(--radius-full);
+        background-color: var(--color-danger);
+        color: var(--color-white);
+    }
+
+    /* One-shot arrival cue. The bell icon is keyed on an arrival counter so the element is recreated
+       and this replays — a CSS animation only restarts when the element is new. */
+    .notif-shake {
+        display: inline-block;
+        animation: notif-shake 0.6s ease-in-out;
+        transform-origin: 50% 0;
+    }
+    @keyframes notif-shake {
+        0%, 100% { transform: rotate(0); }
+        15% { transform: rotate(12deg); }
+        30% { transform: rotate(-10deg); }
+        45% { transform: rotate(7deg); }
+        60% { transform: rotate(-5deg); }
+        75% { transform: rotate(3deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .notif-shake {
+            animation: none;
+        }
+    }
+
+    /* Wider and taller than the app's other menus, with internal scroll — the same treatment
+       .presence-menu gets, one size up. */
+    .notif-menu {
+        width: 22rem;
+        max-width: calc(100vw - 1.5rem);
+        padding: 0;
+    }
+
+    .notif-head {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--color-line);
+    }
+    .notif-head__title {
+        font-weight: 700;
+        margin-right: auto;
+    }
+    /* Deliberately NOT .dropdown-item: ui.js's dismissal selector matches that class before it checks
+       data-keep-open, so a header button carrying it would close the menu anyway. */
+    .notif-head__action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.4rem;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--color-ink-muted);
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .notif-head__action:hover {
+        background-color: var(--color-surface-muted);
+        color: var(--color-ink);
+    }
+
+    .notif-list {
+        max-height: 26rem;
+        overflow-y: auto;
+    }
+
+    .notif-day {
+        padding: 0.35rem 0.75rem;
+        background-color: var(--color-surface-muted);
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    /* Rows are <a> or <button> depending on their target, so both need the same reset. */
+    .notif-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border: 0;
+        border-bottom: 1px solid var(--color-line);
+        background: none;
+        color: inherit;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .notif-row:hover {
+        background-color: var(--color-surface-muted);
+        text-decoration: none;
+    }
+    .notif-row--unread {
+        background-color: color-mix(in srgb, var(--color-brand) 6%, transparent);
+    }
+    .notif-row--unread .notif-row__title {
+        font-weight: 600;
+    }
+
+    .notif-row__lead {
+        flex: 0 0 auto;
+        display: inline-flex;
+    }
+    .notif-row__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: var(--radius-full);
+        background-color: var(--color-surface-muted);
+        color: var(--color-brand);
+    }
+
+    .notif-row__main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .notif-row__title {
+        display: block;
+        font-size: 0.85rem;
+        line-height: 1.3;
+    }
+    .notif-row__sub {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-top: 0.15rem;
+        color: var(--color-ink-muted);
+        font-size: 0.75rem;
+    }
+    .notif-row__chip {
+        padding: 0.05rem 0.35rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-full);
+        white-space: nowrap;
+    }
+
+    .notif-row__meta {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: var(--color-ink-muted);
+        font-size: 0.7rem;
+        white-space: nowrap;
+    }
+    .notif-row__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: var(--color-brand);
+    }
+
+    .notif-more {
+        display: block;
+        width: 100%;
+        padding: 0.5rem;
+        border: 0;
+        background: none;
+        color: var(--color-brand);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .notif-more:hover {
+        background-color: var(--color-surface-muted);
+    }
+    .notif-more:disabled {
+        color: var(--color-ink-muted);
+        cursor: default;
+    }
+
+    /* Below sm the menu becomes a near-full-width sheet pinned under the navbar, with full-width tap
+       targets. The navbar's actions group already stays visible when the sections collapse, so the bell
+       itself needs nothing extra on phones. */
+    @media (width < theme(--breakpoint-sm)) {
+        .notif-menu {
+            position: fixed;
+            top: calc(var(--size-control) + 1.25rem);
+            left: 0.5rem;
+            right: 0.5rem;
+            width: auto;
+            max-width: none;
+        }
+        .notif-list {
+            max-height: 65vh;
+        }
+        .notif-row {
+            padding: 0.75rem;
+        }
+    }
+
+    /* ---- Dark theme ---- */
+    :root[data-theme='dark'] .notif-row--unread {
+        background-color: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    }
+    :root[data-theme='dark'] .notif-row__icon {
+        background-color: var(--color-surface-sunken);
+    }
+
     /* Contextual live-game pill */
     .team-navbar .live-pill {
         border-radius: var(--radius-full);

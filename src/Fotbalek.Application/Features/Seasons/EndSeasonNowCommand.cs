@@ -9,7 +9,8 @@ namespace Fotbalek.Application.Features.Seasons;
 /// <summary>Manual / premature end: sets EndsAt to now (if unset or in the future) and closes the season. Captain only.</summary>
 public sealed record EndSeasonNowCommand(int SeasonId) : ICommand;
 
-internal sealed class EndSeasonNowCommandHandler(IAppDbContext db, TeamAccess teamAccess, IDbLocks dbLocks)
+internal sealed class EndSeasonNowCommandHandler(
+    IAppDbContext db, TeamAccess teamAccess, IDbLocks dbLocks, INotificationWriter notifications)
     : ICommandHandler<EndSeasonNowCommand>
 {
     public async Task<Result> Handle(EndSeasonNowCommand command, CancellationToken cancellationToken)
@@ -37,7 +38,10 @@ internal sealed class EndSeasonNowCommandHandler(IAppDbContext db, TeamAccess te
         {
             season.EndsAt = now;
         }
-        await SeasonCloseProcedure.CloseAsync(db, season, now, cancellationToken);
+        // The same notification write as the lazy close — this is the second CloseAsync call site, and
+        // skipping it here would make a deliberately ended season finish in silence (§5.5).
+        var frozen = await SeasonCloseProcedure.CloseAsync(db, season, now, cancellationToken);
+        await SeasonNotifications.WriteCloseAsync(db, notifications, season, frozen, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }

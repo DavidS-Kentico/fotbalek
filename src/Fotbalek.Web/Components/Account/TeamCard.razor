@@ -1,0 +1,80 @@
+@* One team on the Account page: who you are in it, then a stack of labelled option groups covering
+   "my relationship with this team".
+
+   This is the page's single per-team list. It used to be two — a Teams panel and a Notifications panel
+   that re-drew the same crest and name just to hang five switches off each — and the duplication also
+   hid a real gap: a team where you have not claimed a player appeared under Teams and was silently
+   absent from Notifications, with nothing to explain why (spec §8.5 asked for the note; it is below).
+
+   Extending it means dropping another group component beside TeamNotificationOptions — push channels,
+   a per-team display preference, "leave team". Not a new panel and not a new page.
+
+   Each group is collapsed by default and carries its own summary, so this list stays scannable: the
+   card reads as two lines per team until you ask for more. Groups own their own disclosure, so the card
+   never has to know what any of them contain. *@
+
+<div class="list-group-item team-card">
+    <div class="team-card__head">
+        <div>
+            <a href="/team/@Membership.Team.CodeName" class="no-underline font-semibold">
+                <i class="bi bi-shield-fill text-brand me-1"></i>@Membership.Team.Name
+            </a>
+            <small class="text-ink-muted ms-1">@@@Membership.Team.CodeName</small>
+            @if (Membership.IsCaptain)
+            {
+                <span class="badge bg-warning text-gray-900 ms-2">Captain</span>
+            }
+            <div class="text-ink-muted text-small mt-1">Joined @JoinedText</div>
+        </div>
+        <div class="team-card__me">
+            @if (Membership.MyPlayer is { } player)
+            {
+                <Avatar AvatarId="@player.AvatarId" Size="sm" />
+                <span class="font-semibold">@player.Name</span>
+                <EloBadge Elo="@player.Elo" />
+                @if (!player.IsActive)
+                {
+                    <span class="badge bg-neutral">Inactive</span>
+                }
+            }
+            else
+            {
+                <span class="text-ink-muted text-small">No player claimed</span>
+            }
+        </div>
+    </div>
+
+    @if (Preferences is { } preferences)
+    {
+        <TeamNotificationOptions TeamId="Membership.Team.Id"
+                                 Preferences="preferences"
+                                 StartExpanded="ExpandOptions"
+                                 OnChanged="OnPreferencesChanged" />
+    }
+    else
+    {
+        @* The honest version of what used to be an unexplained omission. *@
+        <div class="team-card__note">
+            <i class="bi bi-info-circle me-1"></i>
+            Claim a player to take part and receive notifications from this team —
+            <a href="/team/@Membership.Team.CodeName/claim">claim one</a>.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MembershipOverviewDto Membership { get; set; } = null!;
+
+    /// <summary>This team's resolved notification categories, or null when the user has no claimed
+    /// player in it — which is also the only state where the group does not apply.</summary>
+    [Parameter] public List<NotificationCategoryPreferenceDto>? Preferences { get; set; }
+
+    /// <summary>Local-time joined date, formatted by the page (which owns the TimeZoneService).</summary>
+    [Parameter] public string JoinedText { get; set; } = string.Empty;
+
+    /// <summary>Start the option groups expanded — set when the visitor was deep-linked here by the
+    /// bell's cog, who came for exactly those controls.</summary>
+    [Parameter] public bool ExpandOptions { get; set; }
+
+    [Parameter] public EventCallback OnPreferencesChanged { get; set; }
+}

@@ -1,4 +1,5 @@
 using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Application.Features.Stats.Queries;
 using Fotbalek.Domain.Entities;
 using Fotbalek.Domain.Services;
 using Fotbalek.SharedKernel;
@@ -6,14 +7,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fotbalek.Application.Features.Seasons;
 
+/// <summary>What the close froze, handed back to the caller so the notification write has a typed
+/// input instead of having to walk <c>ChangeTracker.Entries&lt;T&gt;()</c> for Added rows — which would
+/// be both obscure and fragile against a future reordering (AI/notifications.md §5.5).</summary>
+/// <param name="Ranks">One entry per participant. A null rank means inactive at close.</param>
+internal sealed record SeasonCloseResult(
+    IReadOnlyList<(int PlayerId, int? FinalRank)> Ranks,
+    IReadOnlyList<SeasonAward> Awards);
+
 /// <summary>
 /// The close procedure: freezes per-player results and pair standings, generates awards
 /// (when the season has enough matches), and stamps ClosedAt. Runs inside the caller's
 /// transaction, after the season row lock was taken.
+/// <para>
+/// Has TWO callers — CloseSeasonCommand (the lazy close) and EndSeasonNowCommand (a captain ending
+/// the season early) — and both write the season-close notifications from what this returns. Hooking
+/// only the first would make an early-ended season finish in silence, for exactly the close a human
+/// deliberately triggered (§5.5).
+/// </para>
 /// </summary>
 internal static class SeasonCloseProcedure
 {
-    public static async Task CloseAsync(IAppDbContext db, Season season, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task<SeasonCloseResult> CloseAsync(IAppDbContext db, Season season, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var matches = await db.Matches
             .Include(m => m.MatchPlayers)
@@ -32,14 +47,15 @@ internal static class SeasonCloseProcedure
         // 1. Freeze results — one SeasonPlayerResult per participant, wins by score.
         var aggregates = SeasonAggregates.ComputeParticipants(matches);
 
-        // FinalRank only for players active at close; deterministic tie-breaks:
-        // seasonal ELO desc → wins desc → matches played desc → PlayerId asc.
+        // FinalRank only for players active at close, ranked by the shared solo chain — the frozen
+        // standings and the live table order through the same rules and can never disagree.
         var rankByPlayer = ladder
             .Where(sp => sp.Player.IsActive)
-            .OrderByDescending(sp => sp.Elo)
-            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.Wins : 0)
-            .ThenByDescending(sp => aggregates.TryGetValue(sp.PlayerId, out var a) ? a.MatchesPlayed : 0)
-            .ThenBy(sp => sp.PlayerId)
+            .OrderSolo(sp =>
+            {
+                var agg = aggregates.GetValueOrDefault(sp.PlayerId);
+                return new LadderLeaders.SoloKey(sp.Elo, agg?.Wins ?? 0, agg?.MatchesPlayed ?? 0, sp.PlayerId);
+            })
             .Select((sp, index) => (sp.PlayerId, Rank: index + 1))
             .ToDictionary(x => x.PlayerId, x => x.Rank);
 
@@ -80,22 +96,28 @@ internal static class SeasonCloseProcedure
             pairRows.Add(row);
         }
 
-        // 2. Awards — only if the season has enough matches in total; standings still freeze below that.
-        if (matches.Count >= Constants.Seasons.MinMatchesForAwards)
-        {
-            GenerateAwards(db, season, participants, pairRows);
-        }
+        // 2. Awards — only if the season has enough matches in total; standings still freeze below
+        // that, so a short season closes with standings and no awards at all. The notification write
+        // simply iterates whatever came out here, which may be nothing.
+        var awards = matches.Count >= Constants.Seasons.MinMatchesForAwards
+            ? GenerateAwards(db, season, participants, pairRows)
+            : [];
 
         // 3. Close.
         season.EndsAt ??= now;
         season.ClosedAt = now;
+
+        return new SeasonCloseResult(
+            participants.Select(p => (p.PlayerId, p.Result.FinalRank)).ToList(),
+            awards);
     }
 
     /// <summary>PlayerId + final seasonal ELO + the frozen result row. FinalRank != null ⇔ active at close.</summary>
     private sealed record ParticipantClose(int PlayerId, int Elo, SeasonPlayerResult Result);
 
-    private static void GenerateAwards(IAppDbContext db, Season season, List<ParticipantClose> participants, List<SeasonPair> pairs)
+    private static List<SeasonAward> GenerateAwards(IAppDbContext db, Season season, List<ParticipantClose> participants, List<SeasonPair> pairs)
     {
+        var awards = new List<SeasonAward>();
         var byPlayer = participants.ToDictionary(p => p.PlayerId);
 
         // Top 3 players: the frozen standings order filtered to the Player-award match minimum —
@@ -107,37 +129,37 @@ internal static class SeasonCloseProcedure
             .ToList();
         AddAwards(Constants.Seasons.AwardCategories.Player, playerPodium.Select(p => p.PlayerId));
 
-        // Top 3 goalkeepers: fewest goals conceded per game; same threshold and metric as the rankings.
+        // Top 3 goalkeepers: fewest goals conceded per game — the shared chain and threshold, so the
+        // podium always matches the rankings table.
         var goalkeeperPodium = participants
-            .Where(p => p.Result.FinalRank != null && p.Result.GoalkeeperMatches >= Constants.TimeThresholds.MinGamesForPositionBadge)
-            .OrderBy(p => (double)p.Result.GoalsConcededAsGoalkeeper / p.Result.GoalkeeperMatches)
-            .ThenByDescending(p => p.Result.GoalkeeperMatches)
-            .ThenByDescending(p => p.Elo)
-            .ThenBy(p => p.PlayerId)
+            .Where(p => p.Result.FinalRank != null && LadderLeaders.IsPositionEligible(p.Result.GoalkeeperMatches))
+            .OrderGoalkeepers(p => new LadderLeaders.PositionKey(
+                (double)p.Result.GoalsConcededAsGoalkeeper / p.Result.GoalkeeperMatches,
+                p.Result.GoalkeeperMatches, p.Elo, p.PlayerId))
             .Take(3)
             .ToList();
         AddAwards(Constants.Seasons.AwardCategories.Goalkeeper, goalkeeperPodium.Select(p => p.PlayerId));
 
         // Top 3 attackers: most goals scored per game.
         var attackerPodium = participants
-            .Where(p => p.Result.FinalRank != null && p.Result.AttackerMatches >= Constants.TimeThresholds.MinGamesForPositionBadge)
-            .OrderByDescending(p => (double)p.Result.GoalsScoredAsAttacker / p.Result.AttackerMatches)
-            .ThenByDescending(p => p.Result.AttackerMatches)
-            .ThenByDescending(p => p.Elo)
-            .ThenBy(p => p.PlayerId)
+            .Where(p => p.Result.FinalRank != null && LadderLeaders.IsPositionEligible(p.Result.AttackerMatches))
+            .OrderAttackers(p => new LadderLeaders.PositionKey(
+                (double)p.Result.GoalsScoredAsAttacker / p.Result.AttackerMatches,
+                p.Result.AttackerMatches, p.Elo, p.PlayerId))
             .Take(3)
             .ToList();
         AddAwards(Constants.Seasons.AwardCategories.Attacker, attackerPodium.Select(p => p.PlayerId));
 
         // Top 3 pairs: win rate together; excluded if either member is inactive at close.
         var pairPodium = pairs
-            .Where(pr => pr.MatchesTogether >= Constants.TimeThresholds.MinGamesForPartnerStats &&
+            .Where(pr => LadderLeaders.IsPairEligible(pr.MatchesTogether) &&
                          byPlayer.TryGetValue(pr.Player1Id, out var m1) && m1.Result.FinalRank != null &&
                          byPlayer.TryGetValue(pr.Player2Id, out var m2) && m2.Result.FinalRank != null)
-            .OrderByDescending(pr => (double)pr.WinsTogether / pr.MatchesTogether)
-            .ThenByDescending(pr => pr.MatchesTogether)
-            .ThenByDescending(pr => byPlayer[pr.Player1Id].Elo + byPlayer[pr.Player2Id].Elo)
-            .ThenBy(pr => Math.Min(pr.Player1Id, pr.Player2Id))
+            .OrderPairs(pr => new LadderLeaders.PairKey(
+                (double)pr.WinsTogether / pr.MatchesTogether,
+                pr.MatchesTogether,
+                byPlayer[pr.Player1Id].Elo + byPlayer[pr.Player2Id].Elo,
+                Math.Min(pr.Player1Id, pr.Player2Id)))
             .Take(3)
             .ToList();
 
@@ -145,7 +167,7 @@ internal static class SeasonCloseProcedure
         foreach (var pair in pairPodium)
         {
             // One row per member so lookups by PlayerId stay trivial.
-            db.SeasonAwards.Add(new SeasonAward
+            Add(new SeasonAward
             {
                 SeasonId = season.Id,
                 PlayerId = pair.Player1Id,
@@ -153,7 +175,7 @@ internal static class SeasonCloseProcedure
                 Category = Constants.Seasons.AwardCategories.Pair,
                 Rank = pairRank
             });
-            db.SeasonAwards.Add(new SeasonAward
+            Add(new SeasonAward
             {
                 SeasonId = season.Id,
                 PlayerId = pair.Player2Id,
@@ -164,12 +186,14 @@ internal static class SeasonCloseProcedure
             pairRank++;
         }
 
+        return awards;
+
         void AddAwards(string category, IEnumerable<int> playerIdsInOrder)
         {
             var rank = 1;
             foreach (var playerId in playerIdsInOrder)
             {
-                db.SeasonAwards.Add(new SeasonAward
+                Add(new SeasonAward
                 {
                     SeasonId = season.Id,
                     PlayerId = playerId,
@@ -177,6 +201,12 @@ internal static class SeasonCloseProcedure
                     Rank = rank++
                 });
             }
+        }
+
+        void Add(SeasonAward award)
+        {
+            db.SeasonAwards.Add(award);
+            awards.Add(award);
         }
     }
 }

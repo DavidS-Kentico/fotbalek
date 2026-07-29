@@ -192,6 +192,48 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                     b.ToTable("ChatReadStates");
                 });
 
+            modelBuilder.Entity("Fotbalek.Domain.Entities.LadderLeader", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTimeOffset>("EvaluatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("PartnerPlayerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SeasonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerPlayerId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("TeamId", "SeasonId", "Category")
+                        .IsUnique();
+
+                    b.ToTable("LadderLeaders");
+                });
+
             modelBuilder.Entity("Fotbalek.Domain.Entities.Match", b =>
                 {
                     b.Property<int>("Id")
@@ -278,6 +320,127 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                     b.ToTable("MatchPlayers");
                 });
 
+            modelBuilder.Entity("Fotbalek.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActorPlayerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int?>("ChatMessageId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DedupKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Emoji")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int?>("MatchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("SeasonId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("SeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("SubjectPlayerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Value")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorPlayerId");
+
+                    b.HasIndex("ChatMessageId");
+
+                    b.HasIndex("MatchId");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("SubjectPlayerId");
+
+                    b.HasIndex("TeamId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Notifications_UserId_Unseen")
+                        .HasFilter("[SeenAt] IS NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("UserId"), new[] { "TeamId" });
+
+                    b.HasIndex("UserId", "DedupKey")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Id")
+                        .IsDescending(false, true);
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Fotbalek.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Channels")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TeamId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "TeamId", "Category")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("Fotbalek.Domain.Entities.Player", b =>
                 {
                     b.Property<int>("Id")
@@ -352,6 +515,9 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTimeOffset?>("StartAnnouncedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<DateTimeOffset>("StartsAt")
                         .HasColumnType("datetimeoffset");
 
@@ -363,6 +529,8 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                     b.HasIndex("TeamId");
 
                     b.HasIndex("TeamId", "ClosedAt", "EndsAt");
+
+                    b.HasIndex("TeamId", "StartAnnouncedAt", "StartsAt");
 
                     b.ToTable("Seasons");
                 });
@@ -804,6 +972,39 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Fotbalek.Domain.Entities.LadderLeader", b =>
+                {
+                    b.HasOne("Fotbalek.Domain.Entities.Player", "PartnerPlayer")
+                        .WithMany()
+                        .HasForeignKey("PartnerPlayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fotbalek.Domain.Entities.Season", "Season")
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PartnerPlayer");
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Season");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("Fotbalek.Domain.Entities.Match", b =>
                 {
                     b.HasOne("Fotbalek.Domain.Entities.Season", "Season")
@@ -838,6 +1039,78 @@ namespace Fotbalek.Infrastructure.Persistence.Migrations
                     b.Navigation("Match");
 
                     b.Navigation("Player");
+                });
+
+            modelBuilder.Entity("Fotbalek.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("Fotbalek.Domain.Entities.Player", "ActorPlayer")
+                        .WithMany()
+                        .HasForeignKey("ActorPlayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.ChatMessage", "ChatMessage")
+                        .WithMany()
+                        .HasForeignKey("ChatMessageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Season", "Season")
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Player", "SubjectPlayer")
+                        .WithMany()
+                        .HasForeignKey("SubjectPlayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fotbalek.Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fotbalek.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ActorPlayer");
+
+                    b.Navigation("ChatMessage");
+
+                    b.Navigation("Match");
+
+                    b.Navigation("Season");
+
+                    b.Navigation("SubjectPlayer");
+
+                    b.Navigation("Team");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fotbalek.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("Fotbalek.Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Fotbalek.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Team");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Fotbalek.Domain.Entities.Player", b =>
