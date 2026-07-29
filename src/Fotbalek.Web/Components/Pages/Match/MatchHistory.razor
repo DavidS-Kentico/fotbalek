@@ -18,108 +18,121 @@
 else
 {
     <PageContainer Focused>
-        <PageHeader Title="Match History" Icon="bi bi-clock-history">
+        @* Season sits with the title because it re-scopes the whole page (and the
+           server-side query behind it); the toolbar below holds the lenses that
+           only narrow what has already been fetched.
+
+           No "New match" button here: the team app bar carries one, it is sticky,
+           and it keeps its "+" below lg where only the label is dropped — so a
+           second one would repeat an affordance that is never off screen. The
+           empty state's CTA is a different thing and stays. *@
+        <PageHeader Title="Match History" Icon="bi bi-clock-history" Class="mb-3">
             <Actions>
-                <a href="/team/@TeamCode/match/new" class="btn btn-brand">
-                    <i class="bi bi-plus-lg me-1"></i> New Match
-                </a>
+                @if (_seasons.Count > 0)
+                {
+                    <SeasonSelector Seasons="_seasons" @bind-Value="_selectedSeasonId" OnChangedCallback="OnSeasonFilterChanged" />
+                }
             </Actions>
         </PageHeader>
 
-        <Panel Class="mb-6 match-history-filters" BodyClass="py-2">
-                <div class="flex flex-wrap items-center gap-4 mb-2">
-                    <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
-                                      @bind-CustomStartDate="_customStartDate"
-                                      @bind-CustomEndDate="_customEndDate"
-                                      Today="Tz.Today"
-                                      OnFilterChanged="OnFilterChanged" />
-                </div>
+        @* One strip, split by question: row 1 is "when", row 2 is "who and how it
+           went", and the player grid unfolds as a third only when asked for. A
+           chip per player was a wall of twelve buttons above every visit. *@
+        <div class="match-toolbar mb-4">
+            <div class="match-toolbar__row">
+                <TimePeriodFilter @bind-SelectedPeriod="_selectedPeriod"
+                                  @bind-CustomStartDate="_customStartDate"
+                                  @bind-CustomEndDate="_customEndDate"
+                                  Today="Tz.Today"
+                                  OnFilterChanged="OnFilterChanged" />
+                <span class="match-toolbar__meta">@ScopeSummary</span>
+            </div>
 
-                @if (_seasons.Count > 0)
+            <div class="match-toolbar__row">
+                @if (MyPlayerId.HasValue)
                 {
-                    <div class="flex flex-wrap items-center gap-2 mb-2">
-                        <span class="text-ink-muted text-small"><i class="bi bi-award me-1"></i>Season:</span>
-                        <select class="form-select form-select-sm w-auto" value="@(_selectedSeasonId?.ToString() ?? "all")" @onchange="OnSeasonFilterChanged">
-                            <option value="all">All matches</option>
-                            @if (_activeSeason != null)
-                            {
-                                <option value="@_activeSeason.Id">This season (@_activeSeason.Name)</option>
-                            }
-                            @foreach (var season in _seasons.Where(s => s.IsClosed))
-                            {
-                                <option value="@season.Id">@season.Name</option>
-                            }
-                        </select>
+                    <button type="button"
+                            class="btn btn-sm @(_myMatchesOnly ? "btn-brand" : "btn-outline-neutral")"
+                            @onclick="ToggleMyMatches">
+                        <i class="bi bi-person-check me-1"></i>My matches
+                    </button>
+                }
+
+                @if (_canFilterByOutcome)
+                {
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Outcome filter">
+                        <button type="button"
+                                class="btn @(_outcome == null ? "btn-neutral" : "btn-outline-neutral")"
+                                @onclick='() => SetOutcome(null)'>All</button>
+                        <button type="button"
+                                class="btn @(_outcome == "wins" ? "btn-brand" : "btn-outline-brand")"
+                                @onclick='() => SetOutcome("wins")'>
+                            <i class="bi bi-trophy me-1"></i>Wins
+                        </button>
+                        <button type="button"
+                                class="btn @(_outcome == "losses" ? "btn-danger" : "btn-outline-danger")"
+                                @onclick='() => SetOutcome("losses")'>
+                            <i class="bi bi-x-circle me-1"></i>Losses
+                        </button>
                     </div>
                 }
 
-                <div class="flex flex-wrap items-center gap-2 mb-2">
-                    @if (MyPlayerId.HasValue)
-                    {
-                        <button type="button"
-                                class="btn btn-sm @(_myMatchesOnly ? "btn-brand" : "btn-outline-brand")"
-                                @onclick="ToggleMyMatches">
-                            <i class="bi bi-person-check me-1"></i> My matches
-                            @if (_myMatchesOnly)
-                            {
-                                <span class="badge bg-gray-100 text-brand ms-1 dark:bg-surface-sunken">@_filteredMatches.Count</span>
-                            }
-                        </button>
-                    }
-
-                    @if (_canFilterByOutcome)
-                    {
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Outcome filter">
-                            <button type="button"
-                                    class="btn @(_outcome == null ? "btn-neutral" : "btn-outline-neutral")"
-                                    @onclick='() => SetOutcome(null)'>All</button>
-                            <button type="button"
-                                    class="btn @(_outcome == "wins" ? "btn-brand" : "btn-outline-brand")"
-                                    @onclick='() => SetOutcome("wins")'>
-                                <i class="bi bi-trophy me-1"></i>Wins
-                            </button>
-                            <button type="button"
-                                    class="btn @(_outcome == "losses" ? "btn-danger" : "btn-outline-danger")"
-                                    @onclick='() => SetOutcome("losses")'>
-                                <i class="bi bi-x-circle me-1"></i>Losses
-                            </button>
-                        </div>
-                    }
-                </div>
-
                 @if (_players.Count > 0)
                 {
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-ink-muted text-small"><i class="bi bi-people me-1"></i>Players:</span>
-                        @foreach (var player in _players)
-                        {
-                            var isSelected = _selectedPlayerIds.Contains(player.Id);
-                            <button type="button"
-                                    class="btn btn-sm @(isSelected ? "btn-brand" : "btn-outline-neutral")"
-                                    @onclick="() => TogglePlayer(player.Id)"
-                                    disabled="@(!isSelected && _selectedPlayerIds.Count >= 4)">
-                                @player.Name
-                            </button>
-                        }
-                        @if (_selectedPlayerIds.Count > 0)
-                        {
-                            <button type="button" class="btn btn-sm btn-link text-ink-muted" @onclick="ClearPlayerFilter">
-                                <i class="bi bi-x-circle"></i> Clear players
-                            </button>
-                        }
-                    </div>
+                    <button type="button"
+                            class="btn btn-sm @(_selectedPlayerIds.Count > 0 ? "btn-brand" : "btn-outline-neutral")"
+                            @onclick="() => _playerPickerOpen = !_playerPickerOpen"
+                            aria-expanded="@_playerPickerOpen">
+                        <i class="bi bi-people me-1"></i>Players
+                        <i class="bi bi-chevron-down ms-1 match-toolbar__caret @(_playerPickerOpen ? "match-toolbar__caret--open" : "")"></i>
+                    </button>
+
+                    @* The selection stays legible with the grid folded away. *@
+                    @foreach (var player in _players.Where(p => _selectedPlayerIds.Contains(p.Id)))
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-brand"
+                                title="Remove @player.Name from the filter"
+                                @onclick="() => TogglePlayer(player.Id)">
+                            @player.Name<i class="bi bi-x-lg ms-1"></i>
+                        </button>
+                    }
                 }
 
                 @if (HasActiveFilters)
                 {
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <span class="badge bg-neutral">@GetFilterDescription()</span>
-                        <button type="button" class="btn btn-sm btn-link no-underline p-0" @onclick="ClearAllFilters">
-                            <i class="bi bi-x-circle me-1"></i>Clear all
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-link no-underline text-ink-muted match-toolbar__end"
+                            @onclick="ClearAllFilters">
+                        <i class="bi bi-x-circle me-1"></i>Clear all
+                    </button>
                 }
-        </Panel>
+            </div>
+
+            @if (_playerPickerOpen && _players.Count > 0)
+            {
+                <div class="match-toolbar__row match-toolbar__row--chips">
+                    <span class="w-full text-ink-muted text-small">
+                        Matches that included <strong>all</strong> of the chosen players — up to four.
+                    </span>
+                    @foreach (var player in _players)
+                    {
+                        var isSelected = _selectedPlayerIds.Contains(player.Id);
+                        <button type="button"
+                                class="btn btn-sm @(isSelected ? "btn-brand" : "btn-outline-neutral")"
+                                @onclick="() => TogglePlayer(player.Id)"
+                                disabled="@(!isSelected && _selectedPlayerIds.Count >= 4)">
+                            @player.Name
+                        </button>
+                    }
+                    @if (_selectedPlayerIds.Count > 0)
+                    {
+                        <button type="button" class="btn btn-sm btn-link no-underline text-ink-muted match-toolbar__end"
+                                @onclick="ClearPlayerFilter">
+                            <i class="bi bi-x-circle me-1"></i>Clear players
+                        </button>
+                    }
+                </div>
+            }
+        </div>
 
         @if (_filteredMatches.Count > 0)
         {
@@ -130,7 +143,7 @@ else
                     .Select(m => (Match: m, Mp: m.MatchPlayers.FirstOrDefault(mp => mp.PlayerId == focus)))
                     .Where(x => x.Mp != null)
                     .ToList();
-                // Wins judged by score; the net-ELO chip sums the seasonal change when a season
+                // Wins judged by score; the net-ELO tile sums the seasonal change when a season
                 // filter is active, the all-time change otherwise (mixed views: every match has an
                 // all-time change, only seasonal ones have a seasonal one).
                 var wins = rows.Count(x => IsWinByScore(x.Match, x.Mp!));
@@ -139,30 +152,32 @@ else
                     ? rows.Sum(x => x.Mp!.SeasonEloChange ?? 0)
                     : rows.Sum(x => x.Mp!.EloChange);
                 var winRate = rows.Count > 0 ? (int)Math.Round(wins * 100.0 / rows.Count) : 0;
-                var focusName = _players.FirstOrDefault(p => p.Id == focus)?.Name ?? "player";
-                <Panel Class="border-brand mb-4" BodyClass="py-2 flex flex-wrap items-center gap-4">
-                    <span class="font-semibold text-brand">
-                        <i class="bi bi-person-badge me-1"></i>@focusName
-                    </span>
-                    <span class="text-ink-muted">|</span>
-                    <span><i class="bi bi-trophy-fill text-brand me-1"></i><strong>@wins</strong> wins</span>
-                    <span><i class="bi bi-x-circle text-danger me-1"></i><strong>@losses</strong> losses</span>
-                    <span><i class="bi bi-percent me-1"></i><strong>@winRate%</strong> win rate</span>
-                    <span class="@(netElo >= 0 ? "text-brand" : "text-danger")">
-                        <i class="bi @(netElo >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow") me-1"></i>
-                        <strong>@(netElo > 0 ? "+" : "")@netElo</strong> ELO
-                    </span>
-                </Panel>
-            }
+                var focusPlayer = _players.FirstOrDefault(p => p.Id == focus);
 
-            <div class="text-ink-muted text-small mb-4">
-                Showing @Math.Min(_visibleCount, _filteredMatches.Count) of @_filteredMatches.Count matches
-            </div>
+                @* Same dense KPI band the Statistics page leads with — these numbers
+                   describe the filtered view, so they sit above the feed, not in it. *@
+                <div class="flex items-center gap-2 mb-2">
+                    <Avatar AvatarId="@(focusPlayer?.AvatarId ?? 1)" Size="sm" />
+                    <span class="font-semibold">@(focusPlayer?.Name ?? "This player")</span>
+                    <span class="text-ink-muted text-small">across @rows.Count @(rows.Count == 1 ? "match" : "matches") in view</span>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                    <StatTile Dense Variant="brand" Icon="bi bi-trophy"
+                              Value="@wins.ToString()" Label="Wins" />
+                    <StatTile Dense Variant="danger" Icon="bi bi-x-circle"
+                              Value="@losses.ToString()" Label="Losses" />
+                    <StatTile Dense Variant="info" Icon="bi bi-percent"
+                              Value="@($"{winRate}%")" Label="Win rate" />
+                    <StatTile Dense Variant="@(netElo >= 0 ? "brand" : "danger")"
+                              Icon="@(netElo >= 0 ? "bi bi-graph-up-arrow" : "bi bi-graph-down-arrow")"
+                              Value="@($"{(netElo > 0 ? "+" : "")}{netElo}")" Label="Net ELO" />
+                </div>
+            }
 
             <MatchDayList Matches="GetVisibleMatches()" TeamCode="@TeamCode" ShowSeasonChip="@(_seasons.Count > 0)">
                 <Actions Context="match">
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-neutral border-0" type="button"
+                        <button class="btn btn-sm" type="button"
                                 data-toggle="dropdown" aria-expanded="false" aria-label="Match actions">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
@@ -269,6 +284,9 @@ else
     private DateOnly? _customEndDate;
     private bool _myMatchesOnly;
     private string? _outcome;
+    // The player grid is folded away by default — a chip per player is a wall of
+    // buttons on a full roster, and most visits never touch it.
+    private bool _playerPickerOpen;
 
     private List<SeasonDto> _seasons = [];
     private SeasonDto? _activeSeason;
@@ -278,6 +296,20 @@ else
     private MatchDto? _pendingDelete;
     private bool _deleting;
     private string? _deleteError;
+
+    /// <summary>Trailing text of the toolbar's period row: how much of the filtered set is on screen.</summary>
+    private string ScopeSummary
+    {
+        get
+        {
+            var total = _filteredMatches.Count;
+            if (total == 0) return "No matches";
+            var shown = Math.Min(_visibleCount, total);
+            return shown < total
+                ? $"Showing {shown} of {total} matches"
+                : $"{total} {(total == 1 ? "match" : "matches")}";
+        }
+    }
 
     private bool HasActiveFilters =>
         _selectedPeriod != "all"
@@ -412,10 +444,9 @@ else
         SyncUrl();
     }
 
-    private async Task OnSeasonFilterChanged(ChangeEventArgs e)
+    /// <summary>SeasonSelector has already written <see cref="_selectedSeasonId"/>; re-fetch the scope.</summary>
+    private async Task OnSeasonFilterChanged()
     {
-        var raw = e.Value?.ToString();
-        _selectedSeasonId = int.TryParse(raw, out var id) ? id : null;
         await LoadMatchesAsync();
         ApplyFilter();
         SyncUrl();
@@ -524,39 +555,6 @@ else
         var teamScore = mp.TeamNumber == 1 ? match.Team1Score : match.Team2Score;
         var opponentScore = mp.TeamNumber == 1 ? match.Team2Score : match.Team1Score;
         return teamScore > opponentScore;
-    }
-
-    private string GetFilterDescription()
-    {
-        var parts = new List<string>();
-
-        if (_selectedSeasonId is int seasonId)
-        {
-            var name = _seasons.FirstOrDefault(s => s.Id == seasonId)?.Name;
-            if (name != null) parts.Add(name);
-        }
-        else if (_defaultSeasonId != null)
-        {
-            parts.Add("All seasons");
-        }
-
-        var periodDesc = DateFilterDisplay.GetPeriodDescription(_selectedPeriod, Tz.Today, _customStartDate, _customEndDate);
-        if (periodDesc != null) parts.Add(periodDesc);
-
-        if (_myMatchesOnly) parts.Add("My matches");
-
-        if (_selectedPlayerIds.Count > 0)
-        {
-            var playerNames = _players
-                .Where(p => _selectedPlayerIds.Contains(p.Id))
-                .Select(p => p.Name);
-            parts.Add(string.Join(" + ", playerNames));
-        }
-
-        if (_outcome != null) parts.Add(_outcome == "wins" ? "Wins only" : "Losses only");
-
-        var desc = string.Join(" | ", parts);
-        return $"{_filteredMatches.Count} matches" + (parts.Count > 0 ? $" ({desc})" : "");
     }
 
     private void SyncUrl()

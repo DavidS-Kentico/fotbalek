@@ -224,6 +224,13 @@
     --color-primary-rgb: 13, 110, 253;   /* --color-primary #0d6efd */
     --color-warning-rgb: 255, 193, 7;    /* --color-warning #ffc107 */
 
+    /* Rendered height of the sticky team app bar (0.5rem padding + a 38px control
+       row + a 1px bottom rule). The bar sizes itself from its contents, so this is
+       a measured constant, not its source — it exists so a second sticky element
+       can pin *below* the bar instead of vanishing underneath it (the Match
+       History toolbar). Re-measure if the bar's padding or control height moves. */
+    --app-bar-height: 57px;
+
     /* Stacking order. These numbers were inherited from Bootstrap's ladder; with
        Bootstrap gone they are only meaningful relative to each other, so they
        live here as one ordered set rather than as literals scattered across

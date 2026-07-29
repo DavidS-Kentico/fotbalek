@@ -4,38 +4,36 @@
    history row's dropdown); omit it for a plain feed (dashboard). *@
 @inject TimeZoneService Tz
 
-@{ DateOnly? group = null; }
-@foreach (var match in Matches)
+@foreach (var day in Matches.GroupBy(m => Tz.ToLocalDate(m.PlayedAt)))
 {
-    var groupKey = Tz.ToLocalDate(match.PlayedAt);
-    if (group != groupKey)
-    {
-        group = groupKey;
-        <div class="day-group font-semibold @HeaderMarginClass">
-            <i class="bi bi-calendar-event me-1"></i>@DateFilterDisplay.FormatDayGroup(groupKey, Tz.Today)
-        </div>
-    }
+    <div class="day-group @HeaderMarginClass">
+        <span class="day-group__label">@DateFilterDisplay.FormatDayGroup(day.Key, Tz.Today)</span>
+        <span class="day-group__count">@day.Count()</span>
+    </div>
 
-    @if (Actions != null)
+    @foreach (var match in day)
     {
-        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
-                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
-                   DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
-                   DateTitle="@Tz.FormatLocalDate(match.PlayedAt)">
-            <Actions>@Actions(match)</Actions>
-        </MatchCard>
-    }
-    else
-    {
-        <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
-                   ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
-                   DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
-                   DateTitle="@Tz.FormatLocalDate(match.PlayedAt)" />
+        @if (Actions != null)
+        {
+            <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
+                       ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
+                       DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
+                       DateTitle="@Tz.FormatLocalDate(match.PlayedAt)">
+                <Actions>@Actions(match)</Actions>
+            </MatchCard>
+        }
+        else
+        {
+            <MatchCard Match="@match" TeamCode="@TeamCode" Compact="@Compact" Class="@CardMarginClass"
+                       ShowSeasonChip="@ShowSeasonChip" SeasonName="@match.SeasonName"
+                       DateLabel="@Tz.ToLocalTime(match.PlayedAt).ToString("HH:mm")"
+                       DateTitle="@Tz.FormatLocalDate(match.PlayedAt)" />
+        }
     }
 }
 
 @code {
-    /// <summary>Matches to render, already ordered most-recent-first. Consecutive same-day rows group together.</summary>
+    /// <summary>Matches to render, already ordered most-recent-first. Same-day rows group together.</summary>
     [Parameter, EditorRequired] public IEnumerable<MatchDto> Matches { get; set; } = [];
 
     [Parameter] public string? TeamCode { get; set; }
@@ -46,12 +44,12 @@
     /// <summary>Show the season / off-season chip on each card.</summary>
     [Parameter] public bool ShowSeasonChip { get; set; }
 
-    /// <summary>Optional per-match action area, rendered top-right of each card.</summary>
+    /// <summary>Optional per-match action area, rendered in each card's meta strip.</summary>
     [Parameter] public RenderFragment<MatchDto>? Actions { get; set; }
 
     /// <summary>Margin utilities for the day-group headers (history uses more top space than the dashboard).</summary>
-    [Parameter] public string HeaderMarginClass { get; set; } = "mt-4 mb-2";
+    [Parameter] public string HeaderMarginClass { get; set; } = "mt-6 mb-2";
 
     /// <summary>Margin utilities between cards (the dashboard feed packs them tighter than history).</summary>
-    [Parameter] public string CardMarginClass { get; set; } = "mb-4";
+    [Parameter] public string CardMarginClass { get; set; } = "mb-3";
 }
