@@ -1,0 +1,119 @@
+@* Best-pairs ranking, shared by the Rankings page and Season detail. Same
+   .rank-row anatomy as the standings list, with both players in the name cell.
+
+   Owns its Panel (as PositionRankingList does) because both callers frame it
+   the same way; StandingsList deliberately does not, since its head differs
+   per page.
+
+   Style: .rank-list / .rank-row in Styles/components/rankings.css. *@
+
+<Panel Class="@Class" Flush>
+    <Header>
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon"></i>
+        }
+        <h2 class="panel__title">
+            @Title
+            @if (!string.IsNullOrEmpty(HeaderHint))
+            {
+                <small class="text-ink-muted font-normal">@HeaderHint</small>
+            }
+        </h2>
+    </Header>
+    <ChildContent>
+        @if (Pairs.Count > 0)
+        {
+            <div class="rank-list">
+                <div class="rank-row rank-row--head">
+                    <span class="rank-pos"></span>
+                    <span class="rank-row__player">Pair</span>
+                    <div class="rank-row__metrics">
+                        <span class="rank-cell rank-cell--record" title="Wins and losses together">W–L</span>
+                        <span class="rank-cell rank-cell--wr">Win rate</span>
+                        @if (ShowAverageScore)
+                        {
+                            <span class="rank-cell rank-cell--score" title="Average goals scored per match">Avg</span>
+                        }
+                    </div>
+                </div>
+
+                @foreach (var (pair, index) in Pairs.Select((p, i) => (p, i)))
+                {
+                    var containsMe = MyPlayerId.HasValue && (pair.Player1Id == MyPlayerId || pair.Player2Id == MyPlayerId);
+                    var wrGood = pair.WinRate >= 50;
+
+                    <div class="rank-row @(containsMe ? "rank-row--me" : "")">
+                        <RankBadge Rank="@(index + 1)" />
+                        <div class="rank-row__player">
+                            <span class="rank-pair">
+                                @PairMember(pair.Player1Id, pair.Player1Name, pair.Player1AvatarId)
+                                <span class="rank-pair__amp">&amp;</span>
+                                @PairMember(pair.Player2Id, pair.Player2Name, pair.Player2AvatarId)
+                            </span>
+                        </div>
+                        <div class="rank-row__metrics">
+                            <span class="rank-cell rank-cell--record">
+                                <span class="rank-cell__label">W–L</span>
+                                <span class="rank-cell__value">
+                                    <span class="rank-record__w">@pair.Wins</span><span class="rank-record__sep">–</span><span class="rank-record__l">@pair.Losses</span>
+                                </span>
+                            </span>
+                            <span class="rank-cell rank-cell--wr">
+                                <span class="rank-cell__label">Win rate</span>
+                                <span class="rank-wr">
+                                    <span class="rank-wr__pct @(wrGood ? "good" : "bad")">@pair.WinRate.ToString("F1")%</span>
+                                    <span class="rank-wr__track">
+                                        <span class="rank-wr__fill @(wrGood ? "" : "bad")" style="width:@pair.WinRate.ToString("F0")%"></span>
+                                    </span>
+                                </span>
+                            </span>
+                            @if (ShowAverageScore)
+                            {
+                                <span class="rank-cell rank-cell--score">
+                                    <span class="rank-cell__label">Avg</span>
+                                    <span class="rank-cell__value">@pair.AverageScore.ToString("F1")</span>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <EmptyState Icon="@EmptyIcon" IconSize="md" Padding="py-4" Message="@EmptyMessage" />
+        }
+    </ChildContent>
+</Panel>
+
+@code {
+    /// <summary>Ordered best-to-worst; the position chip is the index, as the ranking
+    /// queries return the order rather than a rank field.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<PairStats> Pairs { get; set; } = [];
+
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? HeaderHint { get; set; }
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public int? CaptainPlayerId { get; set; }
+
+    /// <summary>Frozen pair tables for a closed season carry no scores, so the caller
+    /// hides the column there.</summary>
+    [Parameter] public bool ShowAverageScore { get; set; } = true;
+
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? EmptyIcon { get; set; } = "bi bi-people";
+    [Parameter] public string? EmptyMessage { get; set; }
+
+    private RenderFragment PairMember(int playerId, string name, int avatarId) =>
+        @<a href="/team/@TeamCode/players/@playerId" class="rank-row__link">
+            <Avatar AvatarId="@avatarId" Size="sm" />
+            <span class="rank-row__name @(playerId == MyPlayerId ? "font-bold" : "")">@name</span>
+            @if (playerId == CaptainPlayerId)
+            {
+                <CaptainMark />
+            }
+        </a>;
+}

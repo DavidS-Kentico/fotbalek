@@ -88,6 +88,12 @@
     --color-neutral: #6c757d;
     --color-purple: #6f42c1;
 
+    /* Podium metals for leaderboard positions (.rank-pos). Gold and silver come
+       from the palette above (--color-warning / --color-gray-500); bronze has no
+       other use, so it is named here. All three carry a fixed dark numeral —
+       they are fixed fills, so a theme-aware ink would fail on one theme. */
+    --color-bronze: #cd7f32;
+
     /* Team accents. App-wide convention: team 1 / side A is amber, team 2 /
        side B is blue. `-ink` variants are the legible-as-text versions. */
     --color-team-a: #ffc107;

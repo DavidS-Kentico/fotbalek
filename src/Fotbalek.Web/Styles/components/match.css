@@ -369,57 +369,11 @@
         font-weight: 500;
     }
 
-    /* Dashboard Rankings panel — middle-aligned rows, tabular ELO, and a compact
-       win-rate meter beneath the percentage so standings scan at a glance. */
-    .rankings-table td,
-    .rankings-table th { vertical-align: middle; }
-    .rankings-table .elo-cell {
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-    }
-    .rank-wr {
-        display: inline-flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: .2rem;
-    }
-    .rank-wr__pct {
-        font-size: .85rem;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--color-ink-muted);
-    }
-    .rank-wr__pct.good { color: var(--color-brand); }
-    .rank-wr__pct.bad { color: var(--color-danger); }
-    .rank-wr__track {
-        width: 52px;
-        height: 4px;
-        border-radius: var(--radius-full);
-        background: var(--color-surface-muted);
-        overflow: hidden;
-    }
-    .rank-wr__fill {
-        display: block;
-        height: 100%;
-        border-radius: var(--radius-full);
-        background: var(--color-brand);
-    }
-    .rank-wr__fill.bad {
-        background: var(--color-danger);
-    }
-
     /* Dashboard panels: cap the list height so the panel stays compact regardless of
        roster/match count; "Load more" reveals the next chunk within this scroll area. */
     .panel-scroll {
         max-height: 30rem;
         overflow-y: auto;
-    }
-    /* Keep the rankings header pinned while its rows scroll. */
-    .rankings-table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: var(--color-surface-muted);
     }
     /* Shared "Load more" action (LoadMoreButton) — centered with breathing room so it
        reads consistently below a page list, a flush panel's table, or a padded feed. */

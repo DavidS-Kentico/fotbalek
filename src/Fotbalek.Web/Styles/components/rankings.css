@@ -1,0 +1,364 @@
+/* ============================================================================
+   Ranking lists
+   ----------------------------------------------------------------------------
+   The leaderboard row idiom shared by the Rankings page and Season detail:
+   standings, position tables and pair tables all render a .rank-list.
+
+   A flex row list rather than a <table>, for the same reason .match-card is
+   one — six numeric columns cannot survive a phone, and a table's only answer
+   is a sideways scroll. Here the metrics group wraps onto a second line and
+   each cell names itself (.rank-cell__label, shown only once the head row is
+   gone).
+
+   Columns line up across rows because every metric cell has a fixed width, and
+   the head is the SAME .rank-row markup with a --head modifier — so a column
+   can never drift away from its own label.
+   ============================================================================ */
+
+@layer components {
+    /* The list is edge-to-edge inside a flush Panel; the panel's border and
+       radius are the only frame it needs. */
+    .rank-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .rank-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.35rem 0.85rem;
+        /* Reserved for the "this row is yours" stripe, so a tinted row does not
+           shift its contents by 3px relative to its neighbours. */
+        border-left: 3px solid transparent;
+    }
+
+    .rank-row + .rank-row {
+        border-top: 1px solid var(--color-line);
+    }
+
+    .rank-row:hover {
+        background: var(--color-surface-muted);
+    }
+
+    /* The signed-in player (or a pair containing them): tint plus a left stripe,
+       the same "yours" idiom as .match-card's result stripe. */
+    .rank-row--me {
+        border-left-color: var(--color-brand);
+        background: var(--color-brand-tint-soft);
+    }
+    .rank-row--me:hover {
+        background: var(--color-brand-tint);
+    }
+
+    /* ---- Column labels ---------------------------------------------------- */
+    /* Same row geometry, restyled: a hairline strip on the muted fill rather
+       than a table head, because the panel edge already separates it from the
+       page. Below sm it goes away and each cell labels itself instead. */
+    .rank-row--head {
+        padding-top: 0.3rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--color-line);
+        background: var(--color-surface-muted);
+        font-size: var(--text-2xs);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-ink-faint);
+    }
+    .rank-row--head:hover {
+        background: var(--color-surface-muted);
+    }
+
+    /* ---- Position chip --------------------------------------------------- */
+    /* Rendered by RankBadge. A filled metal for the podium, a plain numeral
+       below it — one element whatever the rank, so the column never jumps.
+       The metals are fixed colours, so the numeral on them is a fixed dark
+       ink rather than a theme-aware one. */
+    .rank-pos {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.65rem;
+        height: 1.65rem;
+        border-radius: var(--radius-full);
+        background: var(--color-surface-sunken);
+        color: var(--color-ink-muted);
+        font-size: var(--text-sm);
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+    .rank-pos--gold,
+    .rank-pos--silver,
+    .rank-pos--bronze {
+        color: var(--color-gray-900);
+    }
+    .rank-pos--gold {
+        background: var(--color-warning);
+        box-shadow: 0 0 0 3px var(--color-warning-tint);
+    }
+    .rank-pos--silver { background: var(--color-gray-500); }
+    .rank-pos--bronze { background: var(--color-bronze); }
+
+    /* The head's spacer under the chip column. */
+    .rank-row--head .rank-pos {
+        background: transparent;
+        box-shadow: none;
+    }
+
+    /* ---- Player cell ----------------------------------------------------- */
+    /* Takes every pixel the metrics do not, and is the only part allowed to
+       shrink — which is what keeps a long name from pushing the numbers off
+       the row.
+
+       flex-basis 0, not auto: line breaking measures an item's *content* size,
+       so a long name sized the cell past the space left beside the chip and the
+       whole cell wrapped under it (min-width:0 cannot help — that only shrinks
+       an item once its line is settled). From zero it always fits, then grows. */
+    .rank-row__player {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.15rem 0.4rem;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .rank-row__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-width: 0;
+        text-decoration: none;
+        color: inherit;
+    }
+    .rank-row__link:hover .rank-row__name {
+        text-decoration: underline;
+    }
+
+    .rank-row__name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Dialled down from .avatar-sm's 32px, matching .match-card: at full size
+       an avatar per row outweighs the numbers the row exists to show. */
+    .rank-row .avatar {
+        width: 26px;
+        height: 26px;
+        font-size: 0.85rem;
+        border-width: 1px;
+    }
+    .rank-row--me .avatar {
+        border-color: var(--color-brand);
+    }
+
+    /* ---- Metrics --------------------------------------------------------- */
+    .rank-row__metrics {
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;
+    }
+
+    .rank-cell {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.1rem;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* The per-cell name, for when the head row is gone (below sm). */
+    .rank-cell__label {
+        display: none;
+        font-size: var(--text-2xs);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--color-ink-faint);
+    }
+
+    /* Fixed widths are what align the columns — the head row reuses these same
+       classes, so a label and its numbers cannot come apart. */
+    .rank-cell--elo    { width: 3.5rem; }
+    .rank-cell--record { width: 4rem; }
+    .rank-cell--wr     { width: 4.5rem; }
+    .rank-cell--streak { width: 4rem; }
+    .rank-cell--games  { width: 3.25rem; }
+    .rank-cell--avg    { width: 4.75rem; }
+    .rank-cell--score  { width: 3.75rem; }
+
+    /* The sort key of every standings list, so it carries the most weight. */
+    .rank-cell--elo .rank-cell__value {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--color-ink-strong);
+    }
+
+    .rank-cell__value {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-ink);
+        line-height: 1.2;
+    }
+    .rank-cell__value--muted {
+        color: var(--color-ink-faint);
+        font-weight: 500;
+    }
+
+    /* Won–lost as one figure: green wins, red losses, a faint dash between.
+       Matches are their sum (the app allows no draws), which is why the old
+       separate Matches column is gone. */
+    .rank-record__w { color: var(--color-brand); font-weight: 700; }
+    .rank-record__l { color: var(--color-danger); font-weight: 700; }
+    .rank-record__sep {
+        margin: 0 0.15rem;
+        color: var(--color-ink-faint);
+        font-weight: 500;
+    }
+
+    /* Longest win / loss streak, as the subtle-trio pills .match-card uses for
+       its chips — a flat tint under a saturated accent loses contrast in dark
+       mode. */
+    .rank-streak {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+    }
+    .rank-streak__pill {
+        padding: 0.05rem 0.3rem;
+        border-radius: var(--radius-full);
+        font-size: var(--text-2xs);
+        font-weight: 700;
+        line-height: 1.5;
+    }
+    .rank-streak__pill--w {
+        background: var(--color-brand-subtle);
+        color: var(--color-brand-subtle-ink);
+    }
+    .rank-streak__pill--l {
+        background: var(--color-danger-subtle);
+        color: var(--color-danger-subtle-ink);
+    }
+
+    /* ---- Pair cell ------------------------------------------------------- */
+    /* Two players on one row. Wraps rather than ellipsizing both names to
+       nothing on a narrow column. */
+    .rank-pair {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.15rem 0.4rem;
+        min-width: 0;
+    }
+    .rank-pair__amp {
+        color: var(--color-ink-faint);
+        font-size: 0.85rem;
+    }
+
+    /* ---- Win-rate meter -------------------------------------------------- */
+    /* Percentage over a short track: the number for the value, the bar so a
+       column of them scans without reading any of them. Shared with the
+       Dashboard's rankings panel. */
+    .rank-wr {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.2rem;
+    }
+    .rank-wr__pct {
+        font-size: 0.85rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--color-ink-muted);
+    }
+    .rank-wr__pct.good { color: var(--color-brand); }
+    .rank-wr__pct.bad { color: var(--color-danger); }
+    .rank-wr__track {
+        width: 52px;
+        height: 4px;
+        border-radius: var(--radius-full);
+        background: var(--color-surface-muted);
+        overflow: hidden;
+    }
+    .rank-wr__fill {
+        display: block;
+        height: 100%;
+        border-radius: var(--radius-full);
+        background: var(--color-brand);
+    }
+    .rank-wr__fill.bad {
+        background: var(--color-danger);
+    }
+
+    /* The meter is 52px wide, so its cell cannot be narrower than that. */
+    .rank-cell--wr .rank-wr__track {
+        width: 100%;
+    }
+
+    /* ---- Dashboard rankings panel ---------------------------------------- */
+    /* Still a <table> there (a four-column mini list inside a capped scroll
+       area); it shares the meter above and the .rank-pos chip. */
+    .rankings-table td,
+    .rankings-table th { vertical-align: middle; }
+    .rankings-table .elo-cell {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    /* Keep the rankings header pinned while its rows scroll. */
+    .rankings-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--color-surface-muted);
+    }
+
+    /* ---- Narrow screens -------------------------------------------------- */
+    /* The metrics group moves under the player rather than squeezing beside
+       them, and each cell picks up the label the head row used to carry. The
+       chip column stays put, so the numbers hang off the name they belong to. */
+    @media (width < theme(--breakpoint-sm)) {
+        .rank-row--head {
+            display: none;
+        }
+
+        .rank-row {
+            align-items: flex-start;
+            flex-wrap: wrap;
+            padding: 0.45rem 0.7rem;
+        }
+
+        .rank-row__metrics {
+            /* A 100% basis cannot fit beside the chip and the name, so the metrics
+               always land on their own line — and the chip keeps the name company
+               on the first one, which a 100% basis on the player cell would break. */
+            flex: 1 1 100%;
+            /* Line up under the name, clear of the chip column. */
+            margin-left: 2.25rem;
+            gap: 0.9rem;
+        }
+
+        .rank-cell {
+            align-items: flex-start;
+            width: auto;
+            text-align: left;
+        }
+
+        .rank-cell__label {
+            display: block;
+        }
+
+        .rank-wr {
+            align-items: flex-start;
+        }
+        .rank-cell--wr .rank-wr__track {
+            width: 52px;
+        }
+    }
+}

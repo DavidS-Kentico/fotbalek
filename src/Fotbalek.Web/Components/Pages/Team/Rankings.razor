@@ -4,6 +4,7 @@
 @attribute [Authorize]
 @inject CurrentTeamProvider TeamAccess
 @inject IScopedSender Sender
+@inject NavigationManager Nav
 
 <PageTitle>Rankings - Foosball Manager</PageTitle>
 
@@ -13,8 +14,14 @@
 }
 else
 {
-    <PageContainer>
-        <PageHeader Title="Rankings" Icon="bi bi-bar-chart">
+    @* One scope (the selected season, or all-time) shown through three panes.
+       The standings are the page, so they lead; the position and pair ladders are
+       a click away rather than three more screens of scrolling past them.
+
+       Focused (960px), like Match History: every pane is a single column of rows,
+       and the wide tier stretched them to 1320px of mostly empty middle. *@
+    <PageContainer Focused>
+        <PageHeader Title="Rankings" Icon="bi bi-bar-chart" Class="mb-3">
             <Actions>
                 @if (_seasons.Count > 0)
                 {
@@ -23,259 +30,91 @@ else
             </Actions>
         </PageHeader>
 
-        <Panel Class="mb-6" Flush>
-            <Header>
-                <i class="bi bi-person"></i>
-                <h2 class="panel__title">
-                    Player Rankings
-                    @if (_selectedSeason != null)
-                    {
-                        <small class="text-ink-muted font-normal">
-                            @_selectedSeason.Name@(_selectedSeason.IsClosed ? " — final standings" : "") · seasonal ELO
-                        </small>
-                    }
-                </h2>
-            </Header>
-            <ChildContent>
-                @if (_selectedSeason != null)
-                {
-                    @if (_seasonStandings.Count > 0)
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center" style="width: 60px;">Rank</th>
-                                        <th>Player</th>
-                                        <th class="text-right">ELO</th>
-                                        <th class="text-right">Matches</th>
-                                        <th class="text-right">W/L</th>
-                                        <th class="text-right">Win Rate</th>
-                                        <th class="text-right" title="Longest win / loss streak in the season">Streaks</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var row in _seasonStandings)
-                                    {
-                                        var isMine = row.PlayerId == MyPlayerId;
-                                        <tr class="@(isMine ? "table-brand" : "")">
-                                            <td class="text-center"><RankBadge Rank="@row.Rank" Large="true" /></td>
-                                            <td>
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <a href="/team/@TeamCode/players/@row.PlayerId" class="no-underline flex items-center gap-2">
-                                                        <Avatar AvatarId="@row.AvatarId" Size="sm" />
-                                                        <span>@row.PlayerName</span>
-                                                    </a>
-                                                    @if (row.PlayerId == _captainPlayerId)
-                                                    {
-                                                        <CaptainMark />
-                                                    }
-                                                    @if (isMine)
-                                                    {
-                                                        <span class="badge badge-you ms-1">you</span>
-                                                    }
-                                                    @foreach (var badge in StatDisplay.PlayerBadges(_stats, row.PlayerId))
-                                                    {
-                                                        <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
-                                                    }
-                                                </div>
-                                            </td>
-                                            <td class="text-right font-bold">@row.Elo</td>
-                                            <td class="text-right">@row.Matches</td>
-                                            <td class="text-right"><span class="text-brand">@row.Wins</span>/<span class="text-danger">@row.Losses</span></td>
-                                            <td class="text-right">
-                                                <span class="@(row.WinRate >= 50 ? "text-brand" : "text-danger")">@row.WinRate.ToString("F1")%</span>
-                                            </td>
-                                            <td class="text-right text-small">
-                                                <span class="text-brand" title="Longest win streak">W@(row.LongestWinStreak)</span>
-                                                <span class="text-ink-muted mx-1">·</span>
-                                                <span class="text-danger" title="Longest loss streak">L@(row.LongestLossStreak)</span>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <EmptyState Icon="bi bi-people" Message="No seasonal matches yet." />
-                    }
-                }
-                else if (_rankings.Count > 0)
-                {
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="text-center" style="width: 60px;">Rank</th>
-                                    <th>Player</th>
-                                    <th class="text-right">ELO</th>
-                                    <th class="text-right">Matches</th>
-                                    <th class="text-right">Wins</th>
-                                    <th class="text-right">Win Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var player in _rankings)
-                                {
-                                    var isMine = player.PlayerId == MyPlayerId;
-                                    <tr class="@(isMine ? "table-brand" : "")">
-                                        <td class="text-center">
-                                            <RankBadge Rank="@player.Rank" Large="true" />
-                                        </td>
-                                        <td>
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <a href="/team/@TeamCode/players/@player.PlayerId" class="no-underline flex items-center gap-2">
-                                                    <Avatar AvatarId="@player.AvatarId" Size="sm" />
-                                                    <span>@player.PlayerName</span>
-                                                </a>
-                                                @if (player.PlayerId == _captainPlayerId)
-                                                {
-                                                    <CaptainMark />
-                                                }
-                                                @if (isMine)
-                                                {
-                                                    <span class="badge badge-you ms-1">you</span>
-                                                }
-                                                @foreach (var badge in StatDisplay.PlayerBadges(_stats, player.PlayerId))
-                                                {
-                                                    <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
-                                                }
-                                            </div>
-                                        </td>
-                                        <td class="text-right font-bold">@player.Elo</td>
-                                        <td class="text-right">@player.Matches</td>
-                                        <td class="text-right text-brand">@player.Wins</td>
-                                        <td class="text-right">
-                                            <span class="@(player.WinRate >= 50 ? "text-brand" : "text-danger")">
-                                                @player.WinRate.ToString("F1")%
-                                            </span>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <EmptyState Icon="bi bi-people" Message="No players yet." />
-                }
-            </ChildContent>
-        </Panel>
-
-        <div class="grid grid-cols-12 gap-x-6">
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <PositionRankingTable Players="_goalkeepers"
-                                      Title="Best Goalkeepers"
-                                      Icon="bi bi-shield-fill"
-                                      HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as GK)")"
-                                      TeamCode="@TeamCode"
-                                      MyPlayerId="MyPlayerId"
-                                      CaptainPlayerId="_captainPlayerId"
-                                      AverageColumnLabel="Avg Conceded"
-                                      AverageColumnTooltip="Average goals conceded per game"
-                                      AverageColumnClass="text-neutral"
-                                      EmptyIcon="bi bi-shield"
-                                      EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
-            </div>
-            <div class="col-span-12 lg:col-span-6 mb-6">
-                <PositionRankingTable Players="_attackers"
-                                      Title="Best Attackers"
-                                      Icon="bi bi-bullseye"
-                                      HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as ATK)")"
-                                      TeamCode="@TeamCode"
-                                      MyPlayerId="MyPlayerId"
-                                      CaptainPlayerId="_captainPlayerId"
-                                      AverageColumnLabel="Avg Scored"
-                                      AverageColumnTooltip="Average goals scored per game"
-                                      AverageColumnClass="text-danger"
-                                      EmptyIcon="bi bi-bullseye"
-                                      EmptyMessage="@($"No attackers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
-            </div>
+        @* Which ladder every pane below is showing. A hairline strip, not a panel —
+           the same chrome-not-content rule as the Statistics scope bar. *@
+        <div class="scope-bar mb-4">
+            <span class="font-semibold">
+                <i class="bi bi-graph-up-arrow text-brand me-1"></i>@LadderLabel
+            </span>
+            @if (_selectedSeason?.IsClosed == true)
+            {
+                <span class="badge bg-neutral-subtle text-neutral-subtle-ink border border-neutral-subtle-edge">
+                    final standings
+                </span>
+            }
+            <span class="scope-bar__meta">@ScopeSummary</span>
         </div>
 
-        <Panel Title="@($"Best Pairs (min {Constants.TimeThresholds.MinGamesForPartnerStats} matches)")" Icon="bi bi-people" Flush>
-            <ChildContent>
-                @if (_pairRankings.Count > 0)
-                {
-                    var showAvgScore = _selectedSeason?.IsClosed != true;
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="text-center" style="width: 60px;">Rank</th>
-                                    <th>Players</th>
-                                    <th class="text-right">Matches</th>
-                                    <th class="text-right">W/L</th>
-                                    <th class="text-right">Win Rate</th>
-                                    @if (showAvgScore)
-                                    {
-                                        <th class="text-right">Avg Score</th>
-                                    }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @{
-                                    var rank = 1;
-                                }
-                                @foreach (var pair in _pairRankings)
-                                {
-                                    var pairContainsMe = MyPlayerId.HasValue && (pair.Player1Id == MyPlayerId || pair.Player2Id == MyPlayerId);
-                                    <tr class="@(pairContainsMe ? "table-brand" : "")">
-                                        <td class="text-center">
-                                            <RankBadge Rank="@rank" Large="true" />
-                                        </td>
-                                        <td>
-                                            <div class="flex items-center gap-2">
-                                                <Avatar AvatarId="@pair.Player1AvatarId" Size="sm" />
-                                                <span class="@(pair.Player1Id == MyPlayerId ? "font-bold" : "")">@pair.Player1Name</span>
-                                                @if (pair.Player1Id == _captainPlayerId)
-                                                {
-                                                    <CaptainMark />
-                                                }
-                                                <span class="text-ink-muted">&</span>
-                                                <Avatar AvatarId="@pair.Player2AvatarId" Size="sm" />
-                                                <span class="@(pair.Player2Id == MyPlayerId ? "font-bold" : "")">@pair.Player2Name</span>
-                                                @if (pair.Player2Id == _captainPlayerId)
-                                                {
-                                                    <CaptainMark />
-                                                }
-                                            </div>
-                                        </td>
-                                        <td class="text-right">@pair.Matches</td>
-                                        <td class="text-right">
-                                            <span class="text-brand">@pair.Wins</span>/<span class="text-danger">@pair.Losses</span>
-                                        </td>
-                                        <td class="text-right">
-                                            <span class="@(pair.WinRate >= 50 ? "text-brand" : "text-danger") font-bold">
-                                                @pair.WinRate.ToString("F1")%
-                                            </span>
-                                        </td>
-                                        @if (showAvgScore)
-                                        {
-                                            <td class="text-right">@pair.AverageScore.ToString("F1")</td>
-                                        }
-                                    </tr>
-                                    rank++;
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <EmptyState Icon="bi bi-people"
-                                Message="@($"Not enough matches to rank pairs yet (minimum {Constants.TimeThresholds.MinGamesForPartnerStats} matches per pair).")" />
-                }
-            </ChildContent>
-        </Panel>
+        <TabStrip Tabs="@BuildTabs()" ActiveId="@_tab" OnSelect="SwitchTab" />
+
+        @* ---------------- PLAYERS ---------------- *@
+        @if (_tab == TabPlayers)
+        {
+            @* Headless: the tab above already names the pane, so a titled head here
+               would only repeat it. *@
+            <Panel Flush>
+                <StandingsList Rows="_standings"
+                               TeamCode="@TeamCode"
+                               MyPlayerId="MyPlayerId"
+                               CaptainPlayerId="_captainPlayerId"
+                               Stats="_stats"
+                               EmptyMessage="@(_selectedSeason != null ? "No seasonal matches yet." : "No players yet.")" />
+            </Panel>
+        }
+        @* ---------------- POSITIONS ---------------- *@
+        else if (_tab == TabPositions)
+        {
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 lg:col-span-6">
+                    <PositionRankingList Players="_goalkeepers"
+                                         Title="Best Goalkeepers"
+                                         Icon="bi bi-shield-fill"
+                                         HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as GK)")"
+                                         TeamCode="@TeamCode"
+                                         MyPlayerId="MyPlayerId"
+                                         CaptainPlayerId="_captainPlayerId"
+                                         AverageColumnLabel="Conceded"
+                                         AverageColumnTooltip="Average goals conceded per game"
+                                         AverageColumnClass="text-neutral"
+                                         EmptyIcon="bi bi-shield"
+                                         EmptyMessage="@($"No goalkeepers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
+                </div>
+                <div class="col-span-12 lg:col-span-6">
+                    <PositionRankingList Players="_attackers"
+                                         Title="Best Attackers"
+                                         Icon="bi bi-bullseye"
+                                         HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPositionBadge} games as ATK)")"
+                                         TeamCode="@TeamCode"
+                                         MyPlayerId="MyPlayerId"
+                                         CaptainPlayerId="_captainPlayerId"
+                                         AverageColumnLabel="Scored"
+                                         AverageColumnTooltip="Average goals scored per game"
+                                         AverageColumnClass="text-danger"
+                                         EmptyIcon="bi bi-bullseye"
+                                         EmptyMessage="@($"No attackers with at least {Constants.TimeThresholds.MinGamesForPositionBadge} games yet.")" />
+                </div>
+            </div>
+        }
+        @* ---------------- PAIRS ---------------- *@
+        else if (_tab == TabPairs)
+        {
+            <PairRankingList Pairs="_pairRankings"
+                             Title="Best Pairs"
+                             Icon="bi bi-people"
+                             HeaderHint="@($"(min {Constants.TimeThresholds.MinGamesForPartnerStats} matches together)")"
+                             TeamCode="@TeamCode"
+                             MyPlayerId="MyPlayerId"
+                             CaptainPlayerId="_captainPlayerId"
+                             ShowAverageScore="@(_selectedSeason?.IsClosed != true)"
+                             EmptyMessage="@($"Not enough matches to rank pairs yet (minimum {Constants.TimeThresholds.MinGamesForPartnerStats} matches per pair).")" />
+        }
     </PageContainer>
 }
 
 @code {
     [Parameter] public string TeamCode { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
 
     private TeamDto? _team;
     private bool _loading = true;
@@ -283,8 +122,9 @@ else
     private int? _selectedSeasonId;
     private SeasonDto? _selectedSeason;
 
-    private List<PlayerRanking> _rankings = [];
-    private List<SeasonStandingRow> _seasonStandings = [];
+    /// <summary>Standings for the selected scope — the seasonal ladder or the all-time one,
+    /// both mapped to the shared row so the pane does not care which it got.</summary>
+    private List<StandingsList.Row> _standings = [];
     private List<PairStats> _pairRankings = [];
     private List<PositionRanking> _goalkeepers = [];
     private List<PositionRanking> _attackers = [];
@@ -292,6 +132,24 @@ else
     // Player claimed by the team captain, if any — marked with the armband "C".
     private int? _captainPlayerId;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
+
+    // ---- Panes ----
+    // Ids double as the ?tab= value, so a pane is linkable and survives a refresh
+    // (same contract as Statistics and Player detail).
+    private const string TabPlayers = "players";
+    private const string TabPositions = "positions";
+    private const string TabPairs = "pairs";
+
+    private static readonly string[] TabIds = [TabPlayers, TabPositions, TabPairs];
+
+    private string _tab = TabPlayers;
+
+    protected override void OnParametersSet()
+    {
+        var requested = (TabParam ?? TabPlayers).ToLowerInvariant();
+        if (!TabIds.Contains(requested)) requested = TabPlayers;
+        _tab = requested;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -315,6 +173,42 @@ else
         }
     }
 
+    private void SwitchTab(string tab)
+    {
+        if (_tab == tab) return;
+        // Players is the default, so it stays out of the URL.
+        var target = string.Equals(tab, TabPlayers, StringComparison.OrdinalIgnoreCase) ? null : tab;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameter("tab", target), replace: true);
+    }
+
+    private List<TabStrip.TabItem> BuildTabs() =>
+    [
+        new(TabPlayers, "bi bi-person", "Players", _standings.Count),
+        new(TabPositions, "bi bi-shield-fill", "Positions", _goalkeepers.Count + _attackers.Count),
+        new(TabPairs, "bi bi-people", "Pairs", _pairRankings.Count),
+    ];
+
+    /// <summary>Which ladder the panes are showing — the two are ranked separately.</summary>
+    private string LadderLabel => _selectedSeason is { } season
+        ? $"Seasonal ELO · {season.Name}"
+        : "All-time ELO";
+
+    /// <summary>
+    /// How many of the ranked players have actually played in this scope. Everyone on
+    /// the ladder has a rating, so a player with no matches still holds a position —
+    /// this is what explains the "—" in their record.
+    /// </summary>
+    private string ScopeSummary
+    {
+        get
+        {
+            var total = _standings.Count;
+            var played = _standings.Count(r => r.Matches > 0);
+            var players = $"{total} {(total == 1 ? "player" : "players")}";
+            return played == total ? players : $"{players} · {played} with matches";
+        }
+    }
+
     private async Task OnScopeChanged()
     {
         await LoadScopeAsync();
@@ -330,7 +224,8 @@ else
         if (_selectedSeason != null)
         {
             // Season scope: live aggregation for the active season, frozen tables for closed ones.
-            _seasonStandings = (await Sender.Send(new GetSeasonStandingsQuery(_selectedSeason.Id))).Value;
+            _standings = (await Sender.Send(new GetSeasonStandingsQuery(_selectedSeason.Id))).Value
+                .Select(r => StandingsList.From(r)).ToList();
             var positions = (await Sender.Send(new GetSeasonPositionRankingsQuery(_selectedSeason.Id))).Value;
             (_goalkeepers, _attackers) = (positions.Goalkeepers, positions.Attackers);
             _pairRankings = (await Sender.Send(new GetSeasonPairRankingsQuery(_selectedSeason.Id))).Value;
@@ -338,16 +233,15 @@ else
             // Badge chips come from the season-scoped StatContext — computed on the fly even for
             // closed seasons (their matches are immutable, so this is safe).
             _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id, _selectedSeason.Id))).Value;
-            _rankings = [];
         }
         else
         {
-            _rankings = (await Sender.Send(new GetRankingsQuery(_team.Id))).Value;
+            _standings = (await Sender.Send(new GetRankingsQuery(_team.Id))).Value
+                .Select(r => StandingsList.From(r)).ToList();
             _pairRankings = (await Sender.Send(new GetPairRankingsQuery(_team.Id))).Value;
             var positions = (await Sender.Send(new GetPositionRankingsQuery(_team.Id))).Value;
             (_goalkeepers, _attackers) = (positions.Goalkeepers, positions.Attackers);
             _stats = (await Sender.Send(new GetTeamStatsQuery(_team.Id))).Value;
-            _seasonStandings = [];
         }
     }
 }

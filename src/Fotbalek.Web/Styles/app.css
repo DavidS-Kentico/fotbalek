@@ -72,6 +72,7 @@
 @import './components/new-match.css';
 @import './components/match.css';
 @import './components/stats.css';
+@import './components/rankings.css';
 @import './components/live-game.css';
 
 /* ---- Utilities --------------------------------------------------------- */

@@ -1,0 +1,167 @@
+@* Player standings as a leaderboard list — the Rankings page (all-time and
+   season scope) and Season detail's frozen standings all render this, so the
+   three cannot drift apart.
+
+   Both source shapes go through <see cref="Row"/>: the all-time ranking carries
+   matches + wins, the season row carries wins + losses and streaks. The streak
+   column appears only when the rows have streaks to show.
+
+   Style: .rank-list / .rank-row in Styles/components/rankings.css. *@
+
+@if (Rows.Count == 0)
+{
+    <EmptyState Icon="@EmptyIcon" IconSize="md" Padding="py-4" Message="@EmptyMessage" />
+}
+else
+{
+    <div class="rank-list">
+        <div class="rank-row rank-row--head">
+            <span class="rank-pos"></span>
+            <span class="rank-row__player">Player</span>
+            <div class="rank-row__metrics">
+                <span class="rank-cell rank-cell--elo">ELO</span>
+                <span class="rank-cell rank-cell--record" title="Wins and losses">W–L</span>
+                <span class="rank-cell rank-cell--wr">Win rate</span>
+                @if (ShowStreaks)
+                {
+                    <span class="rank-cell rank-cell--streak" title="Longest win / loss streak">Streaks</span>
+                }
+            </div>
+        </div>
+
+        @foreach (var row in Rows)
+        {
+            var isMine = row.PlayerId == MyPlayerId;
+            // A player on the ladder with no matches yet has a rating but no record;
+            // "—" says that, where 0–0 and 0.0% read like a losing season.
+            var played = row.Matches > 0;
+            var wrGood = row.WinRate >= 50;
+            var badges = StatDisplay.PlayerBadges(Stats, row.PlayerId);
+            // Show them all when they fit, otherwise four plus a "+N" pill — the
+            // same cap the Dashboard's rankings panel uses.
+            var visibleBadges = badges.Count <= MaxBadges ? badges.Count : MaxBadges - 1;
+            var hiddenBadges = badges.Count - visibleBadges;
+
+            <div class="rank-row @(isMine ? "rank-row--me" : "")">
+                <RankBadge Rank="@row.Rank" />
+                <div class="rank-row__player">
+                    <a href="/team/@TeamCode/players/@row.PlayerId" class="rank-row__link">
+                        <Avatar AvatarId="@row.AvatarId" Size="sm" />
+                        <span class="rank-row__name">@row.PlayerName</span>
+                    </a>
+                    @if (row.PlayerId == CaptainPlayerId)
+                    {
+                        <CaptainMark />
+                    }
+                    @if (isMine)
+                    {
+                        <span class="badge badge-you">you</span>
+                    }
+                    @foreach (var badge in badges.Take(visibleBadges))
+                    {
+                        <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
+                    }
+                    @if (hiddenBadges > 0)
+                    {
+                        <span class="badge-more" title="@string.Join(" · ", badges.Skip(visibleBadges).Select(b => b.Tooltip))">+@hiddenBadges</span>
+                    }
+                </div>
+                <div class="rank-row__metrics">
+                    <span class="rank-cell rank-cell--elo">
+                        <span class="rank-cell__label">ELO</span>
+                        <span class="rank-cell__value">@row.Elo</span>
+                    </span>
+                    <span class="rank-cell rank-cell--record">
+                        <span class="rank-cell__label">W–L</span>
+                        @if (played)
+                        {
+                            <span class="rank-cell__value">
+                                <span class="rank-record__w">@row.Wins</span><span class="rank-record__sep">–</span><span class="rank-record__l">@row.Losses</span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="rank-cell__value rank-cell__value--muted" title="No matches yet">—</span>
+                        }
+                    </span>
+                    <span class="rank-cell rank-cell--wr">
+                        <span class="rank-cell__label">Win rate</span>
+                        @if (played)
+                        {
+                            <span class="rank-wr">
+                                <span class="rank-wr__pct @(wrGood ? "good" : "bad")">@row.WinRate.ToString("F1")%</span>
+                                <span class="rank-wr__track">
+                                    <span class="rank-wr__fill @(wrGood ? "" : "bad")" style="width:@row.WinRate.ToString("F0")%"></span>
+                                </span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="rank-cell__value rank-cell__value--muted">—</span>
+                        }
+                    </span>
+                    @if (ShowStreaks)
+                    {
+                        <span class="rank-cell rank-cell--streak">
+                            <span class="rank-cell__label">Streaks</span>
+                            <span class="rank-streak">
+                                <span class="rank-streak__pill rank-streak__pill--w" title="Longest win streak">W@(row.LongestWinStreak ?? 0)</span>
+                                <span class="rank-streak__pill rank-streak__pill--l" title="Longest loss streak">L@(row.LongestLossStreak ?? 0)</span>
+                            </span>
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// One standings row, whichever ladder it came from. Streaks are null for the
+    /// all-time ladder, which does not track them — that absence is also what hides
+    /// the column.
+    /// </summary>
+    public sealed record Row(
+        int Rank,
+        int PlayerId,
+        string PlayerName,
+        int AvatarId,
+        int Elo,
+        int Matches,
+        int Wins,
+        int Losses,
+        int? LongestWinStreak = null,
+        int? LongestLossStreak = null)
+    {
+        /// <summary>Derived rather than carried: every ranking query computes it this same
+        /// way, and no draws exist to make wins/matches anything but the win rate.</summary>
+        public double WinRate => Matches > 0 ? (double)Wins / Matches * 100 : 0;
+    }
+
+    /// <summary>All-time ranking → row. The app allows no draws (CreateMatchCommand
+    /// rejects equal scores), so losses are exactly the matches that were not won.</summary>
+    public static Row From(PlayerRanking r) =>
+        new(r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.Matches, r.Wins, r.Matches - r.Wins);
+
+    /// <summary>Season standing (live or frozen) → row.</summary>
+    public static Row From(SeasonStandingRow r) =>
+        new(r.Rank, r.PlayerId, r.PlayerName, r.AvatarId, r.Elo, r.Matches, r.Wins, r.Losses,
+            r.LongestWinStreak, r.LongestLossStreak);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Row> Rows { get; set; } = [];
+
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public int? CaptainPlayerId { get; set; }
+
+    /// <summary>Scope-matched stat results, for the badge chips beside a name.</summary>
+    [Parameter] public IReadOnlyList<StatResult> Stats { get; set; } = [];
+
+    [Parameter] public string? EmptyIcon { get; set; } = "bi bi-people";
+    [Parameter] public string? EmptyMessage { get; set; }
+
+    private const int MaxBadges = 5;
+
+    private bool ShowStreaks => Rows.Any(r => r.LongestWinStreak is not null);
+}

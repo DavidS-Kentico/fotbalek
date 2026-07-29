@@ -1,0 +1,91 @@
+@* Position-specific ranking list (Goalkeepers / Attackers), shared by the
+   Rankings page and Season detail. Same .rank-row anatomy as the standings
+   list, with games + a per-game average in place of the ELO/record columns.
+
+   Style: .rank-list / .rank-row in Styles/components/rankings.css. *@
+
+<Panel Class="h-full" Flush>
+    <Header>
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon"></i>
+        }
+        <h2 class="panel__title">
+            @Title
+            @if (!string.IsNullOrEmpty(HeaderHint))
+            {
+                <small class="text-ink-muted font-normal">@HeaderHint</small>
+            }
+        </h2>
+    </Header>
+    <ChildContent>
+        @if (Players.Count > 0)
+        {
+            <div class="rank-list">
+                <div class="rank-row rank-row--head">
+                    <span class="rank-pos"></span>
+                    <span class="rank-row__player">Player</span>
+                    <div class="rank-row__metrics">
+                        <span class="rank-cell rank-cell--games">Games</span>
+                        <span class="rank-cell rank-cell--avg" title="@AverageColumnTooltip">@AverageColumnLabel</span>
+                    </div>
+                </div>
+
+                @foreach (var p in Players)
+                {
+                    var isMine = p.PlayerId == MyPlayerId;
+
+                    <div class="rank-row @(isMine ? "rank-row--me" : "")">
+                        <RankBadge Rank="@p.Rank" />
+                        <div class="rank-row__player">
+                            <a href="/team/@TeamCode/players/@p.PlayerId" class="rank-row__link">
+                                <Avatar AvatarId="@p.AvatarId" Size="sm" />
+                                <span class="rank-row__name">@p.PlayerName</span>
+                            </a>
+                            @if (p.PlayerId == CaptainPlayerId)
+                            {
+                                <CaptainMark />
+                            }
+                            @if (isMine)
+                            {
+                                <span class="badge badge-you">you</span>
+                            }
+                        </div>
+                        <div class="rank-row__metrics">
+                            <span class="rank-cell rank-cell--games">
+                                <span class="rank-cell__label">Games</span>
+                                <span class="rank-cell__value">@p.Games</span>
+                            </span>
+                            <span class="rank-cell rank-cell--avg" title="@AverageColumnTooltip">
+                                <span class="rank-cell__label">@AverageColumnLabel</span>
+                                <span class="rank-cell__value @AverageColumnClass">@p.AverageGoals.ToString("F1")</span>
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <EmptyState Icon="@EmptyIcon" IconSize="md" Padding="py-4" Message="@EmptyMessage" />
+        }
+    </ChildContent>
+</Panel>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PositionRanking> Players { get; set; } = [];
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? HeaderHint { get; set; }
+    [Parameter] public string TeamCode { get; set; } = string.Empty;
+    [Parameter] public int? MyPlayerId { get; set; }
+    [Parameter] public int? CaptainPlayerId { get; set; }
+
+    /// <summary>Short column label for the average — it also labels the cell on a phone,
+    /// so keep it to one word ("Conceded", "Scored") and put the detail in the tooltip.</summary>
+    [Parameter] public string AverageColumnLabel { get; set; } = "Avg";
+    [Parameter] public string? AverageColumnTooltip { get; set; }
+    [Parameter] public string AverageColumnClass { get; set; } = "text-neutral";
+    [Parameter] public string? EmptyIcon { get; set; }
+    [Parameter] public string? EmptyMessage { get; set; }
+}

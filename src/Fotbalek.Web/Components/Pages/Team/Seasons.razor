@@ -14,7 +14,9 @@
 }
 else
 {
-    <PageContainer>
+    @* Focused (960px): one panel per season, each a single row of name, period and
+       actions — the wide tier only pushed the buttons further from the name. *@
+    <PageContainer Focused>
         <PageHeader Title="Seasons" Icon="bi bi-award">
             <Actions>
                 @if (_isCaptain)
