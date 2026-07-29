@@ -5,12 +5,8 @@ namespace Fotbalek.Application.Features.Stats.Margins;
 
 public class TableSenderStat : StatBase
 {
-    public override string Key => "TableSender";
-    public override string Name => "Table Sender";
-    public override string Emoji => "\U0001F4AA";
+    public override StatKey Key => StatKey.TableSender;
     public override StatTheme Theme => StatTheme.Margins;
-    public override string Description => "Most 10-0 wins";
-    public override StatBadge? Badge => new("bi bi-box-arrow-up", "bg-brand");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -25,6 +21,6 @@ public class TableSenderStat : StatBase
                 counts[mp.PlayerId] = v + 1;
             }
         }
-        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} table sends");
+        return StatHelpers.TopByValue(counts, context.PlayersById);
     }
 }

@@ -6,12 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Positions;
 
 public class BestGoalkeeperStat : StatBase
 {
-    public override string Key => "BestGoalkeeper";
-    public override string Name => "Best GK";
-    public override string Emoji => "\U0001F92F";
+    public override StatKey Key => StatKey.BestGoalkeeper;
     public override StatTheme Theme => StatTheme.Positions;
-    public override string Description => $"Lowest goals conceded per match as GK (min {Constants.TimeThresholds.MinGamesForPositionBadge} games)";
-    public override StatBadge? Badge => new("bi bi-shield-fill", "bg-neutral");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -33,6 +29,9 @@ public class BestGoalkeeperStat : StatBase
 
         var top = qualified.OrderBy(kv => (double)kv.Value.Conceded / kv.Value.Games).First();
         var avg = (double)top.Value.Conceded / top.Value.Games;
-        return [context.PlayersById[top.Key].ToHolder((int)Math.Round(avg * 10), $"{avg:F1} conceded/game")];
+        // Value keeps a tenth of a goal of resolution so ties break the way the average orders them.
+        return [context.PlayersById[top.Key].ToHolder(
+            (int)Math.Round(avg * 10),
+            ratio: new StatRatio(top.Value.Conceded, top.Value.Games))];
     }
 }

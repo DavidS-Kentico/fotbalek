@@ -1,3 +1,4 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
@@ -8,13 +9,8 @@ namespace Fotbalek.Application.Features.Stats.Rivalries;
 /// </summary>
 public class NemesisStat : StatBase
 {
-    private const int MinHeadToHeadGames = 4;
-
-    public override string Key => "Nemesis";
-    public override string Name => "Nemesis";
-    public override string Emoji => "\U0001F47F";
+    public override StatKey Key => StatKey.Nemesis;
     public override StatTheme Theme => StatTheme.Rivalries;
-    public override string Description => $"Most lopsided losing record against a single opponent (min {MinHeadToHeadGames} games)";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -40,7 +36,7 @@ public class NemesisStat : StatBase
 
         // Best (worst) nemesis per player
         var perPlayer = pairs
-            .Where(kv => kv.Value.Games >= MinHeadToHeadGames)
+            .Where(kv => kv.Value.Games >= Constants.Stats.MinHeadToHeadGames)
             .GroupBy(kv => kv.Key.Self)
             .Select(g =>
             {
@@ -64,8 +60,8 @@ public class NemesisStat : StatBase
             .Where(x => Math.Abs(x.Ratio - topRatio) < 0.0001)
             .Select(x => context.PlayersById[x.PlayerId].ToHolder(
                 (int)Math.Round(x.Ratio * 100),
-                $"loses {x.Losses}/{x.Games} vs {context.PlayersById[x.OpponentId].Name}",
-                detail: context.PlayersById[x.OpponentId].Name))
+                detail: context.PlayersById[x.OpponentId].Name,
+                ratio: new StatRatio(x.Losses, x.Games)))
             .ToList();
     }
 

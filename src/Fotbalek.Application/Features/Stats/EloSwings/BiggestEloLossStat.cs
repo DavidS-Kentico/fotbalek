@@ -5,11 +5,8 @@ namespace Fotbalek.Application.Features.Stats.EloSwings;
 
 public class BiggestEloLossStat : StatBase
 {
-    public override string Key => "BiggestEloLoss";
-    public override string Name => "Biggest Loss";
-    public override string Emoji => "\U0001F4C9";
+    public override StatKey Key => StatKey.BiggestEloLoss;
     public override StatTheme Theme => StatTheme.EloSwings;
-    public override string Description => "Largest single-match ELO loss";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -27,7 +24,7 @@ public class BiggestEloLossStat : StatBase
             .Where(t => t.Change == min)
             .SelectMany(t => t.Players)
             .Distinct()
-            .Select(pid => context.PlayersById[pid].ToHolder(min, $"{min} ELO in one match"))
+            .Select(pid => context.PlayersById[pid].ToHolder(min))
             .ToList();
     }
 }

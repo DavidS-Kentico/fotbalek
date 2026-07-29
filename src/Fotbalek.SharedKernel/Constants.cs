@@ -40,6 +40,38 @@ public static class Constants
     }
 
     /// <summary>
+    /// Qualifying thresholds for the themed stats. They live here rather than inside the stat
+    /// implementations because the UI quotes them back in each stat's description — one source of
+    /// truth keeps the rule and the wording from drifting apart.
+    /// </summary>
+    public static class Stats
+    {
+        /// <summary>How far below their peak ELO a player must be to count as fallen.</summary>
+        public const int MinDropFromPeak = 50;
+
+        /// <summary>Minimum one-goal games before a close-game win rate is ranked.</summary>
+        public const int MinCloseGames = 5;
+
+        /// <summary>Minimum games together before a duo is ranked.</summary>
+        public const int MinPairGames = 5;
+
+        /// <summary>Minimum head-to-head games before a rivalry is ranked.</summary>
+        public const int MinHeadToHeadGames = 4;
+
+        /// <summary>Minimum consecutive results before a streak is reported.</summary>
+        public const int MinStreak = 3;
+
+        /// <summary>Combined-ELO gap that makes a team favourites (or underdogs).</summary>
+        public const int UnderdogEloGap = 100;
+
+        /// <summary>Goal margin at which a win counts as a demolition.</summary>
+        public const int DominantWinMargin = 7;
+
+        /// <summary>How many times the weaker partner's ELO the carrier must have for a win to count as a carry.</summary>
+        public const double CarryEloMultiplier = 1.2;
+    }
+
+    /// <summary>
     /// Season-related thresholds and enum-like values
     /// </summary>
     public static class Seasons

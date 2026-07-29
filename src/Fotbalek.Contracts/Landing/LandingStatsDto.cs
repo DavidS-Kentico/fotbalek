@@ -26,4 +26,10 @@ public record LandingActivityPointDto(DateTime Day, int Matches);
 public record LandingFunFactsDto(
     int MatchesToday,
     double AverageGoalsPerMatch,
-    string? BiggestBlowout);
+    LandingBlowoutDto? BiggestBlowout);
+
+/// <summary>
+/// The week's widest winning margin, as its two scores — the UI decides how to punctuate them.
+/// Anonymized like the rest of this DTO: the winning side is never named.
+/// </summary>
+public record LandingBlowoutDto(int WinnerScore, int LoserScore);

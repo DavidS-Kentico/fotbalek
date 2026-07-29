@@ -62,19 +62,17 @@ internal sealed class GetLandingStatsQueryHandler(IAppDbContext db)
         var averageGoalsPerMatch = totalMatches > 0 ? (double)totalGoals / totalMatches : 0;
 
         // Biggest blowout this week — score margin only, we never surface the team.
-        string? biggestBlowout = null;
         var blowoutThisWeek = await db.Matches
             .Where(m => m.PlayedAt >= weekAgo)
             .OrderByDescending(m => Math.Abs(m.Team1Score - m.Team2Score))
             .Select(m => new { m.Team1Score, m.Team2Score })
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (blowoutThisWeek != null)
-        {
-            var winner = Math.Max(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score);
-            var loser = Math.Min(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score);
-            biggestBlowout = $"{winner}–{loser}";
-        }
+        var biggestBlowout = blowoutThisWeek == null
+            ? null
+            : new LandingBlowoutDto(
+                WinnerScore: Math.Max(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score),
+                LoserScore: Math.Min(blowoutThisWeek.Team1Score, blowoutThisWeek.Team2Score));
 
         return new LandingStatsDto(
             totals,

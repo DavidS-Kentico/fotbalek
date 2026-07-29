@@ -6,12 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Special;
 
 public class NewcomerStat : StatBase
 {
-    public override string Key => "Newcomer";
-    public override string Name => "Newcomer";
-    public override string Emoji => "✨";
+    public override StatKey Key => StatKey.Newcomer;
     public override StatTheme Theme => StatTheme.Special;
-    public override string Description => $"Joined in the last {Constants.TimeThresholds.RecentActivityDays} days";
-    public override StatBadge? Badge => new("bi bi-stars", "bg-brand");
 
     public override bool Applies(StatContext context) => context.IsAllTime;
 
@@ -20,7 +16,8 @@ public class NewcomerStat : StatBase
         var threshold = DateTimeOffset.UtcNow.AddDays(-Constants.TimeThresholds.RecentActivityDays);
         return context.ActivePlayers
             .Where(p => p.CreatedAt >= threshold)
-            .Select(p => p.ToHolder(0, "joined recently"))
+            // Membership is the whole stat — there is nothing to rank holders by.
+            .Select(p => p.ToHolder(0))
             .ToList();
     }
 }

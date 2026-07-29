@@ -1,20 +1,16 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
 namespace Fotbalek.Application.Features.Stats.Partnerships;
 
 /// <summary>
-/// The duo with the highest win rate as teammates. Reported as both players (multi-holder), with each holder showing the partner.
+/// The duo with the highest win rate as teammates. Reported as both players (multi-holder), with each holder naming the partner.
 /// </summary>
 public class BestFriendStat : StatBase
 {
-    private const int MinPairGames = 5;
-
-    public override string Key => "BestFriend";
-    public override string Name => "Best Friend";
-    public override string Emoji => "\U0001F46F";
+    public override StatKey Key => StatKey.BestFriend;
     public override StatTheme Theme => StatTheme.Partnerships;
-    public override string Description => $"Highest win rate as a duo (min {MinPairGames} games together)";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -26,19 +22,20 @@ public class BestFriendStat : StatBase
             ProcessTeam(pairs, match, 2);
         }
 
-        var qualified = pairs.Where(kv => kv.Value.Games >= MinPairGames).ToList();
+        var qualified = pairs.Where(kv => kv.Value.Games >= Constants.Stats.MinPairGames).ToList();
         if (qualified.Count == 0) return [];
 
         var top = qualified.OrderByDescending(kv => (double)kv.Value.Wins / kv.Value.Games).First();
         var pct = (int)Math.Round((double)top.Value.Wins / top.Value.Games * 100);
+        var record = new StatRatio(top.Value.Wins, top.Value.Games);
 
         var a = context.PlayersById[top.Key.A];
         var b = context.PlayersById[top.Key.B];
 
         return new[]
         {
-            a.ToHolder(pct, $"{pct}% with {b.Name} ({top.Value.Wins}/{top.Value.Games})", detail: b.Name),
-            b.ToHolder(pct, $"{pct}% with {a.Name} ({top.Value.Wins}/{top.Value.Games})", detail: a.Name)
+            a.ToHolder(pct, detail: b.Name, ratio: record),
+            b.ToHolder(pct, detail: a.Name, ratio: record)
         };
     }
 

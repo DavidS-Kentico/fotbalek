@@ -6,7 +6,7 @@ using Fotbalek.SharedKernel;
 
 namespace Fotbalek.Application.Features.Matches;
 
-/// <summary>Rule-only deletability (time window / closed season / later matches), with the reason.</summary>
+/// <summary>Rule-only deletability (time window / closed season / later matches), with the blocker.</summary>
 public sealed record CanDeleteMatchQuery(int MatchId) : IQuery<MatchDeletabilityDto>;
 
 internal sealed class CanDeleteMatchQueryHandler(IAppDbContext db, TeamAccess teamAccess)
@@ -17,7 +17,7 @@ internal sealed class CanDeleteMatchQueryHandler(IAppDbContext db, TeamAccess te
         if (!await teamAccess.IsMemberOfMatchTeamAsync(query.MatchId, cancellationToken))
             return Result.Failure<MatchDeletabilityDto>(CommonErrors.NotMember);
 
-        var (canDelete, reason) = await MatchRules.CanDeleteWithReasonAsync(db, query.MatchId, cancellationToken);
-        return new MatchDeletabilityDto(canDelete, reason);
+        return new MatchDeletabilityDto(
+            await MatchRules.DeletionBlockerAsync(db, query.MatchId, cancellationToken));
     }
 }

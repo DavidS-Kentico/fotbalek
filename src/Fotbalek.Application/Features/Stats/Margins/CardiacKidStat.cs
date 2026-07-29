@@ -1,3 +1,4 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
@@ -5,13 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Margins;
 
 public class CardiacKidStat : StatBase
 {
-    private const int MinCloseGames = 5;
-
-    public override string Key => "CardiacKid";
-    public override string Name => "Cardiac Kid";
-    public override string Emoji => "\U0001F493";
+    public override StatKey Key => StatKey.CardiacKid;
     public override StatTheme Theme => StatTheme.Margins;
-    public override string Description => $"Best win rate in 1-goal games (min {MinCloseGames} such games)";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -26,11 +22,11 @@ public class CardiacKidStat : StatBase
             }
         }
 
-        var qualified = stats.Where(kv => kv.Value.Games >= MinCloseGames).ToList();
+        var qualified = stats.Where(kv => kv.Value.Games >= Constants.Stats.MinCloseGames).ToList();
         if (qualified.Count == 0) return [];
 
         var top = qualified.OrderByDescending(kv => (double)kv.Value.Wins / kv.Value.Games).First();
         var pct = (int)Math.Round((double)top.Value.Wins / top.Value.Games * 100);
-        return [context.PlayersById[top.Key].ToHolder(pct, $"{pct}% in close games ({top.Value.Wins}/{top.Value.Games})")];
+        return [context.PlayersById[top.Key].ToHolder(pct, ratio: new StatRatio(top.Value.Wins, top.Value.Games))];
     }
 }

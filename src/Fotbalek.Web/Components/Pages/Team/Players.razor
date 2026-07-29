@@ -204,7 +204,7 @@ else
     private RenderFragment RenderPlayerCard(PlayerDto player, bool isInactive) => __builder =>
     {
         var summary = _summaries.GetValueOrDefault(player.Id) ?? new PlayerSummaryDto(0, 0, 0, null, 0);
-        var badges = StatRegistry.PlayerBadges(_stats, player.Id);
+        var badges = StatDisplay.PlayerBadges(_stats, player.Id);
         var isMine = player.Id == MyPlayerId;
         var rating = RatingOf(player);
         var rank = !isInactive && _ranks.TryGetValue(player.Id, out var r) ? r : (int?)null;

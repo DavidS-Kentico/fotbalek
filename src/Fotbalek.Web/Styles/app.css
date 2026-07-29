@@ -94,11 +94,7 @@
    the directory out is a trap: the first `classList.add('bg-danger')` would
    silently produce no CSS. */
 @source './../wwwroot/js/**/*.js';
-/* Stat badges declare their own colour classes in the Application layer
-   (e.g. StatBadge("bi bi-fire", "bg-danger")), so those files are sources too.
-   Scoped to Features/Stats rather than the whole layer: sweeping every .cs file
-   mints utilities from ordinary English words that happen to match a utility
-   name (`container`, `collapse`, `blur`, `ring`…). If a class name ever has to
-   live elsewhere in Application, widen this glob AND the matching
-   <TailwindSource> entry in Fotbalek.Web.csproj — they must stay in step. */
-@source './../../Fotbalek.Application/Features/Stats/**/*.cs';
+/* Stat badge colours (`bg-danger`, `bg-warning text-gray-900`…) are declared in
+   Services/StatPresentation.cs, which the Services glob above already covers —
+   no project outside Web names a CSS class. Keep it that way: presentation stays
+   in Web, so Tailwind never has to reach across a project boundary. */

@@ -5,11 +5,8 @@ namespace Fotbalek.Application.Features.Stats.Rankings;
 
 public class TopGainerStat : StatBase
 {
-    public override string Key => "TopGainer";
-    public override string Name => "Top Gainer";
-    public override string Emoji => "\U0001F4C8";
+    public override StatKey Key => StatKey.TopGainer;
     public override StatTheme Theme => StatTheme.Rankings;
-    public override string Description => "Best ELO gain in the period";
 
     public override bool Applies(StatContext context) => !context.IsAllTime;
 
@@ -28,7 +25,7 @@ public class TopGainerStat : StatBase
 
         return totals
             .Where(kv => kv.Value == max)
-            .Select(kv => context.PlayersById[kv.Key].ToHolder(max, $"+{max} ELO"))
+            .Select(kv => context.PlayersById[kv.Key].ToHolder(max))
             .ToList();
     }
 }

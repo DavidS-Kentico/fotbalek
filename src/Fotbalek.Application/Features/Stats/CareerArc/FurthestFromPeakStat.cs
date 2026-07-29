@@ -1,3 +1,4 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
@@ -8,13 +9,8 @@ namespace Fotbalek.Application.Features.Stats.CareerArc;
 /// </summary>
 public class FurthestFromPeakStat : StatBase
 {
-    private const int MinDrop = 50;
-
-    public override string Key => "FurthestFromPeak";
-    public override string Name => "Fallen Star";
-    public override string Emoji => "\U0001F4C9";
+    public override StatKey Key => StatKey.FurthestFromPeak;
     public override StatTheme Theme => StatTheme.CareerArc;
-    public override string Description => $"Currently furthest below their peak ELO (min {MinDrop} drop)";
 
     // "Current ELO of the selected ladder" is well-defined for a full season too.
     public override bool Applies(StatContext context) => context.IsFullScope;
@@ -29,13 +25,14 @@ public class FurthestFromPeakStat : StatBase
         var drops = peaks
             .Where(kv => context.PlayersById.TryGetValue(kv.Key, out var p) && p.IsActive)
             .Select(kv => new { PlayerId = kv.Key, Peak = kv.Value, Current = context.CurrentEloOf(context.PlayersById[kv.Key]) })
-            .Where(x => x.Peak - x.Current >= MinDrop)
+            .Where(x => x.Peak - x.Current >= Constants.Stats.MinDropFromPeak)
             .ToList();
 
         if (drops.Count == 0) return [];
 
         var top = drops.OrderByDescending(x => x.Peak - x.Current).First();
-        var drop = top.Peak - top.Current;
-        return [context.PlayersById[top.PlayerId].ToHolder(drop, $"-{drop} from peak ({top.Peak} → {top.Current})")];
+        return [context.PlayersById[top.PlayerId].ToHolder(
+            top.Peak - top.Current,
+            ratio: new StatRatio(Part: top.Current, Whole: top.Peak))];
     }
 }

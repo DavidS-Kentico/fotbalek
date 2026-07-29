@@ -13,11 +13,8 @@ namespace Fotbalek.Application.Features.Stats.Activity;
 /// </summary>
 public class VarietyPlayerStat : StatBase
 {
-    public override string Key => "VarietyPlayer";
-    public override string Name => "Variety Player";
-    public override string Emoji => "\U0001F308";
+    public override StatKey Key => StatKey.VarietyPlayer;
     public override StatTheme Theme => StatTheme.Activity;
-    public override string Description => $"Most even distribution of games across active teammates (min {Constants.TimeThresholds.MinGamesForVarietyBadge})";
 
     /// <summary>
     /// Computes Pielou's evenness for a player's partner-game distribution.
@@ -83,10 +80,10 @@ public class VarietyPlayerStat : StatBase
         var maxEvenness = scored.Max(s => s.Evenness);
         return scored
             .Where(s => Math.Abs(s.Evenness - maxEvenness) < 0.0001)
+            // Value is evenness in hundredths of a percent — the resolution the tie test above works at.
             .Select(s => context.PlayersById[s.PlayerId].ToHolder(
                 (int)Math.Round(s.Evenness * 10000),
-                $"{Math.Round(s.Evenness * 100)}% evenness",
-                $"{s.PartnersPlayed}/{rosterMinusSelf} teammates"))
+                ratio: new StatRatio(s.PartnersPlayed, rosterMinusSelf)))
             .ToList();
     }
 

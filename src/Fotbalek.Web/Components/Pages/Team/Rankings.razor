@@ -74,7 +74,7 @@ else
                                                     {
                                                         <span class="badge badge-you ms-1">you</span>
                                                     }
-                                                    @foreach (var badge in StatRegistry.PlayerBadges(_stats, row.PlayerId))
+                                                    @foreach (var badge in StatDisplay.PlayerBadges(_stats, row.PlayerId))
                                                     {
                                                         <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
                                                     }
@@ -138,7 +138,7 @@ else
                                                 {
                                                     <span class="badge badge-you ms-1">you</span>
                                                 }
-                                                @foreach (var badge in StatRegistry.PlayerBadges(_stats, player.PlayerId))
+                                                @foreach (var badge in StatDisplay.PlayerBadges(_stats, player.PlayerId))
                                                 {
                                                     <span class="badge @badge.CssClass px-1" title="@badge.Tooltip"><i class="@badge.IconClass"></i></span>
                                                 }

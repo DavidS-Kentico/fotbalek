@@ -114,11 +114,11 @@ internal sealed class GetPlayerStatsQueryHandler(IAppDbContext db, TeamAccess te
         {
             var gkRatio = (double)streakResult.GoalkeeperCount / totalPositions;
             if (gkRatio > 0.6)
-                stats.PreferredPosition = Constants.Positions.Goalkeeper;
+                stats.PreferredPosition = PositionLean.Goalkeeper;
             else if (gkRatio < 0.4)
-                stats.PreferredPosition = Constants.Positions.Attacker;
+                stats.PreferredPosition = PositionLean.Attacker;
             else
-                stats.PreferredPosition = "Flexible";
+                stats.PreferredPosition = PositionLean.Balanced;
         }
 
         // Better position - the role with the higher win rate (min 3 games per position to compare).
@@ -130,17 +130,17 @@ internal sealed class GetPlayerStatsQueryHandler(IAppDbContext db, TeamAccess te
         {
             var diff = stats.WinRateAsGk - stats.WinRateAsAtk;
             if (Math.Abs(diff) < 5)
-                stats.BetterPosition = "Either";
+                stats.BetterPosition = PositionLean.Balanced;
             else
-                stats.BetterPosition = diff > 0 ? Constants.Positions.Goalkeeper : Constants.Positions.Attacker;
+                stats.BetterPosition = diff > 0 ? PositionLean.Goalkeeper : PositionLean.Attacker;
         }
         else if (hasGkData)
         {
-            stats.BetterPosition = Constants.Positions.Goalkeeper;
+            stats.BetterPosition = PositionLean.Goalkeeper;
         }
         else if (hasAtkData)
         {
-            stats.BetterPosition = Constants.Positions.Attacker;
+            stats.BetterPosition = PositionLean.Attacker;
         }
 
         // Partner stats (full list; min-games filtering happens at display time)

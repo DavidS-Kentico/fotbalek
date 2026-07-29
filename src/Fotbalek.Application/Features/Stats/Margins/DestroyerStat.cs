@@ -1,3 +1,4 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
@@ -5,12 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Margins;
 
 public class DestroyerStat : StatBase
 {
-    public override string Key => "Destroyer";
-    public override string Name => "Destroyer";
-    public override string Emoji => "\U0001F4A5";
+    public override StatKey Key => StatKey.Destroyer;
     public override StatTheme Theme => StatTheme.Margins;
-    public override string Description => "Most wins by a 7+ goal margin";
-    public override StatBadge? Badge => new("bi bi-lightning-charge-fill", "bg-danger");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -18,7 +15,7 @@ public class DestroyerStat : StatBase
         foreach (var match in context.Matches)
         {
             var diff = Math.Abs(match.Team1Score - match.Team2Score);
-            if (diff < 7) continue;
+            if (diff < Constants.Stats.DominantWinMargin) continue;
             var winners = match.MatchPlayers.Where(mp => mp.IsWinner());
             foreach (var mp in winners)
             {
@@ -26,6 +23,6 @@ public class DestroyerStat : StatBase
                 counts[mp.PlayerId] = v + 1;
             }
         }
-        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} dominant wins");
+        return StatHelpers.TopByValue(counts, context.PlayersById);
     }
 }

@@ -6,12 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Rankings;
 
 public class BestWinRateStat : StatBase
 {
-    public override string Key => "BestWinRate";
-    public override string Name => "Best Win%";
-    public override string Emoji => "\U0001F4CA";
+    public override StatKey Key => StatKey.BestWinRate;
     public override StatTheme Theme => StatTheme.Rankings;
-    public override string Description => $"Highest win rate (min {Constants.TimeThresholds.MinGamesForPositionBadge} games)";
-    public override StatBadge? Badge => new("bi bi-percent", "bg-primary");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -26,6 +22,6 @@ public class BestWinRateStat : StatBase
         if (stats.Count == 0) return [];
         var top = stats.OrderByDescending(s => (double)s.Wins / s.Games).First();
         var pct = (int)Math.Round((double)top.Wins / top.Games * 100);
-        return [context.PlayersById[top.PlayerId].ToHolder(pct, $"{pct}% ({top.Wins}/{top.Games})")];
+        return [context.PlayersById[top.PlayerId].ToHolder(pct, ratio: new StatRatio(top.Wins, top.Games))];
     }
 }

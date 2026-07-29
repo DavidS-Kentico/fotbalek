@@ -4,6 +4,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- CS8509 = a switch expression that misses a named enum member. Several maps are keyed by
+         enum precisely so the compiler catches a member added without its case — StatKey → its
+         presentation above all. As a warning that guarantee is only as good as whoever reads the
+         build log, so it is an error. Deliberately narrow: full TreatWarningsAsErrors is a separate
+         call (architecture.md §5.1). Write the switch with no `_ =>` arm to opt a map in. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
   </PropertyGroup>
 
 </Project>

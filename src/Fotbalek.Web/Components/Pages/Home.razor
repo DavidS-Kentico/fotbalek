@@ -214,12 +214,12 @@
                                     <span class="ov-fact__label">Avg goals / match</span>
                                     <span class="ov-fact__value">@_stats.FunFacts.AverageGoalsPerMatch.ToString("F1")</span>
                                 </li>
-                                @if (!string.IsNullOrEmpty(_stats.FunFacts.BiggestBlowout))
+                                @if (_stats.FunFacts.BiggestBlowout is { } blowout)
                                 {
                                     <li>
                                         <span class="ov-fact__ico text-warning"><i class="bi bi-lightning-charge-fill"></i></span>
                                         <span class="ov-fact__label">Biggest win this week</span>
-                                        <span class="ov-fact__value">@_stats.FunFacts.BiggestBlowout</span>
+                                        <span class="ov-fact__value">@($"{blowout.WinnerScore}–{blowout.LoserScore}")</span>
                                     </li>
                                 }
                                 @if (_busiestDay is { Matches: > 0 } bd)

@@ -1,3 +1,4 @@
+using Fotbalek.SharedKernel;
 using Fotbalek.Application.Features.Stats.Core;
 using Fotbalek.Contracts.Stats;
 
@@ -5,13 +6,8 @@ namespace Fotbalek.Application.Features.Stats.Partnerships;
 
 public class WorstFriendStat : StatBase
 {
-    private const int MinPairGames = 5;
-
-    public override string Key => "WorstFriend";
-    public override string Name => "Toxic Duo";
-    public override string Emoji => "☠";
+    public override StatKey Key => StatKey.WorstFriend;
     public override StatTheme Theme => StatTheme.Partnerships;
-    public override string Description => $"Lowest win rate as a duo (min {MinPairGames} games together)";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -22,20 +18,21 @@ public class WorstFriendStat : StatBase
             ProcessTeam(pairs, match, 2);
         }
 
-        var qualified = pairs.Where(kv => kv.Value.Games >= MinPairGames).ToList();
+        var qualified = pairs.Where(kv => kv.Value.Games >= Constants.Stats.MinPairGames).ToList();
         if (qualified.Count == 0) return [];
 
         var bottom = qualified.OrderBy(kv => (double)kv.Value.Wins / kv.Value.Games).First();
         var pct = (int)Math.Round((double)bottom.Value.Wins / bottom.Value.Games * 100);
         if (pct >= 50) return [];
+        var record = new StatRatio(bottom.Value.Wins, bottom.Value.Games);
 
         var a = context.PlayersById[bottom.Key.A];
         var b = context.PlayersById[bottom.Key.B];
 
         return new[]
         {
-            a.ToHolder(pct, $"{pct}% with {b.Name} ({bottom.Value.Wins}/{bottom.Value.Games})", detail: b.Name),
-            b.ToHolder(pct, $"{pct}% with {a.Name} ({bottom.Value.Wins}/{bottom.Value.Games})", detail: a.Name)
+            a.ToHolder(pct, detail: b.Name, ratio: record),
+            b.ToHolder(pct, detail: a.Name, ratio: record)
         };
     }
 

@@ -5,12 +5,8 @@ namespace Fotbalek.Application.Features.Stats.Margins;
 
 public class TableDiverStat : StatBase
 {
-    public override string Key => "TableDiver";
-    public override string Name => "Table Diver";
-    public override string Emoji => "\U0001F931";
+    public override StatKey Key => StatKey.TableDiver;
     public override StatTheme Theme => StatTheme.Margins;
-    public override string Description => "Most 0-10 losses";
-    public override StatBadge? Badge => new("bi bi-box-arrow-down", "bg-info");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -25,6 +21,6 @@ public class TableDiverStat : StatBase
                 counts[mp.PlayerId] = v + 1;
             }
         }
-        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} under-table losses");
+        return StatHelpers.TopByValue(counts, context.PlayersById);
     }
 }

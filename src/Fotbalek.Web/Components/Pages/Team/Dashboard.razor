@@ -148,7 +148,7 @@ else if (_team != null)
                                                         <span class="badge badge-you ms-1">you</span>
                                                     }
                                                     @{
-                                                        var rankBadges = StatRegistry.PlayerBadges(_stats, player.PlayerId);
+                                                        var rankBadges = StatDisplay.PlayerBadges(_stats, player.PlayerId);
                                                         const int maxRankBadges = 5;
                                                         // Cap to keep the Player column tidy: show all when they fit, otherwise
                                                         // 4 badges + a "+N" overflow pill for the rest.

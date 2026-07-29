@@ -2,18 +2,14 @@ using Fotbalek.Contracts.Stats;
 namespace Fotbalek.Application.Features.Stats.Core;
 
 /// <summary>
-/// One self-contained stat: knows its identity, theme, optional badge metadata, and how to compute its result.
+/// One self-contained stat: knows its key, its theme, and how to compute its result. Everything about
+/// how the stat is *shown* — name, emoji, description, badge styling, the wording of a value — is the
+/// UI's business and lives there, keyed by <see cref="Key"/>.
 /// </summary>
 public interface IStat
 {
-    string Key { get; }
-    string Name { get; }
-    string Emoji { get; }
+    StatKey Key { get; }
     StatTheme Theme { get; }
-    string Description { get; }
-
-    /// <summary>Optional inline-badge presentation. When non-null, the stat is rendered everywhere badges are shown.</summary>
-    StatBadge? Badge { get; }
 
     /// <summary>
     /// Whether this stat is meaningful in the given context. When false, the stat is hidden entirely

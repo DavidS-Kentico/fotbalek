@@ -1,4 +1,5 @@
 using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Contracts.Matches;
 using Fotbalek.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,25 +8,28 @@ namespace Fotbalek.Application.Features.Matches;
 /// <summary>Shared match rules used by the deletability queries and the delete command.</summary>
 internal static class MatchRules
 {
-    /// <summary>Rule-only deletability: time window, closed season, no later matches for participants.</summary>
-    public static async Task<(bool CanDelete, string? Reason)> CanDeleteWithReasonAsync(
+    /// <summary>
+    /// Rule-only deletability: time window, closed season, no later matches for participants.
+    /// Returns the blocker, or <see cref="MatchDeletionBlocker.None"/> when the delete may proceed.
+    /// </summary>
+    public static async Task<MatchDeletionBlocker> DeletionBlockerAsync(
         IAppDbContext db, int matchId, CancellationToken cancellationToken)
     {
         var match = await db.Matches
             .AsNoTracking()
             .Include(m => m.MatchPlayers)
             .FirstOrDefaultAsync(m => m.Id == matchId, cancellationToken);
-        if (match == null) return (false, "Match not found");
+        if (match == null) return MatchDeletionBlocker.NotFound;
 
         var hoursSinceCreation = (DateTimeOffset.UtcNow - match.CreatedAt).TotalHours;
         if (hoursSinceCreation > Constants.TimeThresholds.MatchDeletionWindowHours)
-            return (false, $"Matches can only be deleted within {Constants.TimeThresholds.MatchDeletionWindowHours} hours of creation");
+            return MatchDeletionBlocker.DeletionWindowElapsed;
 
         // Matches of a closed season cannot be deleted — deleting would corrupt frozen standings
         // and awards. Reachable when the captain ends a season prematurely inside the 24h window.
         if (match.SeasonId != null &&
             await db.Seasons.AnyAsync(s => s.Id == match.SeasonId && s.ClosedAt != null, cancellationToken))
-            return (false, "This match belongs to a closed season — its results are frozen");
+            return MatchDeletionBlocker.SeasonClosed;
 
         // Check if this is the most recent match for all players involved.
         // This ensures ELO reversal won't corrupt subsequent match history.
@@ -38,10 +42,10 @@ internal static class MatchRules
                 cancellationToken);
 
             if (hasLaterMatch)
-                return (false, "Cannot delete: one or more players have played matches after this one");
+                return MatchDeletionBlocker.LaterMatchPlayed;
         }
 
-        return (true, null);
+        return MatchDeletionBlocker.None;
     }
 
     /// <summary>Actor rule: team captain OR has a Player participating in the match.</summary>

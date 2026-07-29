@@ -51,15 +51,16 @@ else
                         <div class="stats-theme-pills">
                             @foreach (var stat in themeGroup)
                             {
+                                var display = stat.Display();
                                 var hasHolders = stat.Holders.Count > 0;
-                                <div class="flex items-center gap-1 px-2 py-1 rounded-sm text-small @(hasHolders ? StatPillCss(stat) : "bg-neutral/10 opacity-50")"
-                                     title="@stat.Description">
-                                    <span>@stat.Emoji</span>
-                                    <span class="font-semibold">@stat.Name:</span>
+                                <div class="flex items-center gap-1 px-2 py-1 rounded-sm text-small @(hasHolders ? StatPillCss(display.Badge) : "bg-neutral/10 opacity-50")"
+                                     title="@display.Description">
+                                    <span>@display.Emoji</span>
+                                    <span class="font-semibold">@display.Name:</span>
                                     @if (hasHolders)
                                     {
                                         <span>@string.Join(", ", stat.Holders.Select(h => h.PlayerName).Distinct())</span>
-                                        <span class="text-ink-muted">(@stat.Holders[0].DisplayValue)</span>
+                                        <span class="text-ink-muted">(@display.FormatValue(stat.Holders[0]))</span>
                                     }
                                     else
                                     {
@@ -547,13 +548,13 @@ else
         return periodDesc != null ? $"{periodDesc} ({_filteredMatchCount} matches)" : $"{_filteredMatchCount} matches";
     }
 
-    private static string StatPillCss(StatResult stat)
+    private static string StatPillCss(StatBadgeStyle? badge)
     {
         // Tint badge-eligible stats with their badge color so the page mirrors how they appear elsewhere.
         // bg-surface-muted (a theme-aware token) so the neutral pill stays readable in dark mode.
-        if (stat.Badge == null) return "bg-surface-muted";
+        if (badge == null) return "bg-surface-muted";
 
-        var css = stat.Badge.CssClass;
+        var css = badge.CssClass;
         if (css.Contains("bg-warning"))  return "bg-warning/10";
         if (css.Contains("bg-danger"))   return "bg-danger/10";
         if (css.Contains("bg-info"))     return "bg-info/10";

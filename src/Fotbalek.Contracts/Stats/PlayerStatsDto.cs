@@ -30,8 +30,10 @@ public class PlayerStats
     public int UniqueTeammates { get; set; }
     public int ActiveRosterPartners { get; set; }
     public bool HasEnoughGamesForVariety { get; set; }
-    public string PreferredPosition { get; set; } = "Flexible";
-    public string BetterPosition { get; set; } = "-";
+    /// <summary>The role the player is fielded in most often.</summary>
+    public PositionLean PreferredPosition { get; set; } = PositionLean.Balanced;
+    /// <summary>The role with the better win rate; <see cref="PositionLean.Unknown"/> until both roles have enough games.</summary>
+    public PositionLean BetterPosition { get; set; } = PositionLean.Unknown;
     public int GamesAsGk { get; set; }
     public int GamesAsAtk { get; set; }
     public int WinsAsGk { get; set; }

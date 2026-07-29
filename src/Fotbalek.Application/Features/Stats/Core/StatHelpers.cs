@@ -8,8 +8,8 @@ namespace Fotbalek.Application.Features.Stats.Core;
 /// </summary>
 internal static class StatHelpers
 {
-    public static StatHolder ToHolder(this Player player, int value, string displayValue, string? detail = null) =>
-        new(player.Id, player.Name, player.AvatarId, value, displayValue, detail);
+    public static StatHolder ToHolder(this Player player, int value, string? detail = null, StatRatio? ratio = null) =>
+        new(player.Id, player.Name, player.AvatarId, value, detail, ratio);
 
     public static int TeamScore(this Match match, int teamNumber) =>
         teamNumber == 1 ? match.Team1Score : match.Team2Score;
@@ -26,7 +26,6 @@ internal static class StatHelpers
     public static IReadOnlyList<StatHolder> TopByValue(
         Dictionary<int, int> valuesByPlayerId,
         IReadOnlyDictionary<int, Player> playersById,
-        Func<int, string> displayValueFor,
         int minimumValue = 1)
     {
         if (valuesByPlayerId.Count == 0) return [];
@@ -34,7 +33,7 @@ internal static class StatHelpers
         if (max < minimumValue) return [];
         return valuesByPlayerId
             .Where(kv => kv.Value == max)
-            .Select(kv => playersById[kv.Key].ToHolder(max, displayValueFor(max)))
+            .Select(kv => playersById[kv.Key].ToHolder(max))
             .ToList();
     }
 

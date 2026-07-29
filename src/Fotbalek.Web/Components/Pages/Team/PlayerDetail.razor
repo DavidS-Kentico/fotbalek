@@ -337,10 +337,10 @@ else if (_player != null && _stats != null)
                 </ChildContent>
                 <Footer>
                     <div class="text-small text-ink-muted flex flex-wrap gap-4">
-                        <span>Preferred: <strong>@_stats.PreferredPosition</strong></span>
-                        @if (!string.IsNullOrEmpty(_stats.BetterPosition) && _stats.BetterPosition != "-")
+                        <span>Preferred: <strong>@_stats.PreferredPosition.PreferredPositionLabel()</strong></span>
+                        @if (_stats.BetterPosition.BetterPositionLabel() is string betterPosition)
                         {
-                            <span>Better win rate: <strong>@_stats.BetterPosition</strong></span>
+                            <span>Better win rate: <strong>@betterPosition</strong></span>
                         }
                         @if (_stats.GamesAsGk > 0)
                         {
@@ -644,11 +644,11 @@ else if (_player != null && _stats != null)
                         <div class="badge-grid">
                             @foreach (var b in _playerBadges)
                             {
-                                <div class="badge-card" title="@b.Stat.Description">
-                                    <span class="badge @b.Stat.Badge!.CssClass badge-icon-pill"><i class="@b.Stat.Badge.IconClass"></i></span>
+                                <div class="badge-card" title="@b.Display.Description">
+                                    <span class="badge @b.Display.Badge!.CssClass badge-icon-pill"><i class="@b.Display.Badge.IconClass"></i></span>
                                     <div>
-                                        <div class="badge-name">@b.Stat.Name</div>
-                                        <div class="badge-desc">@b.Holder.DisplayValue</div>
+                                        <div class="badge-name">@b.Display.Name</div>
+                                        <div class="badge-desc">@b.Display.FormatValue(b.Holder)</div>
                                     </div>
                                 </div>
                             }
@@ -853,7 +853,7 @@ else
     // Badges from the team-wide stats engine (same source as Players / Rankings / Dashboard).
     private List<EarnedBadge> _playerBadges = [];
 
-    private sealed record EarnedBadge(StatResult Stat, StatHolder Holder);
+    private sealed record EarnedBadge(StatPresentation Display, StatHolder Holder);
 
     private bool HasQuirks => _stats != null &&
         (_playerBadges.Count > 0
@@ -941,14 +941,13 @@ else
                 // shows on Players, Rankings and Dashboard pages.
                 var teamStats = (await Sender.Send(new GetTeamStatsQuery(_team.Id, _selectedSeason?.Id))).Value;
                 _playerBadges = teamStats
-                    .Where(r => r.Badge != null)
                     .Select(r => new
                     {
-                        Stat = r,
+                        Display = r.Display(),
                         Holder = r.Holders.FirstOrDefault(h => h.PlayerId == PlayerId)
                     })
-                    .Where(x => x.Holder != null)
-                    .Select(x => new EarnedBadge(x.Stat, x.Holder!))
+                    .Where(x => x.Display.Badge != null && x.Holder != null)
+                    .Select(x => new EarnedBadge(x.Display, x.Holder!))
                     .ToList();
 
                 _totalGoalsScored = _stats.GoalsScoredAsGk + _stats.GoalsScoredAsAtk;

@@ -23,7 +23,6 @@
     <TailwindSource Include="Components/**/*.razor" />
     <TailwindSource Include="Components/**/*.cs" />
     <TailwindSource Include="Services/**/*.cs" />
-    <TailwindSource Include="../Fotbalek.Application/Features/Stats/**/*.cs" />
     <TailwindSource Include="wwwroot/js/**/*.js" />
     <!-- A Tailwind version bump changes the output without any source changing,
          so the lock file is an input too. -->

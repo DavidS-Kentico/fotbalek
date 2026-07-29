@@ -1,5 +1,6 @@
 using Fotbalek.Application.Common;
 using Fotbalek.Application.Common.Abstractions;
+using Fotbalek.Contracts.Matches;
 using Fotbalek.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,9 +26,9 @@ internal sealed class DeleteMatchCommandHandler(
         if (userContext.UserId is not int userId)
             return Result.Failure(CommonErrors.NotAuthenticated);
 
-        // Re-check the rules + actor permission right before deleting.
-        var (canDelete, _) = await MatchRules.CanDeleteWithReasonAsync(db, command.MatchId, cancellationToken);
-        if (!canDelete)
+        // Re-check the rules + actor permission right before deleting. Which blocker tripped is only
+        // ever shown by the query that gates the button; here any of them is the same refusal.
+        if (await MatchRules.DeletionBlockerAsync(db, command.MatchId, cancellationToken) != MatchDeletionBlocker.None)
             return Result.Failure(CannotDelete);
         if (!await MatchRules.IsCaptainOrParticipantAsync(db, command.MatchId, command.TeamId, userId, cancellationToken))
             return Result.Failure(CannotDelete);

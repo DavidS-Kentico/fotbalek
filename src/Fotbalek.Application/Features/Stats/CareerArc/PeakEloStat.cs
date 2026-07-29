@@ -8,11 +8,8 @@ namespace Fotbalek.Application.Features.Stats.CareerArc;
 /// </summary>
 public class PeakEloStat : StatBase
 {
-    public override string Key => "PeakElo";
-    public override string Name => "Peak ELO";
-    public override string Emoji => "\U0001F3D4";
+    public override StatKey Key => StatKey.PeakElo;
     public override StatTheme Theme => StatTheme.CareerArc;
-    public override string Description => "Highest ELO ever reached";
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -28,7 +25,7 @@ public class PeakEloStat : StatBase
         var max = peaks.Max(p => p.Peak);
         return peaks
             .Where(p => p.Peak == max)
-            .Select(p => context.PlayersById[p.PlayerId].ToHolder(p.Peak, $"{p.Peak} ELO peak"))
+            .Select(p => context.PlayersById[p.PlayerId].ToHolder(p.Peak))
             .ToList();
     }
 }

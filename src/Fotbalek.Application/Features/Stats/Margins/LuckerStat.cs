@@ -5,12 +5,8 @@ namespace Fotbalek.Application.Features.Stats.Margins;
 
 public class LuckerStat : StatBase
 {
-    public override string Key => "Lucker";
-    public override string Name => "Lucker";
-    public override string Emoji => "\U0001F340";
+    public override StatKey Key => StatKey.Lucker;
     public override StatTheme Theme => StatTheme.Margins;
-    public override string Description => "Most 1-10 losses (one goal scored)";
-    public override StatBadge? Badge => new("bi bi-life-preserver", "bg-warning text-gray-900");
 
     protected override IReadOnlyList<StatHolder> Compute(StatContext context)
     {
@@ -29,6 +25,6 @@ public class LuckerStat : StatBase
                 }
             }
         }
-        return StatHelpers.TopByValue(counts, context.PlayersById, v => $"{v} crushing defeats");
+        return StatHelpers.TopByValue(counts, context.PlayersById);
     }
 }

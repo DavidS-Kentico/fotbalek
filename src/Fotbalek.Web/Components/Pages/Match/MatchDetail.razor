@@ -282,7 +282,7 @@ else
                 _match = match;
                 var deletability = (await Sender.Send(new CanDeleteMatchQuery(MatchId))).Value;
                 _canDelete = deletability.CanDelete;
-                _deleteBlockedReason = deletability.Reason;
+                _deleteBlockedReason = deletability.Blocker.BlockedReason();
 
                 var adjacent = (await Sender.Send(new GetAdjacentMatchIdsQuery(_team.Id, MatchId))).Value;
                 (_newerId, _olderId) = (adjacent.NewerId, adjacent.OlderId);

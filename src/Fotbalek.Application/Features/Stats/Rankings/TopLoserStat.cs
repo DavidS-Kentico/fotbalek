@@ -5,11 +5,8 @@ namespace Fotbalek.Application.Features.Stats.Rankings;
 
 public class TopLoserStat : StatBase
 {
-    public override string Key => "TopLoser";
-    public override string Name => "Top Loser";
-    public override string Emoji => "\U0001F4C9";
+    public override StatKey Key => StatKey.TopLoser;
     public override StatTheme Theme => StatTheme.Rankings;
-    public override string Description => "Worst ELO change in the period";
 
     public override bool Applies(StatContext context) => !context.IsAllTime;
 
@@ -28,7 +25,7 @@ public class TopLoserStat : StatBase
 
         return totals
             .Where(kv => kv.Value == min)
-            .Select(kv => context.PlayersById[kv.Key].ToHolder(min, $"{min} ELO"))
+            .Select(kv => context.PlayersById[kv.Key].ToHolder(min))
             .ToList();
     }
 }
