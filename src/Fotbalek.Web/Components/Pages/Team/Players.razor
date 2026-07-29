@@ -20,11 +20,13 @@ else
         <PageHeader Title="Players" Icon="bi bi-people" Class="mb-4"
                     Subtitle="@($"{_activePlayers.Count} active{(_inactivePlayers.Count > 0 ? $" · {_inactivePlayers.Count} inactive" : "")} · {(_activeSeason != null ? "Season" : "All-time")} ELO")">
             <Actions>
+                @* Open to every member: this absorbed the top bar's "Share team", which was not
+                   captain-gated. Adding a player still is. *@
+                <button class="btn btn-outline-brand" @onclick="ShowInviteModal" title="Invite players via shareable link">
+                    <i class="bi bi-person-plus me-1"></i> Invite
+                </button>
                 @if (_isCaptain)
                 {
-                    <button class="btn btn-outline-brand" @onclick="ShowInviteModal" title="Invite players via shareable link">
-                        <i class="bi bi-person-plus me-1"></i> Invite
-                    </button>
                     <button class="btn btn-brand" @onclick="ShowAddModal">
                         <i class="bi bi-plus-lg me-1"></i> Add Player
                     </button>
@@ -160,6 +162,14 @@ else
             {
                 <AlertMessage Message="Couldn't generate an invite link. Please try again." Variant="danger" />
             }
+            <hr />
+            <p class="text-ink-muted mb-2 text-small">Or share the team URL (requires password + login):</p>
+            <div class="input-group input-group-sm">
+                <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
+                <button class="btn btn-outline-neutral" @onclick="CopyTeamUrl">
+                    <i class="bi @(_teamUrlCopied ? "bi-check" : "bi-clipboard")"></i>
+                </button>
+            </div>
         </Body>
         <Footer>
             <button type="button" class="btn btn-neutral" @onclick="() => _showInviteModal = false">Close</button>
@@ -197,6 +207,7 @@ else
     private string? _inviteToken;
     private bool _generatingToken;
     private bool _inviteCopied;
+    private bool _teamUrlCopied;
 
     private bool _isCaptain;
     [CascadingParameter(Name = "MyPlayerId")] public int? MyPlayerId { get; set; }
@@ -414,6 +425,7 @@ else
     private async Task ShowInviteModal()
     {
         _inviteCopied = false;
+        _teamUrlCopied = false;
         _inviteToken = null;
         _showInviteModal = true;
         _generatingToken = true;
@@ -442,12 +454,34 @@ else
         return $"{baseUrl}/join?team={_team?.CodeName}&token={_inviteToken}";
     }
 
+    private string GetTeamUrl()
+    {
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        return $"{baseUrl}/team/{_team?.CodeName}";
+    }
+
     private async Task CopyInviteUrl()
     {
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetInviteUrl());
             _inviteCopied = true;
+            _teamUrlCopied = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            Toasts.ClipboardFailed();
+        }
+    }
+
+    private async Task CopyTeamUrl()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetTeamUrl());
+            _teamUrlCopied = true;
+            _inviteCopied = false;
             StateHasChanged();
         }
         catch

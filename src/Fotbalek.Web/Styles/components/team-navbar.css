@@ -18,8 +18,16 @@
     .team-navbar .team-switcher-btn {
         height: var(--size-control);
     }
-    /* The account chip carries an avatar; shrink it so the chip matches the row
-       height instead of stretching the whole bar taller than its neighbours. */
+    /* The account control is the avatar and nothing else, so it drops the button
+       chrome and becomes a round hit target around the image. */
+    .team-navbar .account-btn {
+        padding: 0.2rem;
+        border-radius: var(--radius-full);
+    }
+    .team-navbar .account-btn:hover,
+    .team-navbar .account-btn:focus-visible {
+        background-color: var(--color-gray-200);
+    }
     .team-navbar .account-btn .avatar {
         width: 28px;
         height: 28px;
@@ -59,13 +67,33 @@
         max-width: 170px;
     }
 
-    /* Section links + grouped dropdown toggles */
+    /* Section tabs. Six of them sit here flat; the horizontal padding that keeps the
+       strip clear of the actions group comes from .navbar-expand-xl in nav.css. */
     .team-navbar .navbar-nav .nav-link {
         font-weight: 500;
+        color: var(--color-navbar-ink);
     }
-    .team-navbar .navbar-nav .nav-link.active,
-    .team-navbar .navbar-nav .nav-item.dropdown.show > .nav-link {
+    .team-navbar .navbar-nav .nav-link:hover {
+        color: var(--color-ink);
+    }
+    .team-navbar .navbar-nav .nav-link.active {
         color: var(--color-brand);
+    }
+    /* Underline marks the active tab on the desktop strip. In the collapsed drawer the
+       items stack, where a rule under one row reads as a divider — colour alone there. */
+    @media (width >= theme(--breakpoint-xl)) {
+        .team-navbar .navbar-nav .nav-link {
+            border-bottom: 2px solid transparent;
+        }
+        .team-navbar .navbar-nav .nav-link.active {
+            border-bottom-color: var(--color-brand);
+        }
+        /* Separate the tab strip from the switcher beside it. The first tab only
+           carries 0.5rem of its own padding, which leaves the label almost touching
+           the switcher's border — the two zones read as one run of text. */
+        .team-navbar .team-sections {
+            margin-left: 1.25rem;
+        }
     }
 
     /* Square icon-only buttons (e.g. start live game) line up with the CTA height */
@@ -78,8 +106,8 @@
         padding-right: 0;
     }
 
-    /* Online-players chip + popover */
-    .team-navbar .presence-chip {
+    /* "Now" pill — one control for who's online and the live game (see TeamLayout). */
+    .team-navbar .now-pill {
         border: 1px solid var(--color-gray-300);
         background-color: var(--color-gray-100);
         color: var(--color-gray-700);
@@ -87,20 +115,41 @@
         border-radius: var(--radius-full);
         padding: 0.35rem 0.7rem;
     }
-    .team-navbar .presence-chip:hover {
+    .team-navbar .now-pill:hover {
         background-color: var(--color-gray-200);
     }
-    .presence-menu {
+    /* A running game outranks the idle presence count, so the pill takes the danger
+       treatment the old standalone live-pill had. */
+    .team-navbar .now-pill--live,
+    .team-navbar .now-pill--live:hover {
+        border-color: var(--color-danger);
+        background-color: var(--color-danger-subtle);
+        color: var(--color-danger-subtle-ink);
+    }
+    /* Steady counterpart to .live-dot: presence is a state, not an event, so it doesn't pulse. */
+    .team-navbar .now-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--color-brand);
+        flex: 0 0 auto;
+    }
+    .now-menu {
         min-width: 230px;
         max-height: 340px;
         overflow-y: auto;
     }
-    .presence-menu .presence-avatar-wrap {
+    .now-menu .now-menu__game {
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+    }
+    .now-menu .presence-avatar-wrap {
         position: relative;
         display: inline-flex;
         flex: 0 0 auto;
     }
-    .presence-menu .presence-dot {
+    .now-menu .presence-dot {
         position: absolute;
         bottom: 0;
         right: 0;
@@ -339,14 +388,8 @@
         background-color: var(--color-surface-sunken);
     }
 
-    /* Contextual live-game pill */
-    .team-navbar .live-pill {
-        border-radius: var(--radius-full);
-        font-weight: 600;
-    }
-
-    /* Collapsed (mobile) sections drawer */
-    @media (width < theme(--breakpoint-lg)) {
+    /* Collapsed sections drawer */
+    @media (width < theme(--breakpoint-xl)) {
         .team-navbar .team-sections {
             margin-top: 0.5rem;
             padding-top: 0.5rem;
@@ -363,13 +406,23 @@
     :root[data-theme='dark'] .team-navbar .team-switcher-btn:focus {
         background-color: var(--color-surface-muted);
     }
-    :root[data-theme='dark'] .team-navbar .presence-chip {
+    :root[data-theme='dark'] .team-navbar .account-btn:hover,
+    :root[data-theme='dark'] .team-navbar .account-btn:focus-visible {
+        background-color: var(--color-surface-sunken);
+    }
+    :root[data-theme='dark'] .team-navbar .now-pill {
         background-color: var(--color-surface-muted);
         border-color: var(--color-line);
         color: var(--color-ink-muted);
     }
-    :root[data-theme='dark'] .team-navbar .presence-chip:hover {
+    :root[data-theme='dark'] .team-navbar .now-pill:hover {
         background-color: var(--color-surface-sunken);
+    }
+    :root[data-theme='dark'] .team-navbar .now-pill--live,
+    :root[data-theme='dark'] .team-navbar .now-pill--live:hover {
+        background-color: color-mix(in srgb, var(--color-danger) 18%, transparent);
+        border-color: var(--color-danger);
+        color: var(--color-danger);
     }
 
 }

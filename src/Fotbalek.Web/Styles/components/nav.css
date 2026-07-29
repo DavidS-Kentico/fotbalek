@@ -254,33 +254,38 @@
         --toggler-bars: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
     }
 
-    /* `.navbar-expand-lg` lays the bar out as a single row from lg up and hides
-       the toggler. Every rule is inside the query on purpose: below lg the bar
+    /* `.navbar-expand-xl` lays the bar out as a single row from xl up and hides
+       the toggler. Every rule is inside the query on purpose: below xl the bar
        must keep the base `flex-wrap: wrap` + `space-between` so the collapsed
-       sections drawer wraps onto its own row instead of stretching the bar. */
-    @media (width >= theme(--breakpoint-lg)) {
-        .navbar-expand-lg {
+       sections drawer wraps onto its own row instead of stretching the bar.
+
+       xl, not lg: the team bar's six flat section tabs plus the switcher and the
+       actions group need ~950px between them, which overflows the container at
+       lg (992px) — measurably so, and a long team name pushed the whole page into
+       a sideways scroll. */
+    @media (width >= theme(--breakpoint-xl)) {
+        .navbar-expand-xl {
             flex-wrap: nowrap;
             justify-content: flex-start;
         }
 
-        .navbar-expand-lg .navbar-nav {
+        .navbar-expand-xl .navbar-nav {
             flex-direction: row;
         }
 
-        .navbar-expand-lg .navbar-nav .nav-link {
+        .navbar-expand-xl .navbar-nav .nav-link {
             padding-right: 0.5rem;
             padding-left: 0.5rem;
         }
 
         /* !important for the same reason as .navbar-expand above — this is the
            one the team app bar actually relies on. */
-        .navbar-expand-lg .navbar-collapse {
+        .navbar-expand-xl .navbar-collapse {
             display: flex !important;
             flex-basis: auto;
         }
 
-        .navbar-expand-lg .navbar-toggler {
+        .navbar-expand-xl .navbar-toggler {
             display: none;
         }
     }

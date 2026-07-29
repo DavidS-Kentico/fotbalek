@@ -9,7 +9,6 @@
 @inject TimeZoneService Tz
 @inject ChatUiState ChatUi
 @inject ToastService Toasts
-@inject IJSRuntime JS
 
 @* Fallback title while the team loads (pages register their own <PageTitle> later in the
    render tree, so theirs wins once @Body renders). *@
@@ -18,10 +17,10 @@
 <div class="min-h-screen flex flex-col">
     @if (_team != null && _user != null)
     {
-        <header class="navbar navbar-expand-lg bg-surface border-b shadow-sm team-navbar">
+        <header class="navbar navbar-expand-xl bg-surface border-b shadow-sm team-navbar">
             <div class="page">
                 @* ── Left: team (workspace) switcher ── *@
-                <div class="dropdown team-switcher order-0 lg:order-1">
+                <div class="dropdown team-switcher order-0 xl:order-1">
                     <button class="btn team-switcher-btn dropdown-toggle flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" title="@_team.Name">
                         <i class="bi bi-trophy-fill text-brand"></i>
                         <span class="team-switcher-name truncate">@_team.Name</span>
@@ -46,6 +45,13 @@
                                 </button>
                             </li>
                         }
+                        @* Settings is scoped to the team you're currently in, so it belongs with the
+                           switcher rather than in the section tabs, which are all destinations. *@
+                        @if (_isCaptain)
+                        {
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" href="/team/@_team.CodeName/settings"><i class="bi bi-gear me-2"></i>Team settings</a></li>
+                        }
                         <li><hr class="dropdown-divider" /></li>
                         <li><a class="dropdown-item" href="/create"><i class="bi bi-plus-circle me-2"></i>Create team</a></li>
                         <li><a class="dropdown-item" href="/join"><i class="bi bi-box-arrow-in-right me-2"></i>Join team</a></li>
@@ -54,24 +60,57 @@
                     </ul>
                 </div>
 
-                @* Sections toggler (mobile only) *@
-                <button class="navbar-toggler order-1 lg:order-1 ms-2" type="button" data-toggle="collapse" data-target="#teamSections" aria-controls="teamSections" aria-expanded="false" aria-label="Toggle sections">
+                @* Sections toggler, shown wherever the strip is collapsed (below xl) *@
+                <button class="navbar-toggler order-1 xl:order-1 ms-2" type="button" data-toggle="collapse" data-target="#teamSections" aria-controls="teamSections" aria-expanded="false" aria-label="Toggle sections">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 @* ── Right: actions + account ── *@
-                <div class="flex items-center gap-2 navbar-actions order-2 lg:order-3 ms-auto lg:ms-0">
+                <div class="flex items-center gap-2 navbar-actions order-2 xl:order-3 ms-auto xl:ms-0">
+                    @* "Now" — one control for everything happening this moment: who's online and
+                       the live game. They were two separate chips (a status and an action) sitting
+                       side by side, which read as clutter and left the game behind an unlabelled
+                       controller icon nobody would click. *@
                     @{
                         var onlinePlayers = GetOnlinePlayers();
+                        var liveRoom = GameRooms.GetForTeam(_team.Id);
+                        var seated = liveRoom?.GetState().Seats.Count(s => s.Occupied) ?? 0;
                     }
-                    @if (onlinePlayers.Count > 0)
-                    {
-                        <div class="dropdown hidden md:block">
-                            <button class="btn presence-chip flex items-center gap-1" type="button" data-toggle="dropdown" aria-expanded="false" title="@($"{onlinePlayers.Count} online")">
-                                <i class="bi bi-people-fill"></i>
+                    @* When idle the pill is desktop-only, matching what the presence chip and the
+                       controller button each did before; a live game shows at every width. *@
+                    <div class="dropdown @(liveRoom != null ? "" : "hidden md:block")">
+                        <button class="btn now-pill @(liveRoom != null ? "now-pill--live" : "") flex items-center gap-1" type="button"
+                                data-toggle="dropdown" aria-expanded="false"
+                                title="@(liveRoom != null ? $"Live game — {seated}/4 seated" : $"{onlinePlayers.Count} online")">
+                            @if (liveRoom != null)
+                            {
+                                <span class="live-dot"></span>
+                                <span>@seated/4</span>
+                            }
+                            else
+                            {
+                                <span class="now-dot"></span>
                                 <span>@onlinePlayers.Count</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end presence-menu">
+                            }
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end now-menu">
+                            <li>
+                                @if (liveRoom != null)
+                                {
+                                    <a class="dropdown-item now-menu__game" href="/team/@_team.CodeName/game">
+                                        <span class="live-dot me-2"></span>@(seated < 4 ? $"Join live game · {seated}/4" : "Watch live game")
+                                    </a>
+                                }
+                                else
+                                {
+                                    <button type="button" class="dropdown-item now-menu__game" @onclick="StartLiveGame">
+                                        <i class="bi bi-controller me-2"></i>Start live game
+                                    </button>
+                                }
+                            </li>
+                            @if (onlinePlayers.Count > 0)
+                            {
+                                <li><hr class="dropdown-divider" /></li>
                                 <li><h6 class="dropdown-header">Online now</h6></li>
                                 @foreach (var p in onlinePlayers)
                                 {
@@ -82,29 +121,12 @@
                                         </a>
                                     </li>
                                 }
-                            </ul>
-                        </div>
-                    }
-
-                    @if (GameRooms.GetForTeam(_team.Id) is { } liveRoom)
-                    {
-                        var seated = liveRoom.GetState().Seats.Count(s => s.Occupied);
-                        <a href="/team/@_team.CodeName/game" class="btn btn-outline-danger btn-sm flex items-center gap-2 live-pill"
-                           title="@(seated < 4 ? "Live game — join or watch" : "Live game — watch")">
-                            <span class="live-dot"></span>
-                            <span class="hidden sm:inline">@seated/4 · @(seated < 4 ? "Join" : "Watch")</span>
-                            <span class="sm:hidden">@seated/4</span>
-                        </a>
-                    }
-                    else
-                    {
-                        <button class="btn btn-outline-neutral btn-icon hidden md:inline-flex" title="Start live game" aria-label="Start live game" @onclick="StartLiveGame">
-                            <i class="bi bi-controller"></i>
-                        </button>
-                    }
+                            }
+                        </ul>
+                    </div>
 
                     <a href="@($"/team/{_team.CodeName}/match/new")" class="btn btn-brand flex items-center gap-1" aria-label="New match">
-                        <i class="bi bi-plus-lg"></i> <span class="hidden lg:inline">New match</span>
+                        <i class="bi bi-plus-lg"></i> <span class="hidden xl:inline">New match</span>
                     </a>
 
                     @* The bell sits immediately left of the account menu — the near-universal
@@ -113,7 +135,9 @@
                     <NotificationBell TeamCount="_userTeams.Count" CurrentTeamId="_team.Id" />
 
                     <div class="dropdown">
-                        <button class="btn btn-outline-neutral dropdown-toggle account-btn flex items-center gap-2" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                        @* Avatar only. The name and Captain badge were the widest thing in the bar
+                           and neither is an action — they live in the menu now. *@
+                        <button class="btn account-btn flex items-center" type="button" data-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
                             @if (_myPlayer != null)
                             {
                                 <Avatar AvatarId="@_myPlayer.AvatarId" Size="sm" />
@@ -122,15 +146,16 @@
                             {
                                 <i class="bi bi-person-circle"></i>
                             }
-                            <span class="hidden xl:inline">@DisplayName</span>
-                            @if (_isCaptain)
-                            {
-                                <span class="badge bg-warning text-gray-900 hidden xl:inline">Captain</span>
-                            }
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li class="px-4 py-1">
-                                <div class="font-semibold truncate">@DisplayName</div>
+                                <div class="font-semibold truncate">
+                                    @DisplayName
+                                    @if (_isCaptain)
+                                    {
+                                        <span class="badge bg-warning text-gray-900 ms-1">Captain</span>
+                                    }
+                                </div>
                                 <div class="text-small text-ink-muted truncate">@_user?.UserName</div>
                             </li>
                             <li><hr class="dropdown-divider" /></li>
@@ -160,38 +185,29 @@
                     </div>
                 </div>
 
-                @* ── Center: sections (collapsible) ── *@
-                <div class="collapsible navbar-collapse team-sections order-3 lg:order-2" id="teamSections">
+                @* ── Center: sections (collapsible) ──
+                   Six destinations, flat. They used to hide behind Insights/Team dropdowns, which
+                   implied a depth the app doesn't have and cost a click every time. Labels carry
+                   themselves, so no icons — the bar had nine of them competing for attention. *@
+                <div class="collapsible navbar-collapse team-sections order-3 xl:order-2" id="teamSections">
                     <ul class="navbar-nav">
                         <li class="nav-item">
-                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}")" Match="NavLinkMatch.All">
-                                <i class="bi bi-house me-1"></i> Dashboard
-                            </NavLink>
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}")" Match="NavLinkMatch.All">Dashboard</NavLink>
                         </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @(SectionActive("rankings", "stats", "matches") ? "active" : "")" href="#" role="button" data-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-graph-up-arrow me-1"></i> Insights
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><NavLink class="dropdown-item" href="@($"/team/{_team.CodeName}/rankings")"><i class="bi bi-bar-chart me-2"></i>Rankings</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="@($"/team/{_team.CodeName}/stats")"><i class="bi bi-graph-up me-2"></i>Stats</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="@($"/team/{_team.CodeName}/matches")"><i class="bi bi-list-ul me-2"></i>History</NavLink></li>
-                            </ul>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/rankings")">Rankings</NavLink>
                         </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @(SectionActive("players", "seasons", "settings") ? "active" : "")" href="#" role="button" data-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-people me-1"></i> Team
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><NavLink class="dropdown-item" href="@($"/team/{_team.CodeName}/players")"><i class="bi bi-people me-2"></i>Players</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="@($"/team/{_team.CodeName}/seasons")"><i class="bi bi-award me-2"></i>Seasons</NavLink></li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li><button type="button" class="dropdown-item" @onclick="ShowShareModal"><i class="bi bi-share me-2"></i>Share team</button></li>
-                                @if (_isCaptain)
-                                {
-                                    <li><a class="dropdown-item" href="/team/@_team.CodeName/settings"><i class="bi bi-gear me-2"></i>Team settings</a></li>
-                                }
-                            </ul>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/stats")">Stats</NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/matches")">Matches</NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/players")">Players</NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="@($"/team/{_team.CodeName}/seasons")">Seasons</NavLink>
                         </li>
                     </ul>
                 </div>
@@ -225,53 +241,6 @@
         @* Global chat dock, hinting the current team as the default conversation. *@
         <ChatDock DefaultTeamId="_team.Id" />
 
-        <Modal Show="_showShareModal" Title="Share Team" Icon="bi bi-share" OnClose="() => _showShareModal = false">
-            <Body>
-                <p class="text-ink-muted">Share this link with your teammates so they can join without entering a password:</p>
-                @if (_generatingToken)
-                {
-                    <div class="text-center py-4">
-                        <div class="spinner-border spinner-border-sm text-brand" role="status">
-                            <span class="sr-only">Generating link...</span>
-                        </div>
-                    </div>
-                }
-                else if (!string.IsNullOrEmpty(_shareToken))
-                {
-                    <div class="input-group">
-                        <input type="text" class="form-control" readonly value="@GetShareUrl()" />
-                        <button class="btn btn-brand" @onclick="CopyShareUrl">
-                            <i class="bi @(_copied ? "bi-check" : "bi-clipboard")"></i>
-                            @(_copied ? "Copied!" : "Copy")
-                        </button>
-                    </div>
-                    @if (_copied)
-                    {
-                        <small class="text-brand mt-2 block">Link copied to clipboard!</small>
-                    }
-                    <small class="text-ink-muted mt-2 block">
-                        <i class="bi bi-clock me-1"></i>This link expires in 24 hours.
-                    </small>
-                }
-                else
-                {
-                    @* Matches the invite dialog on the Players page. Without this the section just
-                       went blank when the token could not be generated. *@
-                    <AlertMessage Message="Couldn't generate a share link. Please try again." Variant="danger" />
-                }
-                <hr />
-                <p class="text-ink-muted mb-2 text-small">Or share the team URL (requires password + login):</p>
-                <div class="input-group input-group-sm">
-                    <input type="text" class="form-control" readonly value="@GetTeamUrl()" />
-                    <button class="btn btn-outline-neutral" @onclick="CopyTeamUrl">
-                        <i class="bi @(_copiedBasic ? "bi-check" : "bi-clipboard")"></i>
-                    </button>
-                </div>
-            </Body>
-            <Footer>
-                <button type="button" class="btn btn-neutral" @onclick="() => _showShareModal = false">Close</button>
-            </Footer>
-        </Modal>
     }
     else if (_loading)
     {
@@ -296,37 +265,11 @@
     private bool _loading = true;
     private bool _isCaptain;
     private bool _claimingCaptain;
-    private bool _showShareModal;
-    private bool _copied;
-    private bool _copiedBasic;
-    private bool _generatingToken;
-    private string? _shareToken;
     private List<TeamDto> _userTeams = new();
     private List<PlayerDto> _teamPlayersWithUser = new();
     private bool _presenceSubscribed;
 
     private string DisplayName => _myPlayer?.Name ?? _user?.UserName ?? "User";
-
-    // The first route segment after /team/{code} — e.g. "rankings" on
-    // /team/foo/rankings, or "" on the dashboard. Matched exactly so a team
-    // whose code happens to contain a section word can't false-trigger.
-    private string CurrentSection
-    {
-        get
-        {
-            var path = new Uri(Navigation.Uri).AbsolutePath;
-            var prefix = $"/team/{_team?.CodeName}/";
-            if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return "";
-            var rest = path[prefix.Length..];
-            var slash = rest.IndexOf('/');
-            return slash >= 0 ? rest[..slash] : rest;
-        }
-    }
-
-    // Highlights a grouped section toggle (Insights / Team) when the current page
-    // lives under one of its child routes.
-    private bool SectionActive(params string[] segments)
-        => segments.Contains(CurrentSection, StringComparer.OrdinalIgnoreCase);
 
     private List<PlayerDto> GetOnlinePlayers()
     {
@@ -342,10 +285,6 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    // Re-render so the active-section highlight follows client-side navigation.
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-        => InvokeAsync(StateHasChanged);
-
     public void Dispose()
     {
         if (_presenceSubscribed)
@@ -353,80 +292,7 @@
             Presence.Changed -= OnPresenceChanged;
             GameRooms.Changed -= OnPresenceChanged;
             ChatUi.Changed -= OnPresenceChanged;
-            Navigation.LocationChanged -= OnLocationChanged;
             _presenceSubscribed = false;
-        }
-    }
-
-    private string GetTeamUrl()
-    {
-        var baseUrl = Navigation.BaseUri.TrimEnd('/');
-        return $"{baseUrl}/team/{_team?.CodeName}";
-    }
-
-    private string GetShareUrl()
-    {
-        var baseUrl = Navigation.BaseUri.TrimEnd('/');
-        return $"{baseUrl}/join?team={_team?.CodeName}&token={_shareToken}";
-    }
-
-    private async Task ShowShareModal()
-    {
-        _copied = false;
-        _copiedBasic = false;
-        _shareToken = null;
-        _showShareModal = true;
-        _generatingToken = true;
-        StateHasChanged();
-
-        try
-        {
-            if (_team != null && _user != null)
-            {
-                var tokenResult = await Sender.Send(new GenerateShareTokenCommand(_team.Id));
-                _shareToken = tokenResult.IsSuccess ? tokenResult.Value : null;
-            }
-        }
-        catch
-        {
-        }
-        finally
-        {
-            _generatingToken = false;
-            StateHasChanged();
-        }
-    }
-
-    // A refused clipboard (older browser, insecure context) leaves the button label untouched,
-    // which reads as nothing happening. The URL is in the field beside it, so say so and let the
-    // user take it from there.
-    private async Task CopyShareUrl()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetShareUrl());
-            _copied = true;
-            _copiedBasic = false;
-            StateHasChanged();
-        }
-        catch
-        {
-            Toasts.ClipboardFailed();
-        }
-    }
-
-    private async Task CopyTeamUrl()
-    {
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetTeamUrl());
-            _copiedBasic = true;
-            _copied = false;
-            StateHasChanged();
-        }
-        catch
-        {
-            Toasts.ClipboardFailed();
         }
     }
 
@@ -523,7 +389,6 @@
                 // Chat unread badges in the team switcher render from ChatUiState's cache,
                 // maintained by the dock (a child can't re-render its parent).
                 ChatUi.Changed += OnPresenceChanged;
-                Navigation.LocationChanged += OnLocationChanged;
                 _presenceSubscribed = true;
 
                 // Gate: if user has no Player in this team, redirect to claim screen
