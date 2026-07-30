@@ -119,11 +119,13 @@ internal sealed class CreateMatchCommandHandler(
         var team1Won = command.Team1Score > command.Team2Score;
         var (change1, change2) = EloCalculator.CalculateEloChange(team1Elo, team2Elo, team1Won);
 
+        // FK only, never the Season navigation: `season` was read AsNoTracking above, and Add()
+        // marks every untracked entity it reaches through a navigation as Added — which makes EF
+        // insert the season again, with its existing id ("IDENTITY_INSERT is set to OFF").
         var match = new Match
         {
             TeamId = command.TeamId,
             SeasonId = season?.Id,
-            Season = season,
             Team1Score = command.Team1Score,
             Team2Score = command.Team2Score,
             PlayedAt = now,
